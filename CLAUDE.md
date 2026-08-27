@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Required Reading (fork docs)
+
+Before modifying `crates/**`, `services/**`, `apps/**`, or `packages/**`, consult:
+
+- `docs/customization-policy.md` — **binding** customization rules for this fork: GREEN/YELLOW/RED zone classification, investigation-before-classification, change-scope limits, and when to stop and escalate. Follow its Agent Decision Procedure before writing code.
+- `docs/architecture.md` — repository map: where subsystems live, how they interact, and where to start for each type of change.
+- `docs/development.md` — verified build/test/DB/SQLx/frontend commands and documented failure modes.
+
+Full documentation index (ownership, precedence on conflict, ADRs): `docs/README.md`. RED-zone deviations and significant architectural decisions are recorded as ADRs in `docs/decisions/` (template: `0000-template.md`).
+
 ## Architecture Overview
 
 This is a Rust-based cloud storage microservices architecture built as a Cargo workspace with 80+ crates. The system
