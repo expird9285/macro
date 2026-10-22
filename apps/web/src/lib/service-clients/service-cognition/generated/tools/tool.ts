@@ -21,10 +21,6 @@ type ToolParserMap = {
     call: types.BulkSetEntityPropertyOptions;
     response: types.BulkSetEntityPropertyOptionsResponse;
   };
-  CalculateSpreadsheet: {
-    call: types.CalculateSpreadsheet;
-    response: types.SpreadsheetResponse;
-  };
   ChangeBooking: { call: types.ChangeBooking; response: types.Booking };
   Comment: { call: types.Comment; response: types.CommentResponse };
   CommentOnText: {
@@ -170,19 +166,7 @@ type ToolParserMap = {
     call: types.EditPipeline;
     response: types.EditPipelineResponse;
   };
-  EditPresentation: {
-    call: types.EditPresentation;
-    response: types.PresentationEditOutcome;
-  };
-  EditSpreadsheet: {
-    call: types.EditSpreadsheet;
-    response: types.SpreadsheetResponse;
-  };
   EditTag: { call: types.EditTag; response: types.EditTagResponse };
-  EditWordDocument: {
-    call: types.EditWordDocument;
-    response: types.WordDocumentResponse;
-  };
   ExecuteCode: { call: types.ExecuteCode; response: types.ExecutionReceipt };
   ExportPipelineCsv: {
     call: types.ExportPipelineCsv;
@@ -372,16 +356,11 @@ type ToolParserMap = {
   };
   ReadChat: { call: types.ReadChat; response: types.ReadChatResponse };
   ReadContent: { call: types.ReadContent; response: types.ReadContentResponse };
-  ReadDesign: { call: types.ReadDesign; response: types.ReadDesignResponse };
   ReadDiscussion: {
     call: types.ReadDiscussion;
     response: types.ReadDiscussionResponse;
   };
   ReadForm: { call: types.ReadForm; response: types.ReadResult };
-  ReadIllustratorDocument: {
-    call: types.ReadIllustratorDocument;
-    response: types.ReadIllustratorDocumentResponse;
-  };
   ReadInitiative: {
     call: types.ReadInitiative;
     response: types.ProjectReadResult;
@@ -394,26 +373,10 @@ type ToolParserMap = {
     call: types.ReadMetadata;
     response: types.ReadMetadataResponse;
   };
-  ReadPhotoshopDocument: {
-    call: types.ReadPhotoshopDocument;
-    response: types.ReadPhotoshopDocumentResponse;
-  };
-  ReadPresentation: {
-    call: types.ReadPresentation;
-    response: types.ReadPresentationResponse;
-  };
   ReadProject: { call: types.ReadProject; response: types.ReadProjectResponse };
   ReadRoutine: { call: types.ReadRoutine; response: types.RoutineDetails };
   ReadSkill: { call: types.ReadSkill; response: types.ReadSkillResponse };
-  ReadSpreadsheet: {
-    call: types.ReadSpreadsheet;
-    response: types.SpreadsheetResponse;
-  };
   ReadThread: { call: types.ReadThread; response: types.ReadResponse };
-  ReadWordDocument: {
-    call: types.ReadWordDocument;
-    response: types.WordDocumentResponse;
-  };
   RemoveFromPipeline: {
     call: types.RemoveFromPipeline;
     response: types.RemoveFromPipelineResponse;
@@ -534,10 +497,6 @@ const toolParserMap = {
   BulkSetEntityPropertyOptions: {
     call: schemas.BulkSetEntityPropertyOptions,
     response: schemas.BulkSetEntityPropertyOptionsResponse,
-  },
-  CalculateSpreadsheet: {
-    call: schemas.CalculateSpreadsheet,
-    response: schemas.SpreadsheetResponse,
   },
   ChangeBooking: { call: schemas.ChangeBooking, response: schemas.Booking },
   Comment: { call: schemas.Comment, response: schemas.CommentResponse },
@@ -693,19 +652,7 @@ const toolParserMap = {
     call: schemas.EditPipeline,
     response: schemas.EditPipelineResponse,
   },
-  EditPresentation: {
-    call: schemas.EditPresentation,
-    response: schemas.PresentationEditOutcome,
-  },
-  EditSpreadsheet: {
-    call: schemas.EditSpreadsheet,
-    response: schemas.SpreadsheetResponse,
-  },
   EditTag: { call: schemas.EditTag, response: schemas.EditTagResponse },
-  EditWordDocument: {
-    call: schemas.EditWordDocument,
-    response: schemas.WordDocumentResponse,
-  },
   ExecuteCode: {
     call: schemas.ExecuteCode,
     response: schemas.ExecutionReceipt,
@@ -925,19 +872,11 @@ const toolParserMap = {
     call: schemas.ReadContent,
     response: schemas.ReadContentResponse,
   },
-  ReadDesign: {
-    call: schemas.ReadDesign,
-    response: schemas.ReadDesignResponse,
-  },
   ReadDiscussion: {
     call: schemas.ReadDiscussion,
     response: schemas.ReadDiscussionResponse,
   },
   ReadForm: { call: schemas.ReadForm, response: schemas.ReadResult },
-  ReadIllustratorDocument: {
-    call: schemas.ReadIllustratorDocument,
-    response: schemas.ReadIllustratorDocumentResponse,
-  },
   ReadInitiative: {
     call: schemas.ReadInitiative,
     response: schemas.ProjectReadResult,
@@ -950,29 +889,13 @@ const toolParserMap = {
     call: schemas.ReadMetadata,
     response: schemas.ReadMetadataResponse,
   },
-  ReadPhotoshopDocument: {
-    call: schemas.ReadPhotoshopDocument,
-    response: schemas.ReadPhotoshopDocumentResponse,
-  },
-  ReadPresentation: {
-    call: schemas.ReadPresentation,
-    response: schemas.ReadPresentationResponse,
-  },
   ReadProject: {
     call: schemas.ReadProject,
     response: schemas.ReadProjectResponse,
   },
   ReadRoutine: { call: schemas.ReadRoutine, response: schemas.RoutineDetails },
   ReadSkill: { call: schemas.ReadSkill, response: schemas.ReadSkillResponse },
-  ReadSpreadsheet: {
-    call: schemas.ReadSpreadsheet,
-    response: schemas.SpreadsheetResponse,
-  },
   ReadThread: { call: schemas.ReadThread, response: schemas.ReadResponse },
-  ReadWordDocument: {
-    call: schemas.ReadWordDocument,
-    response: schemas.WordDocumentResponse,
-  },
   RemoveFromPipeline: {
     call: schemas.RemoveFromPipeline,
     response: schemas.RemoveFromPipelineResponse,
@@ -1116,10 +1039,6 @@ type ToolDataMap = {
   BulkSetEntityPropertyOptions: {
     call: types.BulkSetEntityPropertyOptions;
     response: types.BulkSetEntityPropertyOptionsResponse;
-  };
-  CalculateSpreadsheet: {
-    call: types.CalculateSpreadsheet;
-    response: types.SpreadsheetResponse;
   };
   ChangeBooking: { call: types.ChangeBooking; response: types.Booking };
   Comment: { call: types.Comment; response: types.CommentResponse };
@@ -1266,19 +1185,7 @@ type ToolDataMap = {
     call: types.EditPipeline;
     response: types.EditPipelineResponse;
   };
-  EditPresentation: {
-    call: types.EditPresentation;
-    response: types.PresentationEditOutcome;
-  };
-  EditSpreadsheet: {
-    call: types.EditSpreadsheet;
-    response: types.SpreadsheetResponse;
-  };
   EditTag: { call: types.EditTag; response: types.EditTagResponse };
-  EditWordDocument: {
-    call: types.EditWordDocument;
-    response: types.WordDocumentResponse;
-  };
   ExecuteCode: { call: types.ExecuteCode; response: types.ExecutionReceipt };
   ExportPipelineCsv: {
     call: types.ExportPipelineCsv;
@@ -1468,16 +1375,11 @@ type ToolDataMap = {
   };
   ReadChat: { call: types.ReadChat; response: types.ReadChatResponse };
   ReadContent: { call: types.ReadContent; response: types.ReadContentResponse };
-  ReadDesign: { call: types.ReadDesign; response: types.ReadDesignResponse };
   ReadDiscussion: {
     call: types.ReadDiscussion;
     response: types.ReadDiscussionResponse;
   };
   ReadForm: { call: types.ReadForm; response: types.ReadResult };
-  ReadIllustratorDocument: {
-    call: types.ReadIllustratorDocument;
-    response: types.ReadIllustratorDocumentResponse;
-  };
   ReadInitiative: {
     call: types.ReadInitiative;
     response: types.ProjectReadResult;
@@ -1490,26 +1392,10 @@ type ToolDataMap = {
     call: types.ReadMetadata;
     response: types.ReadMetadataResponse;
   };
-  ReadPhotoshopDocument: {
-    call: types.ReadPhotoshopDocument;
-    response: types.ReadPhotoshopDocumentResponse;
-  };
-  ReadPresentation: {
-    call: types.ReadPresentation;
-    response: types.ReadPresentationResponse;
-  };
   ReadProject: { call: types.ReadProject; response: types.ReadProjectResponse };
   ReadRoutine: { call: types.ReadRoutine; response: types.RoutineDetails };
   ReadSkill: { call: types.ReadSkill; response: types.ReadSkillResponse };
-  ReadSpreadsheet: {
-    call: types.ReadSpreadsheet;
-    response: types.SpreadsheetResponse;
-  };
   ReadThread: { call: types.ReadThread; response: types.ReadResponse };
-  ReadWordDocument: {
-    call: types.ReadWordDocument;
-    response: types.WordDocumentResponse;
-  };
   RemoveFromPipeline: {
     call: types.RemoveFromPipeline;
     response: types.RemoveFromPipelineResponse;
