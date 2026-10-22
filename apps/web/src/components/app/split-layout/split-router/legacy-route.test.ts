@@ -6,7 +6,11 @@ import {
   notFoundRoute,
 } from '@app/routes/routes';
 import { describe, expect, it, vi } from 'vitest';
-import { resolveContentLocation, upgradeLegacyPath } from './legacy-route';
+import {
+  decodeLegacyPair,
+  resolveContentLocation,
+  upgradeLegacyPath,
+} from './legacy-route';
 
 vi.mock('@components/app/split-layout/componentRegistry', () => ({
   resolveComponent: vi.fn(() => ({ type: 'mock-component' })),
@@ -35,6 +39,22 @@ const routes = createRoutesManifest({
 describe('upgradeLegacyPath', () => {
   it('sends the retired Getting Started path to Home', () => {
     expect(upgradeLegacyPath(routes, '/getting-started')).toBe('/home');
+  });
+});
+
+describe('decodeLegacyPair', () => {
+  it.each(['canvas', 'spreadsheet', 'pptx', 'psd', 'fig', 'ai'])(
+    'opens a retired %s link in the unknown-file block',
+    (type) => {
+      expect(decodeLegacyPair(type, 'file-1')).toEqual({
+        type: 'unknown',
+        id: 'file-1',
+      });
+    }
+  );
+
+  it('still rejects a path that names no block', () => {
+    expect(decodeLegacyPair('not-a-block', 'file-1')).toBeUndefined();
   });
 });
 

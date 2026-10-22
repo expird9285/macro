@@ -56,6 +56,17 @@ type LegacySplitPathContext = {
   matchedRouteId?: string;
 };
 
+// Block types retired with the Office, design and canvas editors. Links and
+// saved splits that still name them open the generic unknown-file block.
+const REMOVED_BLOCK_TYPES = new Set([
+  'canvas',
+  'spreadsheet',
+  'pptx',
+  'psd',
+  'fig',
+  'ai',
+]);
+
 export function decodeLegacyPair(
   type: string,
   id: string
@@ -84,8 +95,9 @@ export function decodeLegacyPair(
     };
   }
 
-  const resolvedType =
-    type === 'write'
+  const resolvedType = REMOVED_BLOCK_TYPES.has(type)
+    ? 'unknown'
+    : type === 'write'
       ? resolveBlockAlias(fileTypeToBlockName(type))
       : resolveBlockAlias(type as BlockName | BlockAlias);
   if (!Object.hasOwn(blocks, resolvedType)) return;
