@@ -194,39 +194,6 @@ fn app_item_actions_are_available_in_every_host() {
     }
 }
 
-/// Every host reads the design files the native engines open, and its
-/// prompt says which tool reads which format.
-#[test]
-fn design_file_readers_are_available_in_every_host_with_their_guidance() {
-    for host in [
-        AiHost::Chat,
-        AiHost::AgentSession,
-        AiHost::ChannelBot,
-        AiHost::Mcp,
-    ] {
-        let tools = tools_for(host);
-        let prompt = tools.prompt.to_string();
-        for name in [
-            "ReadDesign",
-            "ReadPhotoshopDocument",
-            "ReadIllustratorDocument",
-        ] {
-            assert!(tools.toolset.tools.contains_key(name), "{host:?}: {name}");
-            assert!(prompt.contains(name), "{host:?}: {name}");
-        }
-    }
-    assert!(
-        subagent_toolset()
-            .tools
-            .contains_key("ReadPhotoshopDocument")
-    );
-    assert!(
-        subagent_toolset()
-            .tools
-            .contains_key("ReadIllustratorDocument")
-    );
-}
-
 /// Document answers get the one SQL tool, not a read-only twin: the access
 /// they run over refuses the writes (see `databases_sql`'s view-only tests).
 #[test]
@@ -458,7 +425,7 @@ fn hosts_with_tool_search_defer_all_but_the_core_tools() {
         for name in ["ReadContent", "ContentSearch", "LoadTools", "SearchTools"] {
             assert!(sent.contains(&name.to_string()), "{host:?} sends {name}");
         }
-        for name in ["EditPresentation", "EditSpreadsheet", "QueryDatabase"] {
+        for name in ["CommentOnText", "QueryDatabase"] {
             assert!(!sent.contains(&name.to_string()), "{host:?} defers {name}");
             assert!(
                 catalog.contains(&name.to_string()),
@@ -615,8 +582,6 @@ fn code_mode_retains_direct_lifecycles_and_hides_sdk_methods_from_lazy_discovery
         "ReadSkill",
         "GenerateImage",
         "CreateRoutine",
-        "EditSpreadsheet",
-        "EditPresentation",
         "EditDocument",
         "Subagent",
         "DispatchCodingAgent",
