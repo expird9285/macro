@@ -407,18 +407,6 @@ pub fn run_with(builder: tauri::Builder<AppRuntime>) {
             read_shared_file_text,
             flush_launch_deep_link,
             staged_upload::upload_staged_file_to_presigned_url,
-            #[cfg(desktop)]
-            desktop::macrod::macrod_support,
-            #[cfg(desktop)]
-            desktop::macrod::macrod_detect_agents,
-            #[cfg(desktop)]
-            desktop::macrod::macrod_inspect,
-            #[cfg(desktop)]
-            desktop::macrod::macrod_start,
-            #[cfg(desktop)]
-            desktop::macrod::macrod_stop,
-            #[cfg(desktop)]
-            desktop::macrod::macrod_status,
         ])
         .setup(move |app| {
             #[cfg(desktop)]
@@ -443,11 +431,6 @@ pub fn run_with(builder: tauri::Builder<AppRuntime>) {
 
             app.chain(attach_deep_link_handler);
             cleanup_stale_staged_files(&app.handle());
-            #[cfg(desktop)]
-            {
-                app.manage(desktop::macrod::MacrodState::default());
-                desktop::macrod::autostart(&app.handle());
-            }
 
             Ok(())
         })
@@ -528,12 +511,6 @@ pub fn run_with(builder: tauri::Builder<AppRuntime>) {
             desktop_update::on_exit_requested(app_handle, api)
         }
         RunEvent::Exit => {
-            #[cfg(desktop)]
-            if let Some(state) = app_handle.try_state::<desktop::macrod::MacrodState>() {
-                // The daemon also exits on its own when its stdin pipe
-                // closes with this process; the kill is the fast path.
-                desktop::macrod::kill_now(&state);
-            }
             if let Some(state) = app_handle.try_state::<graphql_cache_plugin::CacheState>() {
                 state
                     .shutdown()

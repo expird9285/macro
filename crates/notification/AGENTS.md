@@ -76,9 +76,8 @@ through the same service.
   notification. Retries preserve original IDs, recipients, and lifecycle state.
 - Access-request withdrawals suppress delayed ingress and queued push/realtime
   delivery; keep tombstone checks when changing either delivery boundary.
-- Crates on `macrod`'s dependency path (`teams`, `model_notifications`,
-  `invite_email`) take this crate with `default-features = false`, which keeps
-  librdkafka out of the self-hosted daemon; keep it that way.
+- Client crates (`teams`, `model_notifications`, `invite_email`) take this crate
+  with `default-features = false` when they do not need Kafka; keep it that way.
 - Independent Kafka consumers have no durable group lag. Health logs distinguish
   stale/unknown measurements from zero; they are not client-delivery ACKs.
 - Notification payloads must not be logged on tracing spans (see the

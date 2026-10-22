@@ -6,7 +6,6 @@ use std::time::Duration;
 use agent_client_protocol::schema::v1::SessionConfigOption;
 use agent_fold::domain::model::ModelOption;
 use agent_fold::domain::model_selection::model_selection;
-use harness_id::HarnessId;
 use macro_user_id::user_id::MacroUserIdStr;
 
 #[cfg(test)]
@@ -17,12 +16,6 @@ mod test;
 pub enum ModelHarness {
     /// Macro's in-process agent.
     InMemory,
-    /// The caller's Cursor account.
-    Cursor,
-    /// The caller's allowlisted Claude subscription demo.
-    ClaudeCloud,
-    /// A paired macrod runtime.
-    Macrod,
 }
 
 /// One fresh model-discovery request.
@@ -30,8 +23,6 @@ pub enum ModelHarness {
 pub struct LoadAgentModels {
     /// Provider to inspect.
     pub harness: ModelHarness,
-    /// Paired harness identity, required only for [`ModelHarness::Macrod`].
-    pub harness_id: Option<HarnessId>,
 }
 
 /// Availability of the requested provider's model picker.
@@ -91,7 +82,7 @@ pub enum RawModelProbe {
 /// A provider probe failure.
 #[derive(Debug, thiserror::Error)]
 pub enum ModelProbeError {
-    /// A required live runtime, or the caller's Cursor account, is not connected.
+    /// A required live runtime is not connected.
     #[error("the requested harness is disconnected")]
     Disconnected,
     /// Provider-specific probing failed.
@@ -119,49 +110,12 @@ pub enum LoadAgentModelsError {
     Probe(String),
 }
 
-/// Authorizes visibility and use of paired harnesses.
-pub trait HarnessModelAccess: Send + Sync + 'static {
-    /// Whether `caller` may use and see `harness`.
-    fn can_use(
-        &self,
-        caller: &MacroUserIdStr<'static>,
-        harness: HarnessId,
-    ) -> impl Future<Output = Result<bool, String>> + Send;
-}
-
 /// Fresh in-memory model probe.
 pub trait InMemoryModelProbe: Send + Sync + 'static {
     /// Probe the running in-memory implementation.
     fn probe(
         &self,
         caller: &MacroUserIdStr<'static>,
-    ) -> impl Future<Output = Result<RawModelProbe, ModelProbeError>> + Send;
-}
-
-/// Fresh Cursor model probe.
-pub trait CursorModelProbe: Send + Sync + 'static {
-    /// Probe using only the caller's own Cursor credential.
-    fn probe(
-        &self,
-        caller: &MacroUserIdStr<'static>,
-    ) -> impl Future<Output = Result<RawModelProbe, ModelProbeError>> + Send;
-}
-
-/// Optional demo provider; disabled deployments advertise no Claude models.
-pub trait ClaudeModelProbe: Send + Sync + 'static {
-    /// Discover availability for this caller, never another user's subscription.
-    fn probe<'a>(
-        &'a self,
-        caller: &'a MacroUserIdStr<'static>,
-    ) -> std::pin::Pin<Box<dyn Future<Output = Result<RawModelProbe, ModelProbeError>> + Send + 'a>>;
-}
-
-/// Fresh paired-macrod model probe.
-pub trait MacrodModelProbe: Send + Sync + 'static {
-    /// Probe the live runtime connection for `harness`.
-    fn probe(
-        &self,
-        harness: HarnessId,
     ) -> impl Future<Output = Result<RawModelProbe, ModelProbeError>> + Send;
 }
 
@@ -176,93 +130,32 @@ pub trait AgentModelsService: Send + Sync + 'static {
 }
 
 /// Domain service coordinating authorization, dispatch, timeout, and projection.
-pub struct AgentModelsServiceImpl<Access, InMemory, Cursor, Macrod> {
-    access: Access,
+pub struct AgentModelsServiceImpl<InMemory> {
     in_memory: InMemory,
-    cursor: Cursor,
-    macrod: Macrod,
     timeout: Duration,
-    claude: Option<std::sync::Arc<dyn ClaudeModelProbe>>,
 }
 
-impl<Access, InMemory, Cursor, Macrod> AgentModelsServiceImpl<Access, InMemory, Cursor, Macrod> {
+impl<InMemory> AgentModelsServiceImpl<InMemory> {
     /// Build the service from its outbound ports.
-    pub fn new(
-        access: Access,
-        in_memory: InMemory,
-        cursor: Cursor,
-        macrod: Macrod,
-        timeout: Duration,
-    ) -> Self {
-        Self {
-            access,
-            in_memory,
-            cursor,
-            macrod,
-            timeout,
-            claude: None,
-        }
-    }
-
-    /// Enable owner-scoped discovery for the demo cloud provider.
-    pub fn with_claude(mut self, probe: std::sync::Arc<dyn ClaudeModelProbe>) -> Self {
-        self.claude = Some(probe);
-        self
+    pub fn new(in_memory: InMemory, timeout: Duration) -> Self {
+        Self { in_memory, timeout }
     }
 }
 
-impl<Access, InMemory, Cursor, Macrod> AgentModelsService
-    for AgentModelsServiceImpl<Access, InMemory, Cursor, Macrod>
+impl<InMemory> AgentModelsService for AgentModelsServiceImpl<InMemory>
 where
-    Access: HarnessModelAccess,
     InMemory: InMemoryModelProbe,
-    Cursor: CursorModelProbe,
-    Macrod: MacrodModelProbe,
 {
     async fn load(
         &self,
         caller: MacroUserIdStr<'static>,
         request: LoadAgentModels,
     ) -> Result<AgentModels, LoadAgentModelsError> {
-        let probe = match (request.harness, request.harness_id) {
-            (ModelHarness::ClaudeCloud, None) => match &self.claude {
-                Some(probe) => tokio::time::timeout(self.timeout, probe.probe(&caller))
-                    .await
-                    .map_err(|_| LoadAgentModelsError::Timeout)?,
-                None => Ok(RawModelProbe::Unsupported),
-            },
-            (ModelHarness::InMemory, None) => {
+        let probe = match request.harness {
+            ModelHarness::InMemory => {
                 tokio::time::timeout(self.timeout, self.in_memory.probe(&caller))
                     .await
                     .map_err(|_| LoadAgentModelsError::Timeout)?
-            }
-            (ModelHarness::Cursor, None) => {
-                tokio::time::timeout(self.timeout, self.cursor.probe(&caller))
-                    .await
-                    .map_err(|_| LoadAgentModelsError::Timeout)?
-            }
-            (ModelHarness::Macrod, Some(harness)) => {
-                let allowed = self
-                    .access
-                    .can_use(&caller, harness)
-                    .await
-                    .map_err(LoadAgentModelsError::Probe)?;
-                if !allowed {
-                    return Err(LoadAgentModelsError::Forbidden);
-                }
-                tokio::time::timeout(self.timeout, self.macrod.probe(harness))
-                    .await
-                    .map_err(|_| LoadAgentModelsError::Timeout)?
-            }
-            (ModelHarness::Macrod, None) => {
-                return Err(LoadAgentModelsError::BadRequest(
-                    "harnessId is required for macrod".to_owned(),
-                ));
-            }
-            (_, Some(_)) => {
-                return Err(LoadAgentModelsError::BadRequest(
-                    "harnessId is only valid for macrod".to_owned(),
-                ));
             }
         };
 

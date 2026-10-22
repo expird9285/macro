@@ -10,8 +10,8 @@ use bot_id::BotId;
 use agent_runtime_protocol::domain::action::AgentAction;
 
 use super::model::{
-    AgentKind, AgentRuntimeConfig, AnnounceOrigin, AnnouncePrompt, DeliverAction, HarnessCommand,
-    MentionOrigin, OpenSession, SessionOrigin, StaticFileLinks, TaskAssignmentOrigin,
+    AgentRuntimeConfig, AnnounceOrigin, DeliverAction, HarnessCommand, MentionOrigin,
+    OpenSession, SessionOrigin, StaticFileLinks, TaskAssignmentOrigin,
 };
 
 /// What one trigger event asks this deployment to do.
@@ -23,8 +23,6 @@ use super::model::{
 pub enum RoutedTrigger {
     /// Run a harness command for the managed bot's session.
     Command(AgentSessionId, HarnessCommand),
-    /// Post the chip for a prompt an external bot's runtime delivers itself.
-    Announce(AgentSessionId, AnnouncePrompt),
 }
 
 /// Why an event yielded no work. Only for logging - none of these are
@@ -36,9 +34,7 @@ pub enum Skipped {
     ForeignBot,
     /// The sender is not a user, so there is nobody to own the session.
     NotFromUser,
-    /// An event shape this harness does not recognise yet - the trigger's
-    /// vocabulary is non-exhaustive on purpose, and unknown shapes are
-    /// skipped rather than wedging the partition.
+    /// An event shape this harness does not recognise yet.
     Unrecognized,
 }
 
@@ -50,12 +46,6 @@ pub fn agent_trigger_bot_id(event: &AgentTriggerTopicEvent) -> Option<BotId> {
 
 /// Route one trigger event: work for this deployment, or a reason it was
 /// skipped.
-///
-/// Opens are only ours when `runtime` resolves to a managed profile. External
-/// bots' runtimes open their own sessions over the API. Events for sessions
-/// that already exist always carry work: a prompt to deliver when the session
-/// is managed here, or just its announcement when the bot's own runtime
-/// delivers the prompt.
 pub fn route_agent_trigger(
     event: AgentTriggerTopicEvent,
     runtime: Option<AgentRuntimeConfig>,
@@ -100,9 +90,6 @@ pub fn route_agent_trigger(
                     bot_id: assigned.bot_id,
                     runtime,
                     origin: SessionOrigin::TaskAssignment(TaskAssignmentOrigin {
-                        // The task travels in the context; the prompt is only
-                        // what to do with it. Events from producers that
-                        // predate the context carry the whole brief instead.
                         prompt: match &assigned.context {
                             Some(_) => assignment_instructions(&assigned.parent),
                             None => assigned.prompt,
@@ -140,8 +127,6 @@ pub fn route_agent_trigger(
                     origin: SessionOrigin::Mention(MentionOrigin {
                         reply_placement: Default::default(),
                         parent: message.parent,
-                        // A top-level mention roots its own thread; a mention
-                        // inside a thread answers into that thread.
                         thread_id: message.thread_id.unwrap_or(message.message_id),
                         message_id: message.message_id,
                         sender,
@@ -154,14 +139,16 @@ pub fn route_agent_trigger(
         }
         AgentTriggerTopicEvent::Existing(event) => {
             let Some(SessionMessage {
-                bot_id,
                 session_id,
-                kind: _,
                 message,
                 context,
+                ..
             }) = event.session_message()
             else {
                 return Err(Skipped::Unrecognized);
+            };
+            let Some(_runtime) = runtime else {
+                return Err(Skipped::ForeignBot);
             };
             let origin = AnnounceOrigin {
                 reply_placement: Default::default(),
@@ -170,38 +157,19 @@ pub fn route_agent_trigger(
                 thread_id: message.thread_id.unwrap_or(message.message_id),
                 message_id: message.message_id,
             };
-            let kind = runtime
-                .as_ref()
-                .map_or(AgentKind::External, |runtime| runtime.kind);
-            if kind.is_managed() {
-                return Ok(RoutedTrigger::Command(
-                    session_id,
-                    HarnessCommand::Deliver(DeliverAction {
-                        context,
-                        ..DeliverAction::prompt(
-                            AgentAction::prompt_with_attachments(
-                                message.content,
-                                links.prompt_attachments(&message.attachments),
-                            ),
-                            message.sender.as_user().cloned(),
-                            Some(origin),
-                        )
-                    }),
-                ));
-            }
-            let sender = message
-                .sender
-                .as_user()
-                .cloned()
-                .ok_or(Skipped::NotFromUser)?;
-            Ok(RoutedTrigger::Announce(
+            Ok(RoutedTrigger::Command(
                 session_id,
-                AnnouncePrompt {
-                    bot_id,
-                    origin,
-                    content: message.content,
-                    sender,
-                },
+                HarnessCommand::Deliver(DeliverAction {
+                    context,
+                    ..DeliverAction::prompt(
+                        AgentAction::prompt_with_attachments(
+                            message.content,
+                            links.prompt_attachments(&message.attachments),
+                        ),
+                        message.sender.as_user().cloned(),
+                        Some(origin),
+                    )
+                }),
             ))
         }
     }

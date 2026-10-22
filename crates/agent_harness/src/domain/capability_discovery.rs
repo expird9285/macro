@@ -5,7 +5,6 @@ use std::time::Duration;
 
 use agent_client_protocol::schema::v1::SessionConfigOption as AcpSessionConfigOption;
 use agent_fold::domain::session_config::{SessionConfigOption, session_config_options};
-use harness_id::HarnessId;
 use macro_user_id::user_id::MacroUserIdStr;
 
 #[cfg(test)]
@@ -16,10 +15,6 @@ mod test;
 pub enum CapabilityHarness {
     /// Macro's in-process agent.
     InMemory,
-    /// The caller's Cursor account.
-    Cursor,
-    /// A paired macrod runtime.
-    Macrod,
 }
 
 /// One fresh capability-discovery request.
@@ -27,8 +22,6 @@ pub enum CapabilityHarness {
 pub struct DiscoverAgentCapabilities {
     /// Provider to inspect.
     pub harness: CapabilityHarness,
-    /// Paired harness identity, required only for [`CapabilityHarness::Macrod`].
-    pub harness_id: Option<HarnessId>,
     /// Selected model, when inspecting a preflight override.
     pub model: Option<String>,
 }
@@ -69,7 +62,7 @@ pub enum RawCapabilityProbe {
 /// A provider probe failure.
 #[derive(Debug, thiserror::Error)]
 pub enum CapabilityProbeError {
-    /// A required live runtime, or the caller's Cursor account, is not connected.
+    /// A required live runtime is not connected.
     #[error("the requested harness is disconnected")]
     Disconnected,
     /// Provider-specific probing failed.
@@ -97,19 +90,9 @@ pub enum DiscoverAgentCapabilitiesError {
     Probe(String),
 }
 
-/// Authorizes visibility and use of paired harnesses.
-pub trait HarnessCapabilityAccess: Send + Sync + 'static {
-    /// Whether `caller` may use and see `harness`.
-    fn can_use(
-        &self,
-        caller: &MacroUserIdStr<'static>,
-        harness: HarnessId,
-    ) -> impl Future<Output = Result<bool, String>> + Send;
-}
-
 /// Discovers a harness's advertised configuration without persisting a session.
 pub trait CapabilityProbe: Send + Sync + 'static {
-    /// Identity needed by the adapter: a caller, a paired harness, or `()`.
+    /// Identity needed by the adapter: a caller or `()`.
     type Target: Sync;
 
     /// Probe fresh capabilities for a target authorized by the domain service.
@@ -131,82 +114,37 @@ pub trait AgentCapabilitiesService: Send + Sync + 'static {
 }
 
 /// Domain service coordinating authorization, dispatch, timeout, and projection.
-pub struct AgentCapabilitiesServiceImpl<Access, InMemory, Cursor, Macrod> {
-    access: Access,
+pub struct AgentCapabilitiesServiceImpl<InMemory> {
     in_memory: InMemory,
-    cursor: Cursor,
-    macrod: Macrod,
     timeout: Duration,
 }
 
-impl<Access, InMemory, Cursor, Macrod>
-    AgentCapabilitiesServiceImpl<Access, InMemory, Cursor, Macrod>
-{
+impl<InMemory> AgentCapabilitiesServiceImpl<InMemory> {
     /// Build the service from its outbound ports.
-    pub fn new(
-        access: Access,
-        in_memory: InMemory,
-        cursor: Cursor,
-        macrod: Macrod,
-        timeout: Duration,
-    ) -> Self {
-        Self {
-            access,
-            in_memory,
-            cursor,
-            macrod,
-            timeout,
-        }
+    pub fn new(in_memory: InMemory, timeout: Duration) -> Self {
+        Self { in_memory, timeout }
     }
 }
 
-impl<Access, InMemory, Cursor, Macrod> AgentCapabilitiesService
-    for AgentCapabilitiesServiceImpl<Access, InMemory, Cursor, Macrod>
+impl<InMemory> AgentCapabilitiesService for AgentCapabilitiesServiceImpl<InMemory>
 where
-    Access: HarnessCapabilityAccess,
     InMemory: CapabilityProbe<Target = MacroUserIdStr<'static>>,
-    Cursor: CapabilityProbe<Target = MacroUserIdStr<'static>>,
-    Macrod: CapabilityProbe<Target = HarnessId>,
 {
     async fn load(
         &self,
         caller: MacroUserIdStr<'static>,
         request: DiscoverAgentCapabilities,
     ) -> Result<AgentCapabilities, DiscoverAgentCapabilitiesError> {
-        match (request.harness, request.harness_id) {
-            (CapabilityHarness::InMemory, None) => {
+        match request.harness {
+            CapabilityHarness::InMemory => {
                 self.discover(&self.in_memory, &caller, request.model.as_deref())
                     .await
             }
-            (CapabilityHarness::Cursor, None) => {
-                self.discover(&self.cursor, &caller, request.model.as_deref())
-                    .await
-            }
-            (CapabilityHarness::Macrod, Some(harness)) => {
-                let allowed = self
-                    .access
-                    .can_use(&caller, harness)
-                    .await
-                    .map_err(DiscoverAgentCapabilitiesError::Probe)?;
-                if !allowed {
-                    return Err(DiscoverAgentCapabilitiesError::Forbidden);
-                }
-                self.discover(&self.macrod, &harness, request.model.as_deref())
-                    .await
-            }
-            (CapabilityHarness::Macrod, None) => Err(DiscoverAgentCapabilitiesError::BadRequest(
-                "harnessId is required for macrod".to_owned(),
-            )),
-            (_, Some(_)) => Err(DiscoverAgentCapabilitiesError::BadRequest(
-                "harnessId is only valid for macrod".to_owned(),
-            )),
         }
     }
 }
 
-impl<Access, InMemory, Cursor, Macrod>
-    AgentCapabilitiesServiceImpl<Access, InMemory, Cursor, Macrod>
-{
+impl<InMemory> AgentCapabilitiesServiceImpl<InMemory> {
     async fn discover<Probe: CapabilityProbe>(
         &self,
         adapter: &Probe,
@@ -228,15 +166,5 @@ impl<Access, InMemory, Cursor, Macrod>
                 Err(DiscoverAgentCapabilitiesError::Probe(message))
             }
         }
-    }
-}
-
-impl<T: super::model_load::HarnessModelAccess> HarnessCapabilityAccess for T {
-    async fn can_use(
-        &self,
-        caller: &MacroUserIdStr<'static>,
-        harness: HarnessId,
-    ) -> Result<bool, String> {
-        super::model_load::HarnessModelAccess::can_use(self, caller, harness).await
     }
 }

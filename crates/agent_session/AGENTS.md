@@ -28,17 +28,15 @@ consumer talks to.
 - Owns: session identity, lifecycle, sharing/audience, credentials, pull
   request links, and the Postgres/HTTP/Kafka adapters for all of that.
 - Not here: container provisioning and runtime wiring → `agent_harness`,
-  `agent_inmem`; PR diff capture → `agent_changes`; the ACP wire format →
-  `agent_runtime_protocol`.
+  `agent_inmem`; the ACP wire format → `agent_runtime_protocol`.
 
 ## Boundaries
 
 - Depends on: `agent_runtime_protocol`, `agent_fold`, `teams`,
   `macro_authorization`.
 - Used by: `agent_harness`, `agent_inmem`, `agent_egress`, `agent_trigger`,
-  `agent_changes`, `agent_session_realtime`, `ai_tools` (coding-agent
-  toolset), `complete_graph`, `webhook`, `search_service`, `soup_realtime`,
-  and the cloud-agent crates (`cursor_cloud_agents`, `codex_cloud_agents`).
+  `agent_session_realtime`, `ai_tools`, `complete_graph`, `webhook`,
+  `search_service`, `soup_realtime`.
 
 ## Recipes
 

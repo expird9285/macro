@@ -44,7 +44,6 @@ pub struct EgressServiceImpl<Sessions, Credentials, Tokens, Forward, Approvals =
     credentials: Credentials,
     tokens: Tokens,
     forward: Arc<Forward>,
-    preview_mcp: Option<(url::Url, bool)>,
     approvals: Approvals,
 }
 
@@ -56,22 +55,6 @@ where
     Tokens: GithubTokens,
     Forward: Forwarder,
 {
-    /// Configure the fixed internal preview MCP destination. Cleartext is local-only.
-    pub fn with_preview_mcp(
-        mut self,
-        url: url::Url,
-        local_cleartext: bool,
-    ) -> Result<Self, EgressError> {
-        if !local_cleartext {
-            crate::domain::model::UpstreamCall::bearer(
-                url.clone(),
-                crate::domain::model::BearerToken::new("validation"),
-            )?;
-        }
-        self.preview_mcp = Some((url, local_cleartext));
-        Ok(self)
-    }
-
     /// Build the service over its adapters.
     pub fn new(
         sessions: Sessions,
@@ -84,7 +67,6 @@ where
             credentials,
             tokens,
             forward: Arc::new(forward),
-            preview_mcp: None,
             approvals: RefuseHeldCalls,
         }
     }
@@ -104,7 +86,6 @@ impl<Sessions, Credentials, Tokens, Forward, Approvals>
             credentials: self.credentials,
             tokens: self.tokens,
             forward: self.forward,
-            preview_mcp: self.preview_mcp,
             approvals,
         }
     }
@@ -144,20 +125,9 @@ where
 
         let call = match &target {
             EgressTarget::McpServer(McpDestination::Preview) => {
-                let (url, local) = self.preview_mcp.as_ref().ok_or_else(|| {
-                    EgressError::Unroutable("preview service is not configured".into())
-                })?;
-                // Unlike user tools, this tool must retain the authenticated session identity.
-                // The destination is deployment configuration, never supplied by an agent.
-                let bearer = crate::domain::model::BearerToken::new(token.as_str());
-                if *local {
-                    crate::domain::model::UpstreamCall::bearer_over_local_cleartext(
-                        url.clone(),
-                        bearer,
-                    )
-                } else {
-                    crate::domain::model::UpstreamCall::bearer(url.clone(), bearer)?
-                }
+                return Err(EgressError::Unroutable(
+                    "preview service is not configured".into(),
+                ));
             }
 
             EgressTarget::McpServer(

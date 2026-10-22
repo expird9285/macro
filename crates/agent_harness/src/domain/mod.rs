@@ -4,7 +4,6 @@ pub mod conversation_turns;
 /// Agent conversations in channels: who may prompt them, and their sessions.
 pub mod conversations;
 pub mod error;
-pub mod external_replies;
 pub mod model;
 /// Which lifecycle facts become notifications for people, and for whom.
 pub mod notifications;
@@ -16,22 +15,10 @@ pub mod ports;
 pub mod presenter;
 /// The per-session queue of turn-occupying actions awaiting their turn.
 pub mod queue;
-/// Compute resources for a sandbox size.
-pub mod sandbox;
 /// The harness orchestrator: containers, announcements, and trigger commands.
 pub mod service;
 /// Policy for turning broker trigger events into harness work.
 pub mod trigger_router;
 
-/// Per-owner hosted Codex runtime authorization.
-pub mod codex;
-
-/// Owner-bound Claude conversation lifecycle.
-pub mod claude;
-
 /// Compatible agent model discovery.
 pub mod model_load;
-/// Admitted model-backed repository choice, with deterministic paths kept free.
-pub mod repository_choice;
-/// Repository selection and fallback policy for hosted coding sessions.
-pub(crate) mod repository_selection;

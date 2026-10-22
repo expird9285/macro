@@ -31,7 +31,7 @@ the socket themselves.
 - Used by: nearly every other service, through `connection_gateway_client`
   (document_storage_service, document_cognition_service, email_service,
   calendar_service, agent_harness_service, mcp_service, scheduled_action,
-  agent_trigger_service, preview_gateway, and domain crates like `channels`,
+  agent_trigger_service, and domain crates like `channels`,
   `messages`, `databases`, `ai_tools`).
 
 ## Recipes

@@ -1,8 +1,6 @@
 use super::*;
 use agent_fold::domain::service::FoldedMessageService;
-use agent_harness::domain::model::SandboxEgress;
-use agent_harness::outbound::daytona::AnthropicApiKey;
-use agent_harness::outbound::local::{LocalContainerManager, LocalSettings};
+use agent_harness::domain::model::{AgentKind, SandboxEgress};
 use agent_harness::testing::helpers::egress::test_egress;
 use agent_inmem::domain::engine::{TurnEngine, TurnRequest};
 use agent_inmem::domain::mcp::NoMcpServers;
@@ -18,19 +16,8 @@ use agent_session::testing::{InMemoryAgentSessionRepo, test_agent_session};
 use bot_id::BotId;
 use std::sync::Arc;
 
-/// A sandbox provider the tests never reach: every case here is decided by
-/// `route` before the provider is asked for anything.
-fn unreachable_sandbox() -> HarnessContainers {
-    HarnessContainers::Local(LocalContainerManager::new(LocalSettings {
-        docker_binary: "false".to_owned(),
-        image: "unused".to_owned(),
-        network: "unused".to_owned(),
-        anthropic_api_key: AnthropicApiKey::new(String::new()),
-    }))
-}
-
 fn sessions_with(bot: BotId) -> (AgentSessionId, impl AgentSessionService + use<>) {
-    sessions_with_harness(bot, "opencode")
+    sessions_with_harness(bot, "in-memory")
 }
 
 fn sessions_with_harness(
@@ -103,7 +90,6 @@ fn in_process_containers(
     repo: &InMemoryAgentSessionRepo,
 ) -> RoutedContainers<impl AgentSessionService + use<>> {
     RoutedContainers::new(
-        unreachable_sandbox(),
         Some(in_process_runtime(repo.clone())),
         service_over(repo.clone()),
     )
@@ -123,7 +109,7 @@ async fn session_for_token(
 async fn recognizes_a_database_backed_in_memory_agent() {
     let agent = BotId::new_from_uuid(macro_uuid::Uuid::from_u128(0x0000_5678));
     let (id, sessions) = sessions_with_harness(agent, "in-memory");
-    let containers = RoutedContainers::new(unreachable_sandbox(), None, sessions);
+    let containers = RoutedContainers::new(None, sessions);
 
     let error = containers
         .route(id)
@@ -135,13 +121,10 @@ async fn recognizes_a_database_backed_in_memory_agent() {
     );
 }
 
-/// The whole point of the refusal: `@macro-new`'s sessions have no repository to
-/// clone, so a deployment that cannot run them in-process must not quietly
-/// bill a sandbox for one.
 #[tokio::test]
 async fn refuses_the_in_process_bot_when_no_in_memory_runtime_is_configured() {
     let (id, sessions) = sessions_with(bot_id::MACRO_NEW_BOT_ID);
-    let containers = RoutedContainers::new(unreachable_sandbox(), None, sessions);
+    let containers = RoutedContainers::new(None, sessions);
 
     let error = containers
         .route(id)
@@ -154,38 +137,13 @@ async fn refuses_the_in_process_bot_when_no_in_memory_runtime_is_configured() {
     );
 }
 
-/// The sandboxed bot is unaffected by the refusal above.
-#[tokio::test]
-async fn routes_the_sandboxed_bot_to_the_sandbox() {
-    let (id, sessions) = sessions_with(bot_id::MACRO_CODER_BOT_ID);
-    let containers = RoutedContainers::new(unreachable_sandbox(), None, sessions);
-
-    assert!(matches!(
-        containers.route(id).await.expect("coder routes"),
-        Route::Sandbox
-    ));
-}
-
-/// So is a user-owned bot, which is what an `@claude` deployment serves.
-#[tokio::test]
-async fn routes_an_owned_bot_to_the_sandbox() {
-    let owned = BotId::new_from_uuid(macro_uuid::Uuid::from_u128(0x0000_1234));
-    let (id, sessions) = sessions_with(owned);
-    let containers = RoutedContainers::new(unreachable_sandbox(), None, sessions);
-
-    assert!(matches!(
-        containers.route(id).await.expect("owned bot routes"),
-        Route::Sandbox
-    ));
-}
-
 /// A replica that replaced the one which spawned an in-process session has
 /// no way to read its token back, so resuming there rotates the credential:
 /// the session's MCP servers are advertised under a token the proxy accepts,
 /// and the token that died with the old process no longer is.
 #[tokio::test]
 async fn resuming_an_in_process_session_held_elsewhere_rotates_its_credential() {
-    let (id, repo) = repo_with_session(bot_id::MACRO_NEW_BOT_ID, "opencode");
+    let (id, repo) = repo_with_session(bot_id::MACRO_NEW_BOT_ID, "in-memory");
     let lost = SessionToken::new("held by the replaced replica");
     repo.set_egress_token_hash(id, &lost.hash())
         .await
@@ -211,7 +169,7 @@ async fn resuming_an_in_process_session_held_elsewhere_rotates_its_credential() 
 /// resuming on the first again must not reuse it.
 #[tokio::test]
 async fn resuming_where_a_revoked_token_is_still_held_does_not_reuse_it() {
-    let (id, repo) = repo_with_session(bot_id::MACRO_NEW_BOT_ID, "opencode");
+    let (id, repo) = repo_with_session(bot_id::MACRO_NEW_BOT_ID, "in-memory");
     let spawned = SessionToken::new("held by the first replica");
     repo.set_egress_token_hash(id, &spawned.hash())
         .await
@@ -222,7 +180,6 @@ async fn resuming_where_a_revoked_token_is_still_held_does_not_reuse_it() {
         .spawn(SpawnContainer {
             session_id: id,
             kind: AgentKind::InMemory,
-            size: SandboxSize::Default,
             egress: SandboxEgress {
                 session_token: spawned.as_str().to_owned(),
                 ..test_egress()
@@ -250,7 +207,7 @@ async fn resuming_where_a_revoked_token_is_still_held_does_not_reuse_it() {
 /// would revoke the credential that replica's agent is using.
 #[tokio::test]
 async fn resuming_a_session_a_live_peer_manages_is_refused_without_rotating() {
-    let (id, repo) = repo_with_session(bot_id::MACRO_NEW_BOT_ID, "opencode");
+    let (id, repo) = repo_with_session(bot_id::MACRO_NEW_BOT_ID, "in-memory");
     let current = SessionToken::new("held by the managing replica");
     repo.set_egress_token_hash(id, &current.hash())
         .await

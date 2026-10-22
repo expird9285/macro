@@ -34,7 +34,7 @@ rows, initiatives, ...) and get back a single unified, paginated result.
 
 - Depends on: `entity_access`, `properties`, `crm`, `item_filters`,
   `filter_ast`, `favorites`, `frecency`, `channels`, `email`, `call`,
-  `github_pull_requests`, `foreign_entity`, `activity`, `agent_changes`.
+  `github_pull_requests`, `foreign_entity`, `activity`.
 - Used by: `ai_tools`, `complete_graph`, `databases_sql`, `graphql_initiative`,
   `graphql_soup`, `graphql_work_feed`, `memory`, `skills`, `work_feed`,
   `soup_filter_projection`.

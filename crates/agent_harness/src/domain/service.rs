@@ -18,7 +18,6 @@ mod test;
 
 mod admission;
 mod deliver;
-mod external_replies;
 mod lifecycle;
 mod lifecycle_events;
 mod open;
@@ -34,7 +33,6 @@ use agent_session::domain::error::AgentSessionError;
 use agent_session::domain::model::SessionManagement;
 use agent_session::domain::model::{
     AgentMcpServers, AgentSession, AgentSessionId, AuthorKind, CreateAgentSessionParams, MessageId,
-    SandboxSize,
 };
 use agent_session::domain::ports::{
     AcceptedControl, AgentSessionLifecyclePublisher, AgentSessionNotificationRecipient,
@@ -54,18 +52,17 @@ use trigger_context::TriggerContext;
 
 use crate::domain::error::{HarnessError, Result};
 use crate::domain::model::{
-    AgentKind, AnnounceOrigin, AnnouncePrompt, CommandOutcome, DeclinedMention, DeliverAction,
-    HarnessCommand, HarnessDefaults, OpenSession, PromptPeople, ReplyOutcome, ResolvedReply,
-    SessionAnnouncement, SpawnContainer, ToolApprovalChange, is_macro_staff,
+    AgentKind, AnnounceOrigin, CommandOutcome, DeliverAction, HarnessCommand,
+    HarnessDefaults, OpenSession, PromptPeople, ReplyOutcome, ResolvedReply, SessionAnnouncement,
+    SpawnContainer, ToolApprovalChange, is_macro_staff,
 };
 use crate::domain::pending::PendingCommands;
 use crate::domain::ports::{
-    AgentPromptComposer, AgentSessionNotifier, CodingAgentSource, CommandForwarder,
-    ContainerManager, MessagePromptContext, PermissionPolicySource, PromptMentions,
-    RuntimeConnections, SandboxEgressProvisioner, SessionAnnouncer,
+    AgentPromptComposer, AgentSessionNotifier, CommandForwarder, ContainerManager,
+    MessagePromptContext, PermissionPolicySource, PromptMentions, SandboxEgressProvisioner,
+    SessionAnnouncer,
 };
 use crate::domain::queue::{InFlightTurn, QueueError, QueuedEntry, SessionQueues};
-use crate::domain::sandbox::SandboxResizeEffect;
 
 use self::queue::{ErasedForwarder, SessionWorkers};
 
@@ -99,29 +96,10 @@ impl<S: PermissionPolicySource> ErasedPermissionPolicySource for S {
     }
 }
 
-/// [`CodingAgentSource`], object-safe, erased like
-/// [`ErasedPermissionPolicySource`].
-trait ErasedCodingAgentSource: Send + Sync + 'static {
-    fn coding_agent_choice<'a>(
-        &'a self,
-        bot: BotId,
-    ) -> std::pin::Pin<Box<dyn Future<Output = anyhow::Result<Option<bool>>> + Send + 'a>>;
-}
-
-impl<S: CodingAgentSource> ErasedCodingAgentSource for S {
-    fn coding_agent_choice<'a>(
-        &'a self,
-        bot: BotId,
-    ) -> std::pin::Pin<Box<dyn Future<Output = anyhow::Result<Option<bool>>> + Send + 'a>> {
-        Box::pin(CodingAgentSource::coding_agent_choice(self, bot))
-    }
-}
-
 struct AgentHarnessInner<
     Sessions,
     Containers,
     Announcer,
-    Runtimes,
     PromptContext,
     PromptComposer,
     Egress,
@@ -133,16 +111,13 @@ struct AgentHarnessInner<
     admission: Arc<dyn ai_billing::AiAdmissionService>,
     containers: Containers,
     announcer: Announcer,
-    runtimes: Runtimes,
     prompt_context: PromptContext,
     prompt_composer: PromptComposer,
     egress: Egress,
     forwarder: Box<dyn ErasedForwarder>,
     permission_policies: Box<dyn ErasedPermissionPolicySource>,
-    coding_agents: Box<dyn ErasedCodingAgentSource>,
     conversations: Option<Arc<dyn crate::domain::conversations::ConversationPolicy>>,
     conversation_turns: Option<Arc<dyn crate::domain::conversation_turns::ConversationTurnStore>>,
-    external_replies: Option<Arc<dyn crate::domain::external_replies::ExternalReplyStore>>,
     defaults: HarnessDefaults,
     /// Turn-occupying actions waiting for their session's running turn to
     /// end. In-memory working copy; the session store is the durable source.
@@ -193,7 +168,6 @@ type SharedInner<
     Sessions,
     Containers,
     Announcer,
-    Runtimes,
     PromptContext,
     PromptComposer,
     Egress,
@@ -205,7 +179,6 @@ type SharedInner<
         Sessions,
         Containers,
         Announcer,
-        Runtimes,
         PromptContext,
         PromptComposer,
         Egress,
@@ -220,7 +193,6 @@ pub struct AgentHarnessService<
     Sessions,
     Containers,
     Announcer,
-    Runtimes,
     PromptContext,
     PromptComposer,
     Egress,
@@ -232,7 +204,6 @@ pub struct AgentHarnessService<
         Sessions,
         Containers,
         Announcer,
-        Runtimes,
         PromptContext,
         PromptComposer,
         Egress,
@@ -241,7 +212,6 @@ pub struct AgentHarnessService<
         Notifier,
     >,
     workers: Arc<SessionWorkers>,
-    repositories: Option<Arc<dyn crate::domain::ports::ReachableRepositories>>,
     warm_lifecycle: Option<Arc<dyn agent_session::domain::warm::WarmSessionLifecycle>>,
     warm_tools: Arc<dyn agent_session::domain::ports::SessionToolCatalog>,
     warm_reservations: Arc<tokio::sync::Mutex<warm::WarmReservations>>,
@@ -255,7 +225,6 @@ impl<
     Sessions,
     Containers,
     Announcer,
-    Runtimes,
     PromptContext,
     PromptComposer,
     Egress,
@@ -267,7 +236,6 @@ impl<
         Sessions,
         Containers,
         Announcer,
-        Runtimes,
         PromptContext,
         PromptComposer,
         Egress,
@@ -280,7 +248,6 @@ impl<
         Self {
             inner: Arc::clone(&self.inner),
             workers: Arc::clone(&self.workers),
-            repositories: self.repositories.clone(),
             warm_lifecycle: self.warm_lifecycle.clone(),
             warm_tools: Arc::clone(&self.warm_tools),
             warm_reservations: Arc::clone(&self.warm_reservations),
@@ -292,7 +259,6 @@ impl<
     Sessions,
     Containers,
     Announcer,
-    Runtimes,
     PromptContext,
     PromptComposer,
     Egress,
@@ -304,7 +270,6 @@ impl<
         Sessions,
         Containers,
         Announcer,
-        Runtimes,
         PromptContext,
         PromptComposer,
         Egress,
@@ -316,7 +281,6 @@ where
     Sessions: AgentSessionService,
     Containers: ContainerManager,
     Announcer: SessionAnnouncer,
-    Runtimes: RuntimeConnections,
     PromptContext: MessagePromptContext,
     PromptComposer: AgentPromptComposer,
     Egress: SandboxEgressProvisioner,
@@ -334,13 +298,11 @@ where
         sessions: Sessions,
         containers: Containers,
         announcer: Announcer,
-        runtimes: Runtimes,
         prompt_context: PromptContext,
         prompt_composer: PromptComposer,
         egress: Egress,
         forwarder: impl CommandForwarder,
         permission_policies: impl PermissionPolicySource,
-        coding_agents: impl CodingAgentSource,
         defaults: impl Into<HarnessDefaults>,
         lifecycle_publisher: Lifecycle,
         pending: PendingCommands,
@@ -353,16 +315,13 @@ where
                 admission: Arc::new(ai_billing::DisabledAiAdmissionService),
                 containers,
                 announcer,
-                runtimes,
                 prompt_context,
                 prompt_composer,
                 egress,
                 forwarder: Box::new(forwarder),
                 permission_policies: Box::new(permission_policies),
-                coding_agents: Box::new(coding_agents),
                 conversations,
                 conversation_turns: None,
-                external_replies: None,
                 defaults: defaults.into(),
                 queues: SessionQueues::new(),
                 hydrated: DashSet::new(),
@@ -375,7 +334,6 @@ where
                 presented_shapes: DashMap::new(),
             }),
             workers: Arc::new(DashMap::new()),
-            repositories: None,
             warm_lifecycle: None,
             warm_tools: Arc::new(agent_session::domain::ports::NoOpToolCatalog),
             warm_reservations: Arc::default(),
@@ -533,15 +491,6 @@ where
         self
     }
 
-    /// Enable explicit repository choices, authorized against the owner's reachable repositories.
-    pub fn with_repositories(
-        mut self,
-        repositories: Arc<dyn crate::domain::ports::ReachableRepositories>,
-    ) -> Self {
-        self.repositories = Some(repositories);
-        self
-    }
-
     /// Queue one command behind any work already running for its session.
     ///
     /// Queue admission happens synchronously so callers can spawn the returned
@@ -571,69 +520,6 @@ where
     ) -> impl Future<Output = Result<CommandOutcome>> + Send + 'static {
         self.enqueue(session_id, command, false)
     }
-
-    /// Post the announcement for a prompt an external runtime delivers.
-    ///
-    /// The follow-up-mention half of the external split: the runtime sends
-    /// the prompt through the control endpoint, and the observed trigger
-    /// event lands here to post the magic chip the replies render into.
-    /// Needs only the session row - a chip must post even while the runtime
-    /// is disconnected, anchoring whatever reply eventually comes.
-    #[tracing::instrument(err, skip(self, prompt), fields(%session_id))]
-    pub async fn announce_external_prompt(
-        &self,
-        session_id: AgentSessionId,
-        prompt: AnnouncePrompt,
-    ) -> Result<()> {
-        self.inner
-            .prompt_context
-            .authorize_origin(&prompt.sender, &prompt.origin)
-            .await?;
-        // Re-read rather than trusted: the row is what vouches that the
-        // trigger's session and bot actually belong together.
-        let session = self.inner.sessions.get_session(session_id).await?;
-        if session.bot_id != prompt.bot_id {
-            tracing::warn!(
-                %session_id,
-                event_bot = %prompt.bot_id,
-                session_bot = %session.bot_id,
-                "dropping an announce whose bot does not own the session"
-            );
-            return Ok(());
-        }
-
-        let persona = self.inner.reply_persona(&session).await?;
-        if !persona.is_coding && self.inner.external_replies.is_some() {
-            return self
-                .inner
-                .announce_external_reply(session_id, prompt.origin, prompt.sender)
-                .await;
-        }
-        self.inner
-            .announcer
-            .announce(SessionAnnouncement {
-                reply_message_id: None,
-                reply_placement: prompt.origin.reply_placement,
-                reuse_origin_message: false,
-                session_id,
-                bot_id: session.bot_id,
-                is_coding: persona.is_coding,
-                origin_parent: prompt.origin.parent,
-                origin_thread_id: prompt.origin.thread_id,
-                origin_message_id: prompt.origin.message_id,
-                prompted_message_id: self
-                    .inner
-                    .sessions
-                    .next_prompt_message_id(session_id)
-                    .await?,
-                prompted_content: prompt.content,
-                triggered_by: prompt.sender,
-            })
-            .await
-            // The external runtime drives this turn itself; there is no
-            // in-flight record here to remember the chip in.
-            .map(drop)
-    }
 }
 
 /// The receiving half of command forwarding, called by the command-bus
@@ -651,7 +537,6 @@ impl<
     Sessions,
     Containers,
     Announcer,
-    Runtimes,
     PromptContext,
     PromptComposer,
     Egress,
@@ -663,7 +548,6 @@ impl<
         Sessions,
         Containers,
         Announcer,
-        Runtimes,
         PromptContext,
         PromptComposer,
         Egress,
@@ -675,7 +559,6 @@ where
     Sessions: AgentSessionService,
     Containers: ContainerManager,
     Announcer: SessionAnnouncer,
-    Runtimes: RuntimeConnections,
     PromptContext: MessagePromptContext,
     PromptComposer: AgentPromptComposer,
     Egress: SandboxEgressProvisioner,

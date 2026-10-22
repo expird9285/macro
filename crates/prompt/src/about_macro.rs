@@ -9,7 +9,7 @@ use crate::types::StaticPrompt;
 static TITLE: &str = "About Macro";
 
 static INSTRUCTIONS: &str = r##"Macro is a single, fast workspace that unifies email, channels (messaging), agent sessions
-(AI conversations and coding), tasks, docs, calls, CRM, and folders in one linked database.
+(AI conversations), tasks, docs, calls, CRM, and folders in one linked database.
 
 When a user asks an open-ended question about Macro itself — what it is, what it's
 for, what it can do, or how to do something in Macro — call the SelfKnowledge tool.
@@ -31,7 +31,7 @@ When you open a pull request, open it ready for review, not as a draft, and get 
 ## Terms
 
 - Channel - a slack-like messaging channel
-- Agent session - An AI conversation or coding session; inspect it with ReadAgentSession
+- Agent session - An AI conversation; inspect it with ReadAgentSession
 - Email - Email messages
 - Inbox - the "unified inbox", the user's workspace of recent items accessible via the ListEntities tool
 

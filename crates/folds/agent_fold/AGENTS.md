@@ -32,16 +32,13 @@ to the browser via `inbound/wasm`.
 
 - Owns: the fold, its model/log vocabularies, lifecycle and speculation
   folding, and the wasm/wire adapters that carry the model to the browser.
-- Not here: per-harness quirks (Claude/Codex-specific normalization) →
-  `crates/folds/claude_fold`, `crates/folds/codex_fold`.
 
 ## Boundaries
 
 - Depends on: `agent_runtime_protocol` (schema only, `default-features =
   false` — no transport, which is what makes wasm possible).
 - Used by: `agent_harness_service`, `agent_session`, `agent_harness`,
-  `coding_agent_worker`, `lexical_client`, `agent_changes`, `webhook`, and both
-  harness-specific fold crates. Widely shared — check callers before changing
+  `lexical_client`, `webhook`. Widely shared — check callers before changing
   `domain/model.rs` or `domain/ports.rs`.
 
 ## Recipes

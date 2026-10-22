@@ -1,4 +1,0 @@
-│ model: gpt-6-astra /model to change │
-• Model changed to gpt-6-sol medium
-› Ask Codex to do anything
-  gpt-6-sol medium · /repo

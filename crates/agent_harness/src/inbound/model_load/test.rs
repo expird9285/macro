@@ -6,19 +6,9 @@ use super::*;
 fn target_request_maps_all_supported_harnesses() {
     let in_memory = LoadAgentModels::try_from(LoadAgentModelsRequest {
         harness: ModelHarnessDto::InMemory,
-        harness_id: None,
     })
     .unwrap();
     assert_eq!(in_memory.harness, ModelHarness::InMemory);
-
-    let macrod_id = Uuid::new_v4();
-    let macrod = LoadAgentModels::try_from(LoadAgentModelsRequest {
-        harness: ModelHarnessDto::Macrod,
-        harness_id: Some(macrod_id),
-    })
-    .unwrap();
-    assert_eq!(macrod.harness, ModelHarness::Macrod);
-    assert_eq!(macrod.harness_id.unwrap().as_uuid(), macrod_id);
 }
 
 #[test]

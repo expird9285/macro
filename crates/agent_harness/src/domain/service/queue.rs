@@ -67,7 +67,6 @@ impl<
     Sessions,
     Containers,
     Announcer,
-    Runtimes,
     PromptContext,
     PromptComposer,
     Egress,
@@ -79,7 +78,6 @@ impl<
         Sessions,
         Containers,
         Announcer,
-        Runtimes,
         PromptContext,
         PromptComposer,
         Egress,
@@ -91,7 +89,6 @@ where
     Sessions: AgentSessionService,
     Containers: ContainerManager,
     Announcer: SessionAnnouncer,
-    Runtimes: RuntimeConnections,
     PromptContext: MessagePromptContext,
     PromptComposer: AgentPromptComposer,
     Egress: SandboxEgressProvisioner,
@@ -164,7 +161,6 @@ impl<
     Sessions,
     Containers,
     Announcer,
-    Runtimes,
     PromptContext,
     PromptComposer,
     Egress,
@@ -176,7 +172,6 @@ impl<
         Sessions,
         Containers,
         Announcer,
-        Runtimes,
         PromptContext,
         PromptComposer,
         Egress,
@@ -188,7 +183,6 @@ where
     Sessions: AgentSessionService,
     Containers: ContainerManager,
     Announcer: SessionAnnouncer,
-    Runtimes: RuntimeConnections,
     PromptContext: MessagePromptContext,
     PromptComposer: AgentPromptComposer,
     Egress: SandboxEgressProvisioner,
@@ -237,45 +231,7 @@ where
             SessionManagement::Unmanaged => {
                 span.record("agent.session.management", "unmanaged");
                 span.record("agent.command.forwarded", false);
-                // A new conversation has a reserved id but no session row yet. External
-                // personas still route to the replica holding their connection;
-                // an existing session uses its pinned harness configuration.
-                let (bot_id, kind) = match self.sessions.get_session(session_id).await {
-                    Ok(session) => (
-                        session.bot_id,
-                        AgentKind::for_session(session.bot_id, &session.harness),
-                    ),
-                    Err(AgentSessionError::NotFound(_)) => match &command {
-                        HarnessCommand::ConversationMessage(open) => {
-                            (open.bot_id, open.runtime.kind)
-                        }
-                        _ => return Err(AgentSessionError::NotFound(session_id).into()),
-                    },
-                    Err(error) => return Err(error.into()),
-                };
-                if kind != AgentKind::External {
-                    return self.execute(session_id, command).await;
-                }
-                let Some(harness) = self
-                    .runtimes
-                    .bound_harness(bot_id)
-                    .await
-                    .map_err(AgentSessionError::Unknown)?
-                else {
-                    return self.execute(session_id, command).await;
-                };
-                if self.runtimes.is_connected(harness) {
-                    return self.execute(session_id, command).await;
-                }
-                span.record("agent.command.forwarded", true);
-                return self
-                    .forwarder
-                    .forward(
-                        session_id,
-                        command,
-                        crate::domain::ports::CommandTarget::Harness(harness),
-                    )
-                    .await;
+                return self.execute(session_id, command).await;
             }
             SessionManagement::Ours => {
                 span.record("agent.session.management", "ours");
@@ -399,15 +355,9 @@ where
             self.ensure_hydrated(session_id).await?;
         }
         match &command {
-            HarnessCommand::Open(open)
-                if AgentKind::of(open.bot_id) == AgentKind::SandboxedCoder
-                    && !is_macro_staff(open.origin.actor()) =>
-            {
-                return Err(AgentSessionError::Forbidden.into());
-            }
             // The queue mutations sit behind the same staff gate as delivery:
             // an edited entry is delivered later under its original identity,
-            // so rewriting (or dropping) what a Daytona session is about to
+            // so rewriting (or dropping) what a session is about to
             // run is the same privilege as prompting it.
             HarnessCommand::Deliver(DeliverAction {
                 actor,
@@ -418,26 +368,13 @@ where
                     return Err(AgentSessionError::Forbidden.into());
                 }
             }
-            HarnessCommand::Deliver(DeliverAction { actor, .. })
-            | HarnessCommand::EditQueued { actor, .. }
-            | HarnessCommand::RemoveQueued { actor, .. }
-            | HarnessCommand::SteerQueued { actor, .. } => {
+            HarnessCommand::Deliver(_)
+            | HarnessCommand::EditQueued { .. }
+            | HarnessCommand::RemoveQueued { .. }
+            | HarnessCommand::SteerQueued { .. } => {
                 let session = self.sessions.get_session(session_id).await?;
                 if session.is_archived {
                     return Err(AgentSessionError::Archived(session_id).into());
-                }
-                if AgentKind::for_session(session.bot_id, &session.harness)
-                    == AgentKind::ClaudeCloud
-                    && !actor
-                        .as_ref()
-                        .is_some_and(|actor| session.owner_id.is_user(actor))
-                {
-                    return Err(AgentSessionError::Forbidden.into());
-                }
-                if AgentKind::of(session.bot_id) == AgentKind::SandboxedCoder
-                    && !actor.as_ref().is_some_and(is_macro_staff)
-                {
-                    return Err(AgentSessionError::Forbidden.into());
                 }
             }
             HarnessCommand::Open(_)
@@ -447,11 +384,6 @@ where
             | HarnessCommand::PresentTool { .. }
             | HarnessCommand::SessionStopped { .. }
             | HarnessCommand::Delete => {}
-            HarnessCommand::SetSandboxSize(_) => {
-                if self.sessions.get_session(session_id).await?.is_archived {
-                    return Err(AgentSessionError::Archived(session_id).into());
-                }
-            }
         }
 
         match command {
@@ -500,18 +432,8 @@ where
                 stop,
                 last_text,
                 action_id: fold_action_id,
-                turn,
                 ..
             }) => {
-                if let Some(action) = fold_action_id {
-                    self.complete_external_reply(
-                        session_id,
-                        action,
-                        turn,
-                        ReplyOutcome::of_turn(&stop, last_text.clone()),
-                    )
-                    .await;
-                }
                 let mut ended = self.busy.turn(session_id);
                 if let (Some(turn), Some(action)) = (&ended, fold_action_id)
                     && turn.action_id != action
@@ -768,10 +690,6 @@ where
                 self.tool_approval_changed(session_id, change).await;
                 Ok(CommandOutcome::Completed)
             }
-            HarnessCommand::SetSandboxSize(size) => {
-                self.apply_sandbox_size(session_id, size).await?;
-                Ok(CommandOutcome::Completed)
-            }
             HarnessCommand::Delete => {
                 // Identity first: the row is gone once the delete succeeds.
                 let identity = self.identity(session_id).await;
@@ -830,14 +748,6 @@ where
     ) -> Result<CommandOutcome> {
         self.authorize_action(&command).await?;
         let action_id = command.id;
-        if let Some(store) = &self.external_replies
-            && store
-                .get(session_id, action_id)
-                .await?
-                .is_some_and(|reply| reply.completion.is_some())
-        {
-            return Ok(CommandOutcome::Completed);
-        }
         if self.queues.contains(session_id, action_id) {
             if command.announce.as_ref().is_some_and(|origin| {
                 origin.reply_placement == crate::domain::model::ReplyPlacement::Timeline
@@ -859,18 +769,6 @@ where
             return Ok(CommandOutcome::Completed);
         }
         let session = self.sessions.get_session(session_id).await?;
-        // A persisted prompt proves delivery even if this replica has not yet
-        // recovered its completion callback. Never execute its effects again.
-        if self.external_replies.is_some()
-            && AgentKind::for_session(session.bot_id, &session.harness) == AgentKind::External
-            && self
-                .sessions
-                .recorded_action(session_id, action_id)
-                .await?
-                .is_some()
-        {
-            return Ok(CommandOutcome::Completed);
-        }
         if let Err(error) = self.admit_session(&session).await {
             // Forwarding acknowledges bus acceptance before this worker runs.
             // Publish even an ingress refusal so the submitting replica hears it.
@@ -1593,7 +1491,6 @@ pub(super) async fn run_session_worker<
     Sessions,
     Containers,
     Announcer,
-    Runtimes,
     PromptContext,
     PromptComposer,
     Egress,
@@ -1606,7 +1503,6 @@ pub(super) async fn run_session_worker<
         Sessions,
         Containers,
         Announcer,
-        Runtimes,
         PromptContext,
         PromptComposer,
         Egress,
@@ -1619,7 +1515,6 @@ pub(super) async fn run_session_worker<
     Sessions: AgentSessionService,
     Containers: ContainerManager,
     Announcer: SessionAnnouncer,
-    Runtimes: RuntimeConnections,
     PromptContext: MessagePromptContext,
     PromptComposer: AgentPromptComposer,
     Egress: SandboxEgressProvisioner,

@@ -6,5 +6,3 @@
 //! changes here can never reach a mobile binary, so they require no mobile
 //! version bump or store release (see apps/web/scripts/android-native.mjs and
 //! tooling/xtask/.../scripts/ios_native_tree.sh).
-
-pub(crate) mod macrod;

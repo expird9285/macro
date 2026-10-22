@@ -7,11 +7,9 @@ use axum::extract::{FromRef, Json, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::post;
-use harness_id::HarnessId;
 use macro_authorization::{
     MacroAuthorizationExtractor, MacroAuthorizationService, MacroAuthorizationState, UserOnly,
 };
-use macro_uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -29,8 +27,6 @@ mod test;
 pub struct LoadAgentModelsRequest {
     /// Provider to probe.
     pub harness: ModelHarnessDto,
-    /// Required for macrod and forbidden for other targets.
-    pub harness_id: Option<Uuid>,
 }
 
 /// Harness names accepted by the model discovery endpoint.
@@ -39,12 +35,6 @@ pub struct LoadAgentModelsRequest {
 pub enum ModelHarnessDto {
     /// Macro's in-process agent.
     InMemory,
-    /// The caller's Cursor account.
-    Cursor,
-    /// The caller's allowlisted Claude subscription demo.
-    ClaudeCloud,
-    /// A paired macrod runtime.
-    Macrod,
 }
 
 impl TryFrom<LoadAgentModelsRequest> for LoadAgentModels {
@@ -53,14 +43,8 @@ impl TryFrom<LoadAgentModelsRequest> for LoadAgentModels {
     fn try_from(value: LoadAgentModelsRequest) -> Result<Self, Self::Error> {
         let harness = match value.harness {
             ModelHarnessDto::InMemory => ModelHarness::InMemory,
-            ModelHarnessDto::Cursor => ModelHarness::Cursor,
-            ModelHarnessDto::ClaudeCloud => ModelHarness::ClaudeCloud,
-            ModelHarnessDto::Macrod => ModelHarness::Macrod,
         };
-        Ok(Self {
-            harness,
-            harness_id: value.harness_id.map(HarnessId::new_from_uuid),
-        })
+        Ok(Self { harness })
     }
 }
 
@@ -188,7 +172,7 @@ where
         (status = 400, description = "Invalid target"),
         (status = 401, description = "Unauthenticated"),
         (status = 403, description = "Harness is not visible to caller"),
-        (status = 409, description = "Macrod runtime or Cursor account is not connected"),
+        (status = 409, description = "Agent runtime is not connected"),
         (status = 504, description = "Macrod probe timed out"),
         (status = 502, description = "Provider probe failed"),
     )

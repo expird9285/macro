@@ -7,7 +7,6 @@ impl<
     Sessions,
     Containers,
     Announcer,
-    Runtimes,
     PromptContext,
     PromptComposer,
     Egress,
@@ -19,7 +18,6 @@ impl<
         Sessions,
         Containers,
         Announcer,
-        Runtimes,
         PromptContext,
         PromptComposer,
         Egress,
@@ -31,7 +29,6 @@ where
     Sessions: AgentSessionService,
     Containers: ContainerManager,
     Announcer: SessionAnnouncer,
-    Runtimes: RuntimeConnections,
     PromptContext: MessagePromptContext,
     PromptComposer: AgentPromptComposer,
     Egress: SandboxEgressProvisioner,
@@ -92,63 +89,27 @@ where
                     .permission_policy_for_session(session_id, session.bot_id)
                     .await?;
                 let kind = AgentKind::for_session(session.bot_id, &session.harness);
-                if kind.is_managed() {
-                    let container = self.containers.resume(session_id).await?;
-                    let mcp_servers = self
-                        .resumed_mcp_servers(
-                            session_id,
-                            kind,
-                            session.owner_user()?,
-                            &session.mcp_servers,
-                        )
-                        .await?;
-                    self.sessions
-                        .attach_session(
-                            session_id,
-                            container
-                                .mcp_servers(mcp_servers)
-                                .permission_policy(permission_policy),
-                        )
-                        .await?;
-                    // The sandbox is back; take waiting prompts from the store
-                    // so a restart cannot drop what was queued while this
-                    // replica was gone.
-                    self.restore_queue(session_id).await?;
-                } else {
-                    // An external runtime is not ours to start - only its
-                    // operator can dial - but a bot whose runtime is already
-                    // connected just has not had this session bound to it
-                    // yet. That is the ordinary case: sessions bind when they
-                    // are prompted, not when the runtime dials, so the first
-                    // prompt after a reconnect is what restores the session.
-                    let Some(mut attachment) = self.runtimes.bind(session.bot_id, session_id).await
-                    else {
-                        // Kept in the session vocabulary so transports report
-                        // it as a disconnect, not an internal error.
-                        return Err(HarnessError::Session(AgentSessionError::Disconnected(
-                            session_id,
-                        )));
-                    };
-                    if session.harness == harness_id::MACROD_HARNESS_SLUG {
-                        attachment = attachment.initial_model(session.model.clone());
-                    }
-                    let egress = self
-                        .egress
-                        .provision(session_id, session.owner_user()?, &session.mcp_servers)
-                        .await?;
-                    self.sessions
-                        .set_egress_token_hash(session_id, &egress.session_token_hash)
-                        .await?;
-                    self.sessions
-                        .attach_session(
-                            session_id,
-                            attachment
-                                .permission_policy(permission_policy)
-                                .mcp_servers(self.egress.external_mcp_servers(&egress.sandbox)),
-                        )
-                        .await?;
-                    self.restore_queue(session_id).await?;
-                }
+                let container = self.containers.resume(session_id).await?;
+                let mcp_servers = self
+                    .resumed_mcp_servers(
+                        session_id,
+                        kind,
+                        session.owner_user()?,
+                        &session.mcp_servers,
+                    )
+                    .await?;
+                self.sessions
+                    .attach_session(
+                        session_id,
+                        container
+                            .mcp_servers(mcp_servers)
+                            .permission_policy(permission_policy),
+                    )
+                    .await?;
+                // The sandbox is back; take waiting prompts from the store
+                // so a restart cannot drop what was queued while this
+                // replica was gone.
+                self.restore_queue(session_id).await?;
                 if action.occupies_turn() {
                     self.admit_session(&session).await?;
                 }
@@ -255,11 +216,7 @@ where
         // The announcement posts as the session's own bot, which only the
         // row remembers.
         let session = self.sessions.get_session(session_id).await?;
-        let is_coding = if origin.reply_placement == crate::domain::model::ReplyPlacement::Thread {
-            self.reply_persona(&session).await?.is_coding
-        } else {
-            false
-        };
+        let is_coding = false;
 
         Ok(Some(SessionAnnouncement {
             reply_message_id: None,
@@ -301,10 +258,6 @@ where
                 | ReplyOutcome::AwaitingApproval(_)
                 | ReplyOutcome::Resumed
         );
-        if terminal && turn.announce.is_none() {
-            self.complete_external_reply(session_id, turn.action_id, turn.turn, outcome.clone())
-                .await;
-        }
         let in_segments = turn.announce.as_ref().is_some_and(|origin| {
             origin.reply_placement.voice_style() == crate::domain::model::VoiceStyle::Segments
         });
@@ -425,23 +378,7 @@ where
         };
         // A timeline reply remains resolvable if its persona was deleted
         // during the turn. The session preserves its author identity.
-        let is_coding = if origin.reply_placement == crate::domain::model::ReplyPlacement::Timeline
-        {
-            false
-        } else {
-            match self.reply_persona(&session).await {
-                Ok(persona) => persona.is_coding,
-                Err(error) => {
-                    tracing::error!(
-                        error = ?error,
-                        %session_id,
-                        %message_id,
-                        "leaving a turn's reply unresolved: the session's persona is unavailable"
-                    );
-                    return false;
-                }
-            }
-        };
+        let is_coding = false;
         if let Err(error) = self
             .announcer
             .resolve(ResolvedReply {

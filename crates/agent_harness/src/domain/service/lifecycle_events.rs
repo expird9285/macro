@@ -6,7 +6,7 @@ use agent_session::domain::events::{
 };
 use agent_session::domain::lifecycle::session_identity;
 
-use crate::domain::model::{ReplyPersona, is_coding_agent};
+use crate::domain::model::ReplyPersona;
 use crate::domain::notifications::plan;
 use macro_user_id::user_id::MacroUserIdStr;
 use macro_uuid::Uuid;
@@ -17,7 +17,6 @@ impl<
     Sessions,
     Containers,
     Announcer,
-    Runtimes,
     PromptContext,
     PromptComposer,
     Egress,
@@ -29,7 +28,6 @@ impl<
         Sessions,
         Containers,
         Announcer,
-        Runtimes,
         PromptContext,
         PromptComposer,
         Egress,
@@ -41,7 +39,6 @@ where
     Sessions: AgentSessionService,
     Containers: ContainerManager,
     Announcer: SessionAnnouncer,
-    Runtimes: RuntimeConnections,
     PromptContext: MessagePromptContext,
     PromptComposer: AgentPromptComposer,
     Egress: SandboxEgressProvisioner,
@@ -76,21 +73,10 @@ where
     /// the bot's choice of being a coding agent applied to the runtime the
     /// row names.
     pub(super) async fn reply_persona(&self, session: &AgentSession) -> Result<ReplyPersona> {
-        let (bot, choice) = tokio::try_join!(
-            async { Ok::<_, HarnessError>(self.sessions.session_bot(session.bot_id).await?) },
-            async {
-                self.coding_agents
-                    .coding_agent_choice(session.bot_id)
-                    .await
-                    .map_err(|error| HarnessError::Announce(rootcause::report!(error).into()))
-            },
-        )?;
+        let bot = self.sessions.session_bot(session.bot_id).await?;
         Ok(ReplyPersona {
             name: bot.name,
-            is_coding: is_coding_agent(
-                choice,
-                AgentKind::for_session(session.bot_id, &session.harness),
-            ),
+            is_coding: false,
         })
     }
 

@@ -10,7 +10,6 @@ impl<
     Sessions,
     Containers,
     Announcer,
-    Runtimes,
     PromptContext,
     PromptComposer,
     Egress,
@@ -22,7 +21,6 @@ impl<
         Sessions,
         Containers,
         Announcer,
-        Runtimes,
         PromptContext,
         PromptComposer,
         Egress,
@@ -34,7 +32,6 @@ where
     Sessions: AgentSessionService,
     Containers: ContainerManager,
     Announcer: SessionAnnouncer,
-    Runtimes: RuntimeConnections,
     PromptContext: MessagePromptContext,
     PromptComposer: AgentPromptComposer,
     Egress: SandboxEgressProvisioner,
@@ -186,12 +183,6 @@ where
 
 fn macro_funded(kind: AgentKind) -> bool {
     match kind {
-        AgentKind::InMemory | AgentKind::SandboxedCoder => true,
-        // Independently billed tools/helpers have their own admission; runtime
-        // execution itself uses the owner's subscription or external provider.
-        AgentKind::Cursor
-        | AgentKind::CodexCloud
-        | AgentKind::ClaudeCloud
-        | AgentKind::External => false,
+        AgentKind::InMemory => true,
     }
 }

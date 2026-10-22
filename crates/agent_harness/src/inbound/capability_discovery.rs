@@ -7,11 +7,9 @@ use axum::extract::{FromRef, Json, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::post;
-use harness_id::HarnessId;
 use macro_authorization::{
     MacroAuthorizationExtractor, MacroAuthorizationService, MacroAuthorizationState, UserOnly,
 };
-use macro_uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -29,8 +27,6 @@ mod test;
 pub struct DiscoverAgentCapabilitiesRequest {
     /// Provider to probe.
     pub harness: CapabilityHarnessDto,
-    /// Required for macrod and forbidden for other targets.
-    pub harness_id: Option<Uuid>,
     /// Model whose session settings should be inspected.
     pub model: Option<String>,
 }
@@ -41,10 +37,6 @@ pub struct DiscoverAgentCapabilitiesRequest {
 pub enum CapabilityHarnessDto {
     /// Macro's in-process agent.
     InMemory,
-    /// The caller's Cursor account.
-    Cursor,
-    /// A paired macrod runtime.
-    Macrod,
 }
 
 impl TryFrom<DiscoverAgentCapabilitiesRequest> for DiscoverAgentCapabilities {
@@ -53,12 +45,9 @@ impl TryFrom<DiscoverAgentCapabilitiesRequest> for DiscoverAgentCapabilities {
     fn try_from(value: DiscoverAgentCapabilitiesRequest) -> Result<Self, Self::Error> {
         let harness = match value.harness {
             CapabilityHarnessDto::InMemory => CapabilityHarness::InMemory,
-            CapabilityHarnessDto::Cursor => CapabilityHarness::Cursor,
-            CapabilityHarnessDto::Macrod => CapabilityHarness::Macrod,
         };
         Ok(Self {
             harness,
-            harness_id: value.harness_id.map(HarnessId::new_from_uuid),
             model: value.model,
         })
     }
@@ -228,7 +217,7 @@ where
         (status = 400, description = "Invalid target"),
         (status = 401, description = "Unauthenticated"),
         (status = 403, description = "Harness is not visible to caller"),
-        (status = 409, description = "Macrod runtime or Cursor account is not connected"),
+        (status = 409, description = "Agent runtime is not connected"),
         (status = 504, description = "Macrod probe timed out"),
         (status = 502, description = "Provider probe failed"),
     )

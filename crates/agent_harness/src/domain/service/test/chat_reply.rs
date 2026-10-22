@@ -34,7 +34,6 @@ fn assignment_open_command() -> OpenSession {
 async fn assignment_instructions_reach_system_and_prompt_only_runtimes() {
     for (kind, harness) in [
         (AgentKind::InMemory, "macro-inmem"),
-        (AgentKind::SandboxedCoder, "opencode"),
     ] {
         let composer = PromptComposerMock::default();
         let context = PromptContextMock::default();
@@ -75,24 +74,6 @@ async fn revoked_task_access_blocks_assignment_before_provisioning() {
     assert_eq!(containers.spawned(), 0);
     assert!(announcer.announced().is_empty());
     assert!(service.inner.egress.provisioned().is_empty());
-}
-
-#[tokio::test]
-async fn task_assignment_keeps_the_coder_staff_gate() {
-    let (service, repo, containers, announcer, _) = harness();
-    let mut command = assignment_open_command();
-    command.bot_id = bot_id::MACRO_CODER_BOT_ID;
-    command.runtime.kind = AgentKind::SandboxedCoder;
-    let id = AgentSessionId::new();
-    assert!(
-        service
-            .execute(id, HarnessCommand::Open(command))
-            .await
-            .is_err()
-    );
-    assert!(repo.get(id).await.is_err());
-    assert_eq!(containers.spawned(), 0);
-    assert!(announcer.announced().is_empty());
 }
 
 /// Open a chat session and leave its first turn running.
@@ -350,89 +331,6 @@ async fn each_turns_reply_resolves_when_that_turn_ends() {
     assert_eq!(
         resolved[1].outcome,
         ReplyOutcome::Answered("Second answer.".to_owned())
-    );
-}
-
-/// The domain does not know a coding kind has nothing to patch - that is the
-/// announcer's call - so it asks for every announced turn, naming the kind,
-/// and the audience still hears `settled` for a coder.
-#[tokio::test]
-async fn a_coding_turn_is_offered_to_the_announcer_as_a_coder_and_still_notifies() {
-    let ((service, _, containers, announcer, _), turns) =
-        harness_with_signals(PromptContextMock::default(), PromptComposerMock::default());
-    let id = AgentSessionId::new();
-    let container = live_sandboxed_coder_session(&service, &containers, id).await;
-    drop(container);
-    turns.lifecycle_published(4).await;
-
-    let resolved = one_resolved(&announcer);
-    assert!(resolved.is_coding);
-    assert_eq!(
-        resolved.message_id,
-        announcer.announced_messages()[0].message_id
-    );
-    assert!(
-        matches!(
-            turns.notifier.notified().as_slice(),
-            [PlannedNotification::Settled(_)]
-        ),
-        "{:#?}",
-        turns.notifier.notified()
-    );
-}
-
-/// The shape of the reply is the persona's to choose, not the runtime's: a
-/// bot that says it chats is answered with a reply even on a coding runtime,
-/// and its thread hears the answer through that reply rather than `settled`.
-#[tokio::test]
-async fn a_persona_that_chose_to_chat_gets_a_reply_on_a_coding_runtime() {
-    let ((service, _, containers, announcer, _), turns) = harness_with_coding_choice(false);
-    let id = AgentSessionId::new();
-    let mut command = open_command();
-    command.bot_id = bot_id::MACRO_CODER_BOT_ID;
-    mention_origin_mut(&mut command).sender = staff_sender();
-    let container = session_with_a_running_turn(&service, &containers, id, command).await;
-    let agent = container.agent();
-
-    says(&agent, "Done.");
-    agent.completes_prompt().await;
-    turns.lifecycle_published(4).await;
-
-    let announced = announcer.announced();
-    assert_eq!(announced.len(), 1);
-    assert!(!announced[0].is_coding);
-    let resolved = one_resolved(&announcer);
-    assert!(!resolved.is_coding);
-    assert_eq!(resolved.outcome, ReplyOutcome::Answered("Done.".to_owned()));
-    assert!(
-        turns.notifier.notified().is_empty(),
-        "{:#?}",
-        turns.notifier.notified()
-    );
-}
-
-/// And the other way: a bot that says it codes is announced as a chip on
-/// the in-memory runtime, and its audience hears `settled`.
-#[tokio::test]
-async fn a_persona_that_chose_to_code_gets_a_chip_on_the_in_memory_runtime() {
-    let ((service, _, containers, announcer, _), turns) = harness_with_coding_choice(true);
-    let id = AgentSessionId::new();
-    let container = chat_session_with_a_running_turn(&service, &containers, id).await;
-    let agent = container.agent();
-
-    says(&agent, "Hello there.");
-    agent.completes_prompt().await;
-    turns.lifecycle_published(4).await;
-
-    assert!(announcer.announced()[0].is_coding);
-    assert!(one_resolved(&announcer).is_coding);
-    assert!(
-        matches!(
-            turns.notifier.notified().as_slice(),
-            [PlannedNotification::Settled(_)]
-        ),
-        "{:#?}",
-        turns.notifier.notified()
     );
 }
 

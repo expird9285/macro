@@ -48,10 +48,6 @@ macro_env_var::maybe_env_vars!(
     pub struct PosthogApiKey;
     /// Regional PostHog ingestion origin; defaults to the US origin.
     pub struct PosthogHost;
-    /// KMS key for encrypted per-owner Claude OAuth connections.
-    pub struct ClaudeOauthKmsKeyId;
-    /// Dedicated KMS key for encrypted per-owner Codex OAuth state.
-    pub struct CodexOauthKmsKeyId;
     /// Rollout gate for sessions owned by a bot.
     pub struct EnableNonUserOwners;
     /// The authentication service's own internal key, which settlement
@@ -105,72 +101,16 @@ pub struct Config {
     /// Markup on paid AI usage past the allowance, as a whole percent of
     /// provider cost. Mandatory; set in Doppler.
     pub ai_usage_overage_markup_percent: ai_billing::OverageMarkupPercent,
-    /// OAuth encryption key; deployments without a key do not advertise sign-in.
-    pub claude_oauth_kms_key_id: ClaudeOauthKmsKeyId,
     /// The environment we are in.
     #[macro_config_default(Environment::new_or_prod())]
     pub environment: Environment,
-    /// Dedicated OAuth encryption key; absent deployments keep Codex unavailable.
-    pub codex_oauth_kms_key_id: CodexOauthKmsKeyId,
     /// Comma-separated Kafka bootstrap servers.
     pub kafka_brokers: KafkaBrokers,
     /// MacroDB connection string; `agent_sessions` lives here.
     pub database_url: DatabaseUrl,
     /// Shared Redis used for cross-replica command forwarding.
     pub redis_uri: RedisUri,
-    /// Base URL of the Daytona REST API.
-    #[macro_config_default(String::from("https://app.daytona.io/api"))]
-    pub daytona_api_url: String,
-    /// API key the Daytona client authenticates with. Empty means the
-    /// managed (sandbox-provisioning) path is unarmed: external sessions
-    /// still work, and a managed spawn fails loudly at spawn time.
-    #[macro_config_default(String::new())]
-    pub daytona_api_key: String,
-    /// Name of the prebuilt Daytona snapshot to create sandboxes from. The
-    /// image is expected to be built and pushed as a snapshot out of band,
-    /// keeping image builds off the first-prompt critical path.
-    #[macro_config_default(String::from("macro-agent-harness"))]
-    pub daytona_snapshot: String,
-    /// API key sandboxes run Anthropic models with. Injected into the
-    /// sandbox environment at creation, where it activates opencode's
-    /// `anthropic` provider — the only provider
-    /// `crates/agent_harness/container/opencode.json` enables. Empty means
-    /// sandboxes advertise no models and managed sessions cannot prompt.
-    #[macro_config_default(String::new())]
-    pub anthropic_api_key: String,
-    /// Run sandboxes on the local Docker daemon instead of Daytona.
-    ///
-    /// Default off: a deployed harness must keep using Daytona even if this
-    /// binary is started with a copied local env file. `just run_local` sets
-    /// it. Refused at boot unless `ENVIRONMENT=local`, because this path
-    /// drives the host Docker daemon over a mounted socket.
-    #[macro_config_default(false)]
-    pub dev_dangerous_local_containers: bool,
-    /// `docker`-compatible binary the local provider drives.
-    #[macro_config_default(String::from("docker"))]
-    pub local_container_docker_binary: String,
-    /// Image the local provider creates sandboxes from.
-    #[macro_config_default(String::from("macro-agent-harness:latest"))]
-    pub local_container_image: String,
-    /// Compose network local sandboxes join so this service can dial them.
-    ///
-    /// Required when `dev_dangerous_local_containers` is on: the harness is
-    /// itself a container, so the address that works is one on a network both
-    /// share. `just run_local` sets `{project}_services`.
-    #[macro_config_default(String::new())]
-    pub local_container_network: String,
     /// The bot this deployment answers for.
-    ///
-    /// Still configuration, because `@claude` and `@codex` are separate
-    /// deployments of this same binary distinguished only by the bot they
-    /// watch for, and those are user-owned bots with rows.
-    ///
-    /// Deliberately required, with no default. A default here would be the
-    /// same silent-misconfiguration trap this binary already fell into once:
-    /// a per-bot deployment that failed to set it would not fail, it would
-    /// quietly become a second deployment of whatever the default was, split
-    /// the shared consumer group with the real one, and answer half its
-    /// mentions.
     pub harness_bot_id: Uuid,
     /// Model slug stamped onto sessions this deployment opens.
     #[macro_config_default(String::from("claude"))]
@@ -178,9 +118,6 @@ pub struct Config {
     /// Harness slug stamped onto sessions this deployment opens.
     #[macro_config_default(String::from("opencode"))]
     pub harness_slug: String,
-    /// Repository sessions run against, until it becomes per-request data.
-    #[macro_config_default(String::from("https://github.com/macro-inc/macro"))]
-    pub harness_repo_url: String,
     /// Provider-qualified model id stamped onto sessions the in-memory bot opens.
     #[macro_config_default(String::from("anthropic/claude-sonnet-5-5"))]
     pub inmem_model: String,
@@ -200,8 +137,6 @@ pub struct Config {
     /// The egress router reads sandbox session tokens from `Authorization`.
     #[macro_config_default(8102)]
     pub egress_port: u16,
-    /// Optional host-reachable egress origin for external runtimes in local stacks.
-    pub external_egress_base_url: Option<String>,
     /// OAuth client ID for the Pipedream API.
     pub pipedream_client_id: PipedreamClientId,
     /// OAuth client secret for the Pipedream API.
@@ -223,14 +158,8 @@ pub struct Config {
     pub mcp_credentials_key_secret_name: LocalOrRemoteSecret<McpCredentialsKeySecretName>,
     /// Issuer stamped into minted Macro API tokens.
     pub macro_api_token_issuer: MacroApiTokenIssuer,
-    /// S3 bucket the Changes pane's patches are stored in, one object per
-    /// capture under `agent-sessions/{session}/changes/`. Required: a
-    /// harness that cannot store a patch cannot show a session's changes,
-    /// and that is worth failing at boot rather than on the first capture.
-    pub agent_session_changes_bucket: String,
     /// S3 bucket of pull request patches, owned by document-storage-service and
-    /// shared with it, so a session capture reuses the patch a pull request
-    /// viewer stored for the same base and head.
+    /// shared with it for GitHub PR review.
     pub github_pull_request_patch_bucket: String,
     /// Client id of the GitHub App installation tokens are minted for.
     pub github_sync_app_client_id: String,
@@ -252,37 +181,6 @@ impl Config {
             },
             self.ai_usage_overage_markup_percent,
         )
-    }
-
-    /// Resolve the deployment-injected encryption key. Local stacks use their
-    /// existing LocalStack key with a separate Claude encryption context.
-    pub fn claude_oauth_kms_key_id(&self) -> Option<String> {
-        self.claude_oauth_kms_key_id
-            .value()
-            .filter(|key| !key.trim().is_empty())
-            .map(str::to_owned)
-            .or_else(|| {
-                ClaudeOauthKmsKeyId::new().and_then(|key| {
-                    key.value()
-                        .filter(|key| !key.trim().is_empty())
-                        .map(str::to_owned)
-                })
-            })
-            .or_else(|| {
-                matches!(self.environment, Environment::Local)
-                    .then(|| "alias/macro-local-cursor-api-key".to_owned())
-            })
-    }
-
-    /// Resolve the optional key from Doppler or the deployment-injected environment.
-    pub fn codex_oauth_kms_key_id(&self) -> Option<String> {
-        self.codex_oauth_kms_key_id
-            .value()
-            .map(str::to_owned)
-            .or_else(|| {
-                CodexOauthKmsKeyId::new().and_then(|value| value.value().map(str::to_owned))
-            })
-            .filter(|value| !value.trim().is_empty())
     }
 
     /// The parsed `ENABLE_NON_USER_OWNERS` gate. Missing is disabled.

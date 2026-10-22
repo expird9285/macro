@@ -38,8 +38,8 @@ fn params(id: AgentSessionId) -> CreateAgentSessionParams {
         thread_id: None,
         originating_message_id: None,
         model: "claude".to_owned(),
-        harness: "opencode".to_owned(),
-        repo_url: Some("https://github.com/macro/macro".to_owned()),
+        harness: "in-memory".to_owned(),
+        repo_url: None,
         workspace: "/workspace".to_owned(),
         sandbox_size: agent_session::domain::model::SandboxSize::Default,
         instructions: None,
@@ -77,8 +77,7 @@ async fn container_session_runs_and_logs_end_to_end() {
     let attachment = containers
         .spawn(SpawnContainer {
             session_id: id,
-            kind: AgentKind::SandboxedCoder,
-            size: agent_session::domain::model::SandboxSize::Default,
+            kind: AgentKind::InMemory,
             egress: test_egress(),
         })
         .await

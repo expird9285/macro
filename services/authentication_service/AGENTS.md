@@ -4,13 +4,13 @@
 
 Account sign-in and identity feature: FusionAuth-backed login, session/JWT
 issuance, signup policy and allowlisting, OAuth/OAuth2 account linking
-(Google/Microsoft/GitHub), subscription checkout status, Cursor/Codex API
-key issuance, and account merge/link flows.
+(Google/Microsoft/GitHub), subscription checkout status, and account merge/link
+flows.
 
 ## Start here
 
 - `src/api.rs`: route module list (`login`, `oauth`, `oauth2`, `session`,
-  `jwt`, `webhooks`, `signup_policy`, `codex`, `cursor_api_key`, `merge`, ...).
+  `jwt`, `webhooks`, `signup_policy`, `merge`, ...).
 - `src/service/signup_policy/`: `SignupPolicy` built at startup; enforced
   authoritatively by the FusionAuth `user.create` webhook
   (`src/api/webhooks`), not by the public precheck routes.
@@ -23,8 +23,7 @@ key issuance, and account merge/link flows.
 
 - Owns: FusionAuth-backed login/session issuance, JWT minting, signup
   allowlisting, OAuth/OAuth2 account linking, GTM invite links, shared-mailbox
-  relocation signup, Cursor/Codex API key endpoints, introductory trial
-  eligibility and subscription checkout.
+  relocation signup, introductory trial eligibility and subscription checkout.
 - Not here: authorization/permission decisions on other entities →
   `crates/macro_authorization`; metered AI credits → `crates/ai_billing`;
   team lifecycle and seats → `crates/teams`.

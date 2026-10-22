@@ -32,7 +32,6 @@ async-trait = { workspace = true }
 ai_billing = { path = "../../crates/ai_billing" }
 roles_and_permissions = { path = "../../crates/roles_and_permissions", default-features = false, features = ["outbound"] }
 teams = { path = "../../crates/teams", default-features = false, features = ["outbound"] }
-agent_changes = { path = "../../crates/agent_changes", default-features = false, features = ["outbound"] }
 dictation = { path = "../../crates/dictation", features = ["inbound", "outbound"] }
 initiative_description = { path = "../../crates/initiative_description" }
 agent_session = { path = "../../crates/agent_session", features = ["outbound"] }
@@ -157,7 +156,6 @@ graphql_crm = { path = "../../crates/graphql_crm" }
 graphql_initiative = { path = "../../crates/graphql_initiative" }
 graphql_calendar = { path = "../../crates/graphql_calendar" }
 graphql_scheduled_action = { path = "../../crates/graphql_scheduled_action" }
-harnesses = { path = "../../crates/harnesses" }
 hex = { workspace = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }

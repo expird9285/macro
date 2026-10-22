@@ -2,10 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use agent_changes::domain::{
-    model::{AgentSessionId, PullRequestRef},
-    ports::SessionBranchReader,
-};
+use github_pull_requests::domain::models::diff::PullRequestRef;
 use models_soup::agent_session::AgentPullRequestState;
 
 use super::*;
@@ -22,20 +19,10 @@ fn pull_request_key(url: &str) -> Option<String> {
 /// never reads branch facts for sessions outside the caller's visible page.
 pub(super) async fn enrich<F: GithubPullRequestListing>(
     pull_requests: &F,
-    branches: Option<&dyn SessionBranchReader>,
     user: String,
     sources: Vec<SourceId>,
     items: &mut [SoupCandidate],
 ) -> Result<(), SoupErr> {
-    let sessions: Vec<_> = items
-        .iter()
-        .filter_map(|candidate| match &candidate.item {
-            SoupItem::AgentSession(session) if session.working_branch.is_none() => {
-                Some(AgentSessionId::new_from_uuid(session.id))
-            }
-            _ => None,
-        })
-        .collect();
     if !items
         .iter()
         .any(|candidate| matches!(candidate.item, SoupItem::AgentSession(_)))
@@ -54,15 +41,6 @@ pub(super) async fn enrich<F: GithubPullRequestListing>(
         })
         .collect();
 
-    let branch_facts = async {
-        match branches {
-            Some(reader) if !sessions.is_empty() => reader
-                .working_branches(&sessions)
-                .await
-                .map_err(|error| anyhow::anyhow!("reading agent working branches: {error}")),
-            _ => Ok(HashMap::new()),
-        }
-    };
     let pr_facts = async {
         let Some(ids) = balanced_or_tree(
             keys.iter()
@@ -85,7 +63,7 @@ pub(super) async fn enrich<F: GithubPullRequestListing>(
             .await
             .map_err(anyhow::Error::from)
     };
-    let (branch_facts, pr_facts) = tokio::try_join!(branch_facts, pr_facts)?;
+    let pr_facts = pr_facts.await?;
     let states: HashMap<_, (Uuid, Option<AgentPullRequestState>)> = pr_facts
         .into_iter()
         .map(|entity| {
@@ -101,12 +79,6 @@ pub(super) async fn enrich<F: GithubPullRequestListing>(
         let SoupItem::AgentSession(session) = &mut candidate.item else {
             continue;
         };
-        if session.working_branch.is_none() {
-            session.working_branch = branch_facts
-                .get(&AgentSessionId::new_from_uuid(session.id))
-                .and_then(|fact| fact.for_repository(session.repo_url.as_deref()?))
-                .map(str::to_owned);
-        }
         let pull_request = session
             .pull_request_url
             .as_deref()

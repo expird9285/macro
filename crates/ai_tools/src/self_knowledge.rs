@@ -33,7 +33,7 @@ Macro is organized into "blocks":
 - **Calls** — calls and call records.
 - **CRM** — customer relationship management.
 - **Folders** — file storage.
-- **Agents** — AI conversations and coding sessions that can act across the workspace. Read conversations with ReadAgentSession.
+- **Agents** — AI conversations that can act across the workspace. Read conversations with ReadAgentSession.
 
 Cross-cutting concepts: the **Unified Inbox** (recent items across every block,
 read via the ListEntities tool), **Unified Search**, **Unified Memory**,

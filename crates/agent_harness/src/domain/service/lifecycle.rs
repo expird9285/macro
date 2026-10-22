@@ -16,7 +16,6 @@ impl<
     Sessions,
     Containers,
     Announcer,
-    Runtimes,
     PromptContext,
     PromptComposer,
     Egress,
@@ -28,7 +27,6 @@ impl<
         Sessions,
         Containers,
         Announcer,
-        Runtimes,
         PromptContext,
         PromptComposer,
         Egress,
@@ -40,7 +38,6 @@ where
     Sessions: AgentSessionService,
     Containers: ContainerManager,
     Announcer: SessionAnnouncer,
-    Runtimes: RuntimeConnections,
     PromptContext: MessagePromptContext,
     PromptComposer: AgentPromptComposer,
     Egress: SandboxEgressProvisioner,
@@ -231,28 +228,17 @@ where
 
     async fn set_sandbox_size(
         &self,
-        id: AgentSessionId,
-        size: SandboxSize,
+        _id: AgentSessionId,
+        _size: SandboxSize,
     ) -> agent_session::domain::error::Result<()> {
-        self.execute(id, HarnessCommand::SetSandboxSize(size))
-            .await
-            .map(drop)
-            .map_err(into_session_error)
+        Ok(())
     }
 
     async fn session_harness(
         &self,
-        id: AgentSessionId,
+        _id: AgentSessionId,
     ) -> agent_session::domain::error::Result<Option<harness_id::HarnessId>> {
-        // The row is the source of truth for which bot the session runs, and
-        // the binding resolves the bot's current harness the same way `bind`
-        // does at delivery time.
-        let session = self.inner.sessions.get_session(id).await?;
-        self.inner
-            .runtimes
-            .bound_harness(session.bot_id)
-            .await
-            .map_err(AgentSessionError::Unknown)
+        Ok(None)
     }
 }
 
@@ -264,7 +250,6 @@ impl<
     Sessions,
     Containers,
     Announcer,
-    Runtimes,
     PromptContext,
     PromptComposer,
     Egress,
@@ -276,7 +261,6 @@ impl<
         Sessions,
         Containers,
         Announcer,
-        Runtimes,
         PromptContext,
         PromptComposer,
         Egress,
@@ -288,7 +272,6 @@ where
     Sessions: AgentSessionService,
     Containers: ContainerManager,
     Announcer: SessionAnnouncer,
-    Runtimes: RuntimeConnections,
     PromptContext: MessagePromptContext,
     PromptComposer: AgentPromptComposer,
     Egress: SandboxEgressProvisioner,
@@ -314,7 +297,6 @@ impl<
     Sessions,
     Containers,
     Announcer,
-    Runtimes,
     PromptContext,
     PromptComposer,
     Egress,
@@ -326,7 +308,6 @@ impl<
         Sessions,
         Containers,
         Announcer,
-        Runtimes,
         PromptContext,
         PromptComposer,
         Egress,
@@ -338,7 +319,6 @@ where
     Sessions: AgentSessionService,
     Containers: ContainerManager,
     Announcer: SessionAnnouncer,
-    Runtimes: RuntimeConnections,
     PromptContext: MessagePromptContext,
     PromptComposer: AgentPromptComposer,
     Egress: SandboxEgressProvisioner,
@@ -358,7 +338,6 @@ impl<
     Sessions,
     Containers,
     Announcer,
-    Runtimes,
     PromptContext,
     PromptComposer,
     Egress,
@@ -370,7 +349,6 @@ impl<
         Sessions,
         Containers,
         Announcer,
-        Runtimes,
         PromptContext,
         PromptComposer,
         Egress,
@@ -382,7 +360,6 @@ where
     Sessions: AgentSessionService,
     Containers: ContainerManager,
     Announcer: SessionAnnouncer,
-    Runtimes: RuntimeConnections,
     PromptContext: MessagePromptContext,
     PromptComposer: AgentPromptComposer,
     Egress: SandboxEgressProvisioner,
@@ -476,61 +453,6 @@ where
         self.sessions.close_session(session_id).await?;
         self.containers.teardown(session_id).await?;
         self.sessions.delete_session(session_id).await?;
-        Ok(())
-    }
-
-    /// Apply `size` to this session's sandbox and remember it as the owner's default.
-    ///
-    /// The container manager reports whether the change is in-place, needs a
-    /// stop, or is unsupported. Disk is never changed.
-    #[tracing::instrument(err, skip(self), fields(%session_id, %size))]
-    pub(super) async fn apply_sandbox_size(
-        &self,
-        session_id: AgentSessionId,
-        size: SandboxSize,
-    ) -> Result<()> {
-        let session = self.sessions.get_session(session_id).await?;
-        // The size is remembered as the owner's preference, so this is a
-        // person's operation: asked first, before anything is closed.
-        let owner = session.owner_user()?;
-        let effect = self.containers.resize_effect(session.sandbox_size, size);
-        // Only a sandboxed coder has a sandbox to act on: a Cursor session
-        // runs in Cursor's cloud, the in-memory bot has no sandbox, and an
-        // external bot provisions its own. For all three, the size is only
-        // recorded below as a preference.
-        if AgentKind::for_session(session.bot_id, &session.harness) == AgentKind::SandboxedCoder
-            && effect != SandboxResizeEffect::NoOp
-        {
-            if effect == SandboxResizeEffect::Restart {
-                self.sessions.close_session(session_id).await?;
-            }
-            self.containers.resize(session_id, size).await?;
-            if effect == SandboxResizeEffect::Restart {
-                let container = self.containers.resume(session_id).await?;
-                let mcp_servers = self
-                    .resumed_mcp_servers(
-                        session_id,
-                        AgentKind::SandboxedCoder,
-                        owner,
-                        &session.mcp_servers,
-                    )
-                    .await?;
-                let permission_policy = self
-                    .permission_policy_for_session(session_id, session.bot_id)
-                    .await?;
-                self.sessions
-                    .attach_session(
-                        session_id,
-                        container
-                            .mcp_servers(mcp_servers)
-                            .permission_policy(permission_policy),
-                    )
-                    .await?;
-                self.restore_queue(session_id).await?;
-            }
-        }
-        self.sessions.set_sandbox_size(session_id, size).await?;
-        self.sessions.set_user_sandbox_size(owner, size).await?;
         Ok(())
     }
 }

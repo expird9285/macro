@@ -60,10 +60,6 @@ fn harness(fails: bool) -> Arc<RecordingHarness> {
     })
 }
 
-fn harness_id() -> HarnessId {
-    HarnessId::new_from_uuid(macro_uuid::generate_uuid_v7())
-}
-
 #[tokio::test]
 async fn a_command_executes_on_exactly_one_responsible_replica() {
     let redis = redis_client();
@@ -75,19 +71,15 @@ async fn a_command_executes_on_exactly_one_responsible_replica() {
     let origin_consumer = tokio::spawn(consume_runtime_commands(
         redis.clone(),
         origin,
-        Arc::new(|_| false),
         Arc::clone(&origin_harness),
         origin_ready,
-        empty_models(redis.clone()),
     ));
     let (peer_ready, mut peer_readiness) = tokio::sync::watch::channel(false);
     let peer_consumer = tokio::spawn(consume_runtime_commands(
         redis.clone(),
         peer,
-        Arc::new(|_| false),
         Arc::clone(&peer_harness),
         peer_ready,
-        empty_models(redis.clone()),
     ));
     ready(&mut origin_readiness).await;
     ready(&mut peer_readiness).await;
@@ -117,10 +109,8 @@ async fn a_responsible_replicas_error_does_not_fail_the_publish() {
     let consumer = tokio::spawn(consume_runtime_commands(
         redis.clone(),
         replica,
-        Arc::new(|_| false),
         Arc::clone(&harness),
         ready_tx,
-        empty_models(redis.clone()),
     ));
     ready(&mut readiness).await;
 
@@ -136,93 +126,4 @@ async fn a_responsible_replicas_error_does_not_fail_the_publish() {
     assert_eq!(outcome, CommandOutcome::Completed);
     wait_for_calls(&harness, 1).await;
     consumer.abort();
-}
-
-#[tokio::test]
-async fn publishing_without_an_owner_still_succeeds() {
-    let redis = redis_client();
-    let harness = harness(false);
-    let (ready_tx, mut readiness) = tokio::sync::watch::channel(false);
-    let consumer = tokio::spawn(consume_runtime_commands(
-        redis.clone(),
-        ReplicaId::mint(),
-        Arc::new(|_| false),
-        Arc::clone(&harness),
-        ready_tx,
-        empty_models(redis.clone()),
-    ));
-    ready(&mut readiness).await;
-
-    let target = harness_id();
-    let outcome = RedisCommandForwarder::new(redis)
-        .forward(
-            AgentSessionId::TEST_A,
-            HarnessCommand::Delete,
-            CommandTarget::Harness(target),
-        )
-        .await
-        .expect("the command publishes");
-
-    assert_eq!(outcome, CommandOutcome::Completed);
-    assert_eq!(harness.calls.load(Ordering::SeqCst), 0);
-    consumer.abort();
-}
-
-#[tokio::test]
-async fn overlapping_harness_connections_execute_once() {
-    let redis = redis_client();
-    let first = harness(false);
-    let second = harness(false);
-    let target = harness_id();
-    let (first_ready, mut first_readiness) = tokio::sync::watch::channel(false);
-    let first_consumer = tokio::spawn(consume_runtime_commands(
-        redis.clone(),
-        ReplicaId::mint(),
-        Arc::new(move |harness| harness == target),
-        Arc::clone(&first),
-        first_ready,
-        empty_models(redis.clone()),
-    ));
-    let (second_ready, mut second_readiness) = tokio::sync::watch::channel(false);
-    let second_consumer = tokio::spawn(consume_runtime_commands(
-        redis.clone(),
-        ReplicaId::mint(),
-        Arc::new(move |harness| harness == target),
-        Arc::clone(&second),
-        second_ready,
-        empty_models(redis.clone()),
-    ));
-    ready(&mut first_readiness).await;
-    ready(&mut second_readiness).await;
-
-    RedisCommandForwarder::new(redis)
-        .forward(
-            AgentSessionId::TEST_A,
-            HarnessCommand::Delete,
-            CommandTarget::Harness(target),
-        )
-        .await
-        .unwrap();
-
-    tokio::time::timeout(std::time::Duration::from_secs(2), async {
-        while first.calls.load(Ordering::SeqCst) + second.calls.load(Ordering::SeqCst) != 1 {
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .expect("command is processed");
-    assert_eq!(
-        first.calls.load(Ordering::SeqCst) + second.calls.load(Ordering::SeqCst),
-        1
-    );
-    first_consumer.abort();
-    second_consumer.abort();
-}
-
-fn empty_models(redis: redis::Client) -> MacrodModels {
-    MacrodModels::new(
-        agent_harness::outbound::runtime_registry::RuntimeRegistry::new(),
-        redis,
-        std::time::Duration::from_secs(2),
-    )
 }

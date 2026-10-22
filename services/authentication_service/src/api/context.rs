@@ -60,7 +60,6 @@ use tokio_util::task::TaskTracker;
 use crate::account_link_state::AccountLinkStateKey;
 use crate::domain::microsoft::MicrosoftAuth;
 use crate::service::signup_policy::SignupPolicy;
-use cursor_api_key::cipher::CursorApiKeyCipher;
 
 pub(crate) type NotificationIngressType = SqsNotificationIngress<SqsQueue>;
 pub(crate) type AuthenticationEventBroker =
@@ -159,10 +158,6 @@ pub(crate) struct ApiContext {
     pub github_link_service: Arc<GithubLinkServiceType>,
     pub auth_client: Arc<fusionauth::FusionAuthClient>,
     pub microsoft_auth: Option<Arc<dyn MicrosoftAuth>>,
-    /// Encrypts users' Cursor API keys.
-    pub cursor_api_key_cipher: Arc<dyn CursorApiKeyCipher>,
-    /// Owner-bound Codex OAuth lifecycle and cloud target settings.
-    pub codex_connection: Option<Arc<dyn codex_connection::domain::ConnectionService>>,
     pub macro_cache_client: Arc<MacroCache>,
     pub stripe_client: Arc<stripe::Client>,
     pub subscription_status: Arc<SubscriptionStatusServiceType>,

@@ -10,7 +10,6 @@ pub mod agent_identity;
 pub mod agent_session;
 pub mod channel_mention;
 pub mod citations;
-pub mod coding_agents;
 pub mod connected_toolsets;
 pub mod crm_pipelines;
 pub mod databases;
@@ -363,10 +362,6 @@ mod tests {
         let prompt = BASE_PROMPT.to_string();
         assert!(prompt.contains(pull_requests::READY_PULL_REQUEST));
         assert!(mcp_instructions("https://macro.com").contains(pull_requests::READY_PULL_REQUEST));
-
-        let coding = coding_agents::PROMPT.to_string();
-        assert!(coding.contains("ready for review, not a draft"));
-        assert!(coding.contains("CI passing"));
     }
 
     #[test]

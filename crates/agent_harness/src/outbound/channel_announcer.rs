@@ -28,8 +28,7 @@ use entity_access::domain::{
 use lexical_client::LexicalClient;
 use lexical_client::parse_markdown::{
     AgentActivityRow, AgentActivityStatus, AgentAnnouncementChip, AgentAnnouncementReplyTarget,
-    AgentChatReply, AgentChatReplyBody, AgentConnectionChip, AgentConnectionPrompt,
-    AgentReplySegment,
+    AgentChatReply, AgentChatReplyBody, AgentReplySegment,
 };
 use macro_user_id::user_id::MacroUserIdStr;
 use messages::domain::{
@@ -44,8 +43,8 @@ use messages::domain::{
 
 use crate::domain::error::{HarnessError, Result};
 use crate::domain::model::{
-    AgentTypingUpdate, AnnouncedMessage, DeclinedMention, HeldToolCall, ReplyOutcome,
-    ReplyPresentation, ResolvedReply, SessionAnnouncement, SessionBlocker,
+    AgentTypingUpdate, AnnouncedMessage, HeldToolCall, ReplyOutcome,
+    ReplyPresentation, ResolvedReply, SessionAnnouncement,
 };
 use crate::domain::ports::SessionAnnouncer;
 
@@ -227,45 +226,6 @@ const fn patch_policy(outcome: &ReplyOutcome) -> PatchMessageNotificationPolicy 
         ReplyOutcome::AwaitingApproval(_) | ReplyOutcome::Resumed => {
             PatchMessageNotificationPolicy::Default
         }
-    }
-}
-
-/// Describe the missing setup; Lexical owns the message and chip serialization.
-fn connection_prompt(blocker: SessionBlocker) -> AgentConnectionPrompt {
-    let (agent_tag, message, app_slug, name) = match blocker {
-        SessionBlocker::CursorNotConnected => (
-            "@cursor",
-            "runs on your own Cursor account, and yours is not connected yet. Add your Cursor API key, then mention me again.",
-            "cursor",
-            "Cursor",
-        ),
-        SessionBlocker::CodexNotConnected => (
-            "@codex",
-            "runs on your own ChatGPT account. Connect Codex and select a cloud environment, then mention me again.",
-            "codex-cloud",
-            "Codex",
-        ),
-        SessionBlocker::CodexEnvironmentNotConfigured => (
-            "@codex",
-            "needs a cloud environment to run. Select an environment in Codex settings, then mention me again.",
-            "codex-cloud",
-            "Codex",
-        ),
-        SessionBlocker::ClaudeNotConnected => (
-            "@claude",
-            "runs on your own Claude account. Connect Claude, then mention me again.",
-            "claude-cloud",
-            "Claude",
-        ),
-    };
-    AgentConnectionPrompt {
-        agent_tag: agent_tag.to_owned(),
-        message: message.to_owned(),
-        chip: AgentConnectionChip {
-            app_slug: app_slug.to_owned(),
-            name: name.to_owned(),
-            target: "harness".to_owned(),
-        },
     }
 }
 
@@ -493,60 +453,6 @@ impl<Access: EntityAccessService> SessionAnnouncer for MessageAnnouncer<Access> 
             }
             Err(error) => Err(HarnessError::Announce(rootcause::report!(error).into())),
         }
-    }
-
-    async fn decline(&self, declined: DeclinedMention) -> Result<()> {
-        let access = self
-            .bot_write(
-                declined.bot_id,
-                declined.triggered_by,
-                &declined.origin.parent,
-            )
-            .await?;
-        let content = self
-            .lexical
-            .compose_agent_connection_prompt(&connection_prompt(declined.blocker))
-            .await
-            .map_err(|error| HarnessError::Announce(rootcause::report!(error).into()))?;
-        if declined.origin.reuse_origin_message {
-            self.messages
-                .patch(
-                    access,
-                    declined.origin.message_id,
-                    MessagePatch {
-                        content: Some(content),
-                        notification_policy: PatchMessageNotificationPolicy::NotifyAsPostedMessage,
-                        ..Default::default()
-                    },
-                )
-                .await
-                .map_err(|error| HarnessError::Announce(rootcause::report!(error).into()))?;
-            return Ok(());
-        }
-        self.messages
-            .post(
-                access,
-                PostMessage {
-                    id: None,
-                    attribution: MessageAttribution::ActingUser,
-                    anchor: None,
-                    content,
-                    mentions: Vec::new(),
-                    thread_id: declined
-                        .origin
-                        .reply_placement
-                        .thread_id(declined.origin.thread_id),
-                    attachments: Vec::new(),
-                    nonce: None,
-                    // Unlike a session chip, this is the whole answer: the
-                    // person who asked should hear it even if they have
-                    // already looked away from the thread.
-                    notification_policy: PostMessageNotificationPolicy::Default,
-                },
-            )
-            .await
-            .map_err(|error| HarnessError::Announce(rootcause::report!(error).into()))?;
-        Ok(())
     }
 
     async fn present(&self, presentation: ReplyPresentation) -> Result<()> {

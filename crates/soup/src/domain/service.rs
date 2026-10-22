@@ -219,8 +219,6 @@ pub struct SoupImpl<T, U, V, C, K, Crm, F> {
     crm_service: Crm,
     /// the interface for listing GitHub pull requests
     github_pull_request_service: F,
-    /// Optional captured branch facts supplied by the owning changes domain.
-    agent_branches: Option<Arc<dyn agent_changes::domain::ports::SessionBranchReader>>,
     favorites: Option<Arc<dyn favorites::FavoriteReader>>,
 }
 
@@ -254,18 +252,8 @@ where
             call_record_service,
             crm_service,
             github_pull_request_service,
-            agent_branches: None,
             favorites: None,
         }
-    }
-
-    /// Attach persisted working-branch facts for agent rows.
-    pub fn with_agent_branches(
-        mut self,
-        reader: impl agent_changes::domain::ports::SessionBranchReader,
-    ) -> Self {
-        self.agent_branches = Some(Arc::new(reader));
-        self
     }
 
     /// Attach the owning favorites service for viewer-scoped query filtering.
@@ -992,7 +980,6 @@ where
         let (mut items, sort_ats): (Vec<SoupCandidate>, Vec<_>) = page.into_iter().unzip();
         agent_metadata::enrich(
             &self.github_pull_request_service,
-            self.agent_branches.as_deref(),
             req.user.to_string(),
             metadata_source_ids,
             &mut items,
@@ -1901,7 +1888,6 @@ where
         };
         agent_metadata::enrich(
             &self.github_pull_request_service,
-            self.agent_branches.as_deref(),
             metadata_user,
             metadata_source_ids,
             items,

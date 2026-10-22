@@ -34,7 +34,6 @@ async fn quota_denial_finishes_queued_conversation_turns_without_stopping_the_ru
         PromptContextMock::default(),
         PromptComposerMock::default(),
         KindDefaultPolicies,
-        HarnessDefaultCodingAgents,
         PromptMentionsMock::new(),
         EgressProvisionerMock::new(),
         Some(journal.clone()),
@@ -135,7 +134,6 @@ async fn a_message_whose_conversation_was_deleted_is_acknowledged_instead_of_red
         PromptContextMock::default(),
         PromptComposerMock::default(),
         KindDefaultPolicies,
-        HarnessDefaultCodingAgents,
         PromptMentionsMock::new(),
         EgressProvisionerMock::new(),
         Some(journal),
@@ -374,39 +372,6 @@ async fn a_different_person_cannot_prompt_the_reserved_direct_session() {
     assert!(announcer.presented().is_empty());
 }
 
-#[tokio::test]
-async fn an_external_persona_conversation_binds_the_connected_runtime_without_spawning_a_container()
-{
-    let (service, repo, containers, announcer, runtimes) = harness();
-    let id = AgentSessionId::new();
-    let mut command = direct_command();
-    command.bot_id = BotId::new_from_uuid(macro_uuid::generate_uuid_v7());
-    command.runtime.kind = AgentKind::External;
-    command.runtime.harness = "external".to_owned();
-    let runtime = ContainerMock::default();
-    runtimes.attach(harness_for_bot(command.bot_id), runtime.clone());
-    let open = service.execute(id, HarnessCommand::ConversationMessage(command.clone()));
-    let (result, ()) = tokio::join!(open, complete_bound_handshake(&runtime));
-    result.expect("a DM delivers its first prompt to the connected persona");
-    assert_eq!(containers.spawned(), 0);
-    assert_eq!(repo.get(id).await.unwrap().harness, "external");
-    assert_eq!(prompts(&runtime.agent()).len(), 1);
-    assert!(announcer.announced().is_empty());
-    assert!(
-        announcer.typed().iter().any(|typing| typing.active),
-        "an external persona types like any other"
-    );
-
-    mention_origin_mut(&mut command).message_id = macro_uuid::generate_uuid_v7();
-    assert_eq!(
-        service
-            .execute(id, HarnessCommand::ConversationMessage(command))
-            .await
-            .unwrap(),
-        CommandOutcome::Queued
-    );
-    assert!(runtime.agent().received_notifications().is_empty());
-}
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
 async fn a_completed_conversation_message_never_runs_again_when_the_broker_replays_it(
@@ -421,7 +386,6 @@ async fn a_completed_conversation_message_never_runs_again_when_the_broker_repla
         PromptContextMock::default(),
         PromptComposerMock::default(),
         KindDefaultPolicies,
-        HarnessDefaultCodingAgents,
         PromptMentionsMock::new(),
         EgressProvisionerMock::new(),
         Some(journal.clone()),
@@ -473,7 +437,6 @@ async fn recovered_messages_dispatch_in_durable_order_even_when_delivered_in_rev
         PromptContextMock::default(),
         PromptComposerMock::default(),
         KindDefaultPolicies,
-        HarnessDefaultCodingAgents,
         PromptMentionsMock::new(),
         EgressProvisionerMock::new(),
         Some(journal.clone()),
@@ -558,7 +521,6 @@ async fn journaled_conversation(
         PromptContextMock::default(),
         PromptComposerMock::default(),
         KindDefaultPolicies,
-        HarnessDefaultCodingAgents,
         PromptMentionsMock::new(),
         EgressProvisionerMock::new(),
         Some(journal),
@@ -952,7 +914,6 @@ async fn two_queued_behind_a_running_turn(
         prompt_context,
         prompt_composer,
         KindDefaultPolicies,
-        HarnessDefaultCodingAgents,
         PromptMentionsMock::new(),
         EgressProvisionerMock::new(),
         Some(journal),

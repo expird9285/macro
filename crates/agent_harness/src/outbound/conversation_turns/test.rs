@@ -469,7 +469,7 @@ async fn settings_remain_pinned_after_reconnect_and_new_sessions_adopt_edits(poo
     let original = ConversationSettings {
         runtime: command.runtime,
         permissions: crate::domain::model::PermissionPolicyConfig::Persona {
-            kind: AgentKind::External,
+            kind: AgentKind::InMemory,
             harness_allows_bypass: Some(true),
             auto_accept_permissions: Some(false),
         },

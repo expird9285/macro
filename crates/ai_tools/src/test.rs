@@ -92,26 +92,6 @@ fn every_host_toolset_passes_schema_validation() {
 }
 
 #[test]
-fn coding_dispatch_is_available_to_every_host_but_not_internal_subagents() {
-    for host in [
-        AiHost::Chat,
-        AiHost::AgentSession,
-        AiHost::ChannelBot,
-        AiHost::Mcp,
-    ] {
-        let tools = tools_for(host);
-        for name in ["ListCodingAgents", "DispatchCodingAgent"] {
-            assert!(tools.toolset.tools.contains_key(name), "{host:?}: {name}");
-            assert!(tools.prompt.to_string().contains(name), "{host:?}: {name}");
-        }
-    }
-    let subagent = subagent_toolset();
-    for name in ["ListCodingAgents", "DispatchCodingAgent"] {
-        assert!(!subagent.tools.contains_key(name));
-    }
-}
-
-#[test]
 fn project_workflows_are_available_in_every_host_alongside_folder_and_property_tools() {
     let names = [
         "ListInitiatives",
@@ -584,7 +564,6 @@ fn code_mode_retains_direct_lifecycles_and_hides_sdk_methods_from_lazy_discovery
         "CreateRoutine",
         "EditDocument",
         "Subagent",
-        "DispatchCodingAgent",
         "SearchTools",
         "LoadTools",
         "DiscoverConnectors",

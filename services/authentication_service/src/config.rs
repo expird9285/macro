@@ -46,20 +46,6 @@ maybe_env_vars! {
     pub struct MicrosoftClientSecret;
     pub struct MicrosoftTenantId;
     pub struct MicrosoftTokenKmsKeyId;
-    /// KMS key that encrypts users' Cursor API keys. Deliberately not the
-    /// Microsoft one: sharing it would grant whatever decrypts Cursor keys
-    /// access to the key protecting everyone's mailbox credentials.
-    ///
-    /// Optional *here* only because Pulumi injects it into the task
-    /// definition rather than Doppler, and the Doppler config validator
-    /// deserializes this struct from Doppler alone — a required field it
-    /// cannot see fails CI. The service still refuses to start without it;
-    /// see [`Config::cursor_api_key_kms_key_id`], which also reads the
-    /// process environment because `MacroConfig` does not fall back to it
-    /// when `APP_SECRETS_JSON` is present.
-    pub struct CursorApiKeyKmsKeyId;
-    /// Dedicated CMK for encrypted Codex OAuth envelopes, injected by infrastructure.
-    pub struct CodexOauthKmsKeyId;
     pub struct GaMeasurementId;
     pub struct GaApiSecret;
     pub struct MetaPixelId;
@@ -144,12 +130,6 @@ pub struct Config {
     pub microsoft_tenant_id: MicrosoftTenantId,
     /// KMS key used to encrypt Microsoft refresh-token data keys.
     pub microsoft_token_kms_key_id: MicrosoftTokenKmsKeyId,
-    /// KMS key used to encrypt users' Cursor API keys. Required in practice —
-    /// read through [`Config::cursor_api_key_kms_key_id`], which refuses an
-    /// absent or blank value at startup.
-    pub cursor_api_key_kms_key_id: CursorApiKeyKmsKeyId,
-    /// Dedicated Codex envelope encryption CMK; absent deployments return 503 for Codex.
-    pub codex_oauth_kms_key_id: CodexOauthKmsKeyId,
     /// Stripe secret key
     pub stripe_secret_key: StripeSecretKey,
     /// The port to listen for HTTP requests on.
@@ -247,39 +227,6 @@ impl Config {
         config.enable_ai_usage_enforcement = enforcement;
         config.enable_ai_usage_billing = billing;
         Ok(config)
-    }
-
-    /// The KMS key that encrypts Cursor API keys.
-    ///
-    /// # Errors
-    /// If it is unset or blank. There is no "this deployment does not accept
-    /// Cursor keys" mode to fall back to: registering a key is a plain
-    /// feature of the settings surface, and a service that cannot encrypt one
-    /// should fail at startup rather than at the first user who tries.
-    pub(crate) fn cursor_api_key_kms_key_id(&self) -> anyhow::Result<String> {
-        // `MacroConfig` will not see a Pulumi-injected process env var once
-        // Doppler's `APP_SECRETS_JSON` is present. Re-read through the env-var
-        // type, which does fall back to process env.
-        let from_process_env = CursorApiKeyKmsKeyId::new();
-        resolve_cursor_api_key_kms_key_id(
-            &self.cursor_api_key_kms_key_id,
-            from_process_env
-                .as_ref()
-                .and_then(CursorApiKeyKmsKeyId::value),
-        )
-    }
-
-    /// Resolve the dedicated CMK, including Pulumi-injected process environment.
-    pub(crate) fn codex_oauth_kms_key_id(&self) -> Option<String> {
-        let process = CodexOauthKmsKeyId::new();
-        nonblank_value(self.codex_oauth_kms_key_id.value())
-            .or_else(|| {
-                process
-                    .as_ref()
-                    .and_then(CodexOauthKmsKeyId::value)
-                    .and_then(|value| nonblank_value(Some(value)))
-            })
-            .map(str::to_owned)
     }
 
     /// The key that signs and verifies account-link OAuth state.
@@ -418,21 +365,6 @@ fn resolve_gtm_invite_config(
 
 fn nonblank_value(value: Option<&str>) -> Option<&str> {
     value.filter(|value| !value.trim().is_empty())
-}
-
-/// Pulumi injects `CURSOR_API_KEY_KMS_KEY_ID` as a container env var, not
-/// through Doppler. ECS always has `APP_SECRETS_JSON`, and `MacroConfig` will
-/// not look at process env once that blob is present, so the field on `Config`
-/// is unset in deployed environments. `CursorApiKeyKmsKeyId::new()` still
-/// falls back to process env, which is what `process_env` is.
-fn resolve_cursor_api_key_kms_key_id(
-    configured: &CursorApiKeyKmsKeyId,
-    process_env: Option<&str>,
-) -> anyhow::Result<String> {
-    nonblank_value(configured.value())
-        .or_else(|| nonblank_value(process_env))
-        .map(str::to_owned)
-        .context("CURSOR_API_KEY_KMS_KEY_ID is required")
 }
 
 #[cfg(test)]

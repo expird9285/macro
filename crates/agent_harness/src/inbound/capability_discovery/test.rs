@@ -6,21 +6,10 @@ use super::*;
 fn target_request_maps_all_supported_harnesses() {
     let in_memory = DiscoverAgentCapabilities::try_from(DiscoverAgentCapabilitiesRequest {
         harness: CapabilityHarnessDto::InMemory,
-        harness_id: None,
         model: None,
     })
     .unwrap();
     assert_eq!(in_memory.harness, CapabilityHarness::InMemory);
-
-    let macrod_id = Uuid::new_v4();
-    let macrod = DiscoverAgentCapabilities::try_from(DiscoverAgentCapabilitiesRequest {
-        harness: CapabilityHarnessDto::Macrod,
-        harness_id: Some(macrod_id),
-        model: None,
-    })
-    .unwrap();
-    assert_eq!(macrod.harness, CapabilityHarness::Macrod);
-    assert_eq!(macrod.harness_id.unwrap().as_uuid(), macrod_id);
 }
 
 #[test]

@@ -421,11 +421,6 @@ fn points_every_acp_server_at_the_proxy() {
                 authorization.clone(),
             ),
             (
-                "macro-preview".to_owned(),
-                "https://egress.macro.com/mcp-preview".to_owned(),
-                authorization.clone(),
-            ),
-            (
                 "datadog".to_owned(),
                 "https://egress.macro.com/mcp/datadog".to_owned(),
                 authorization.clone(),
@@ -455,10 +450,6 @@ fn an_owner_with_no_connected_apps_still_gets_the_macro_server() {
                 "macro_internal".to_owned(),
                 "https://egress.macro.com/mcp/internal".to_owned()
             ),
-            (
-                "macro-preview".to_owned(),
-                "https://egress.macro.com/mcp-preview".to_owned()
-            )
         ]
     );
 }
@@ -501,11 +492,10 @@ fn external_runtime_uses_host_reachable_urls_with_the_existing_session_credentia
     let custom_path = format!("/mcp-custom/{}", custom.key);
     sandbox.custom_servers.push(custom);
     let servers = provisioner.external_mcp_servers(&sandbox);
-    assert_eq!(servers.len(), 5);
+    assert_eq!(servers.len(), 4);
     for (server, (name, path)) in servers.iter().zip([
         ("macro", "/mcp-macro"),
         ("macro_internal", "/mcp/internal"),
-        ("macro-preview", "/mcp-preview"),
         ("datadog", "/mcp/datadog"),
         ("Wiki", custom_path.as_str()),
     ]) {

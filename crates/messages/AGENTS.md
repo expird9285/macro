@@ -44,7 +44,7 @@ they need.
   (delivery), `initiative` (outbound), `macro_event_broker`/`macro_event_topics`
   (broker).
 - Used by: `agent_harness`, `agent_session`, `agent_trigger`, `ai_tools`, `bots`,
-  `channel_bots`, `channels`, `coding_agent_worker`, `crm`, `documents`,
+  `channel_bots`, `channels`, `crm`, `documents`,
   `lexical_client`, `lexical_mention_extractor`, `macro_db_client`,
   `soup_realtime`, `webhook`.
 

@@ -17,7 +17,7 @@ by policy.
   authorization service; bot and user-API-key authorizers are required
   explicitly (pass `NoBotAuthorizer`/`NoUserApiKeyAuthorizer` to opt out).
 - `src/inbound/axum.rs`: the Axum extractors and rejection type.
-- `src/outbound/pg_*.rs`: Postgres-backed bot/harness/user-API-key
+- `src/outbound/pg_*.rs`: Postgres-backed bot/user-API-key
   authorization repos (feature `postgres`).
 
 ## Scope
@@ -30,7 +30,7 @@ by policy.
 ## Boundaries
 
 - Depends on: `macro_auth` (outbound JWT validation), `bot_id`, `bot_token`,
-  `harness_id`, `harness_token`, `model_user`, `model-error-response`.
+  `harness_id`, `model_user`, `model-error-response`.
 - Used by: essentially every
   authenticated HTTP surface (`agent_session`, `agent_harness`, `ai_tools`,
   `bots`, `calendar_events`, `channels`, `chat`, `documents`, ...).

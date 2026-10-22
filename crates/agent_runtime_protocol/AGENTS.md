@@ -2,11 +2,9 @@
 
 ## What it is
 
-Part of agent sessions: the outer wire protocol every coding-agent
-transport (sandboxed containers, in-process, and the Cursor/Codex/Claude
-cloud-agent adapters) speaks — carries Agent Client Protocol (ACP) payloads
-plus runtime control messages without interpreting the wrapped ACP
-payloads.
+Part of agent sessions: the outer wire protocol the agent runtime speaks —
+carries Agent Client Protocol (ACP) payloads plus runtime control messages
+without interpreting the wrapped ACP payloads.
 
 ## Start here
 
@@ -32,14 +30,12 @@ payloads.
 
 - Depends on: nothing crate-specific (foundational protocol crate).
 - Used by: `agent_session`, `agent_session_realtime`, `agent_harness`,
-  `agent_egress`, `agent_inmem`, `webhook`, `complete_graph`, and the
-  Cursor/Codex/Claude cloud-agent adapter crates.
+  `agent_egress`, `agent_inmem`, `webhook`, `complete_graph`.
 
 ## Recipes
 
 - Add a new message type: `src/domain/` (schema) → `src/testing/wire_conformance.rs`
-  (conformance test) → `src/bin/export_types.rs` if the frontend needs the
-  generated type.
+  (conformance test).
 
 ## Checks
 

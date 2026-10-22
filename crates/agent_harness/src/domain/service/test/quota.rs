@@ -104,11 +104,6 @@ fn assert_no_provisioning(service: &TestHarness) {
 async fn denied_or_unavailable_trigger_open_has_no_side_effects() {
     for failure in [denied(), AiAdmissionError::Unavailable] {
         for (bot, kind, harness) in [
-            (
-                bot_id::MACRO_CODER_BOT_ID,
-                AgentKind::SandboxedCoder,
-                "opencode",
-            ),
             (BotId::TEST_A, AgentKind::InMemory, "in-memory"),
         ] {
             let (service, repo, admission) = bench(Some(failure));
@@ -149,13 +144,6 @@ async fn denied_or_unavailable_trigger_open_has_no_side_effects() {
 async fn unauthorized_open_never_consults_billing() {
     let (service, _, admission) = bench(Some(denied()));
     let mut open = open_command();
-    open.bot_id = bot_id::MACRO_CODER_BOT_ID;
-    assert!(matches!(
-        service
-            .execute_here(AgentSessionId::new(), HarnessCommand::Open(open.clone()))
-            .await,
-        Err(HarnessError::Session(AgentSessionError::Forbidden))
-    ));
     mention_origin_mut(&mut open).sender = staff_sender();
     *service.inner.prompt_context.unauthorized.lock().unwrap() = Some("no access".into());
     assert!(matches!(
@@ -184,7 +172,7 @@ async fn managed_open_checks_quota_before_provisioning_without_an_initial_prompt
                 model: None,
                 prompt: None,
                 profile: Some(SelectedManagedPersona {
-                    bot_id: bot_id::MACRO_CODER_BOT_ID,
+                    bot_id: bot_id::MACRO_NEW_BOT_ID,
                     profile: None,
                 }),
             })
@@ -199,7 +187,6 @@ async fn managed_open_checks_quota_before_provisioning_without_an_initial_prompt
 async fn spending_actions_charge_the_persisted_owner_not_the_actor() {
     for failure in [denied(), AiAdmissionError::Unavailable] {
         for (bot, harness) in [
-            (bot_id::MACRO_CODER_BOT_ID, "opencode"),
             (BotId::TEST_A, "macro-inmem"),
         ] {
             for action in [AgentAction::prompt("hello"), AgentAction::Compact] {
@@ -222,32 +209,6 @@ async fn spending_actions_charge_the_persisted_owner_not_the_actor() {
     }
 }
 
-#[tokio::test]
-async fn externally_funded_runtimes_accept_spending_actions_without_quota_io() {
-    for harness in ["cursor", "codex-cloud", "claude-cloud", "macrod", "custom"] {
-        let (service, repo, admission) = bench(Some(denied()));
-        let id = session(&repo, BotId::TEST_A, harness, Owner::User(staff_sender())).await;
-        service.inner.busy.admit(id);
-        let result = service
-            .execute_here(id, HarnessCommand::Deliver(action(AgentAction::Compact)))
-            .await
-            .unwrap();
-        assert_eq!(result, CommandOutcome::Queued);
-        assert!(admission.calls.lock().unwrap().is_empty());
-        assert_eq!(repo.list_queued_actions(id).await.unwrap().len(), 1);
-    }
-}
-
-#[tokio::test]
-async fn external_open_does_not_check_runtime_quota() {
-    let (service, _, admission) = bench(Some(denied()));
-    service
-        .open_external_session(open_external_request("/srv/agent"))
-        .await
-        .unwrap();
-    assert!(admission.calls.lock().unwrap().is_empty());
-    assert!(service.inner.egress.provisioned().is_empty());
-}
 
 #[tokio::test]
 async fn unauthorized_forwarded_origin_is_rejected_before_billing_or_queueing() {
@@ -288,23 +249,8 @@ async fn authorized_forwarded_commands_still_require_admission() {
 }
 
 #[tokio::test]
-async fn staff_and_non_user_owner_restrictions_precede_quota() {
+async fn non_user_owner_restrictions_precede_quota() {
     let (service, repo, admission) = bench(Some(denied()));
-    let id = session(
-        &repo,
-        bot_id::MACRO_CODER_BOT_ID,
-        "opencode",
-        Owner::User(sender()),
-    )
-    .await;
-    let mut command = action(AgentAction::Compact);
-    command.actor = Some(sender());
-    assert!(matches!(
-        service
-            .execute_here(id, HarnessCommand::Deliver(command))
-            .await,
-        Err(HarnessError::Session(AgentSessionError::Forbidden))
-    ));
     let id = session(&repo, BotId::TEST_A, "in-memory", Owner::Bot(BotId::TEST_A)).await;
     assert!(matches!(
         service
@@ -757,18 +703,15 @@ async fn rejection_persistence_failure_keeps_work_and_defers_reply_resolution() 
             sessions,
             MockContainerManager::new(),
             AnnouncerMock::new(),
-            TestConnections::new(MirrorBindings, RuntimeRegistry::new()),
             PromptContextMock::default(),
             PromptComposerMock::default(),
             EgressProvisionerMock::new(),
             NoPeers,
             KindDefaultPolicies,
-            HarnessDefaultCodingAgents,
             HarnessDefaults::new(SessionDefaults {
                 bot_id: BotId::TEST_A,
                 model: "model".into(),
                 harness: "in-memory".into(),
-                repo_url: None,
             }),
             RecordingLifecyclePublisher::new(),
             crate::domain::pending::PendingCommands::new(),

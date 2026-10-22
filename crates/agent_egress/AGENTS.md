@@ -30,7 +30,7 @@ MCP app, a custom server, or a GitHub installation token) on each request.
 ## Boundaries
 
 - Depends on: `agent_session` (session/owner lookup), `agent_runtime_protocol`.
-- Used by: `agent_harness_service`, `preview_gateway`.
+- Used by: `agent_harness_service`.
 
 ## Recipes
 

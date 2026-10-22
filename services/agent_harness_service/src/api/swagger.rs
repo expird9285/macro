@@ -1,17 +1,9 @@
 //! OpenAPI document for the agent harness service's session routes.
 
-use agent_changes::inbound::axum_router::{
-    self as changes_router, AgentSessionChangesPatchResponse, AgentSessionChangesResponse,
-    CaptureAttemptDto, CaptureOutcomeDto, ChangedFileDto, ChangesetDto, ChangesetSourceDto,
-    FileChangeKindDto, GitRefDto,
-};
 use agent_harness::inbound::capability_discovery;
 use agent_harness::inbound::model_load::{
     self, AgentModelDto, AgentModelsStatusDto, LoadAgentModelsRequest, LoadAgentModelsResponse,
     ModelHarnessDto,
-};
-use agent_harness::inbound::repositories::{
-    self, AgentRepositoriesResponse, AgentRepositoryBranchesResponse, AgentRepositoryDto,
 };
 use agent_harness::inbound::tool_approvals::{
     self, AnswerToolApprovalRequest, AnswerToolApprovalResponse, ToolApprovalAnswerDto,
@@ -35,7 +27,6 @@ use agent_session::inbound::axum_router::{
     PreviewAgentSessionsResponse, QueuedActionDto, RenameAgentSessionRequest, SandboxSizeBody,
     SessionStatusDto, SetAgentSessionArchivedRequest, WithAgentSessionId,
 };
-use claude_cloud_agents::inbound::auth as claude_auth;
 use utoipa::{
     Modify, OpenApi,
     openapi::security::{Http, HttpAuthScheme, SecurityScheme},
@@ -64,10 +55,6 @@ impl Modify for SecurityAddon {
         agent_code_mode::inbound::axum_router::get_review,
         agent_code_mode::inbound::axum_router::list_reviews,
         agent_code_mode::inbound::axum_router::decide_review,
-        claude_auth::status,
-        claude_auth::start,
-        claude_auth::complete,
-        claude_auth::disconnect,
         axum_router::create_agent_session_handler,
         axum_router::warm_agent_session_handler,
         axum_router::get_agent_session_handler,
@@ -99,18 +86,9 @@ impl Modify for SecurityAddon {
         agent_harness::inbound::conversations::list_agent_conversations,
         agent_harness::inbound::conversations::retry_agent_conversation_turn,
         agent_harness::inbound::conversations::start_fresh_agent_conversation,
-        repositories::list_agent_repositories_handler,
-        repositories::list_agent_repository_branches_handler,
-        changes_router::get_agent_session_changes_handler,
-        changes_router::get_agent_session_changes_patch_handler,
-        changes_router::refresh_agent_session_changes_handler,
         tool_approvals::answer_tool_approval_handler,
     ),
     components(schemas(
-        claude_auth::StatusResponse,
-        claude_auth::StartResponse,
-        claude_auth::CompleteRequest,
-        claude_auth::EmptyRequest,
         CreateAgentSessionRequest,
         CreateAgentSessionResponse,
         CreateSessionThread,
@@ -155,18 +133,6 @@ impl Modify for SecurityAddon {
         AgentModelDto,
         AgentModelsStatusDto,
         ModelHarnessDto,
-        AgentRepositoriesResponse,
-        AgentRepositoryBranchesResponse,
-        AgentRepositoryDto,
-        AgentSessionChangesResponse,
-        AgentSessionChangesPatchResponse,
-        ChangesetDto,
-        ChangedFileDto,
-        GitRefDto,
-        CaptureAttemptDto,
-        CaptureOutcomeDto,
-        ChangesetSourceDto,
-        FileChangeKindDto,
         AnswerToolApprovalRequest,
         AnswerToolApprovalResponse,
         ToolApprovalAnswerDto,
@@ -174,8 +140,7 @@ impl Modify for SecurityAddon {
     )),
     tags(
         (name = "agent-sessions", description = "Agent sessions"),
-        (name = "agent-models", description = "Fresh provider model discovery"),
-        (name = "agent-repositories", description = "Repositories a coding session can work on")
+        (name = "agent-models", description = "Fresh provider model discovery")
     )
 )]
 pub struct ApiDoc;

@@ -1,7 +1,6 @@
 //! Redis implementation of [`CommandForwarder`].
 
 use agent_session::domain::model::AgentSessionId;
-use harness_id::HarnessId;
 use redis::AsyncCommands as _;
 use std::collections::HashMap;
 use tracing_opentelemetry::OpenTelemetrySpanExt as _;
@@ -72,8 +71,6 @@ pub struct RuntimeCommandRequest {
 pub enum RuntimeCommandTarget {
     /// A specific session-owning replica.
     Replica(macro_uuid::Uuid),
-    /// Whichever replica currently holds this harness runtime connection.
-    Harness(HarnessId),
 }
 
 impl RuntimeCommandRequest {
@@ -83,7 +80,7 @@ impl RuntimeCommandRequest {
         self.request_id
     }
 
-    /// The replica or harness connection selected for execution.
+    /// The replica selected for execution.
     #[must_use]
     pub fn target(&self) -> RuntimeCommandTarget {
         self.target
@@ -112,7 +109,6 @@ impl From<CommandTarget> for RuntimeCommandTarget {
     fn from(target: CommandTarget) -> Self {
         match target {
             CommandTarget::Replica(replica) => Self::Replica(replica.as_uuid()),
-            CommandTarget::Harness(harness) => Self::Harness(harness),
         }
     }
 }

@@ -1232,40 +1232,6 @@ async fn a_session_without_a_repository_can_use_mcp_but_cannot_mint_git_credenti
     assert!(service.tokens.asked.lock().expect("lock").is_empty());
 }
 
-#[tokio::test]
-async fn preview_uses_only_the_authenticated_session_token_at_a_fixed_destination() {
-    let service = EgressServiceImpl::new(
-        StubSessions::granting(),
-        SpyCredentials::knowing(),
-        SpyGithubTokens::default(),
-        SpyForwarder::answering(&[]),
-    )
-    .with_preview_mcp(
-        "https://preview-control.example/mcp".parse().unwrap(),
-        false,
-    )
-    .unwrap();
-    service
-        .proxy(
-            &SessionToken::new("session-token"),
-            EgressTarget::McpServer(McpDestination::Preview),
-            request(Method::POST, &[("authorization", "Bearer attacker-token")]),
-        )
-        .await
-        .unwrap();
-    assert_eq!(
-        service.forward.forwarded(|parts| parts.uri.to_string()),
-        "https://preview-control.example/mcp"
-    );
-    assert_eq!(
-        service
-            .forward
-            .forwarded(|parts| parts.headers[AUTHORIZATION].to_str().unwrap().to_owned()),
-        "Bearer session-token"
-    );
-    assert!(service.credentials.asked.lock().unwrap().is_empty());
-}
-
 fn asker() -> MacroUserIdStr<'static> {
     MacroUserIdStr::try_from_email("asker@macro.com").expect("a valid user id")
 }

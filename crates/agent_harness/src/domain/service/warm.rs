@@ -1,7 +1,5 @@
 //! Speculative in-memory sessions. No model or tool is invoked during warming.
-use super::open::starting_branch;
 use super::*;
-use crate::domain::model::SessionRepository;
 use agent_session::domain::model::session_owner_user;
 use agent_session::domain::ports::{OpenManagedSession, SelectedManagedPersona};
 use agent_session::domain::warm::WarmClaim;
@@ -20,7 +18,6 @@ impl<
     Sessions,
     Containers,
     Announcer,
-    Runtimes,
     PromptContext,
     PromptComposer,
     Egress,
@@ -32,7 +29,6 @@ impl<
         Sessions,
         Containers,
         Announcer,
-        Runtimes,
         PromptContext,
         PromptComposer,
         Egress,
@@ -44,7 +40,6 @@ where
     Sessions: AgentSessionService,
     Containers: ContainerManager,
     Announcer: SessionAnnouncer,
-    Runtimes: RuntimeConnections,
     PromptContext: MessagePromptContext,
     PromptComposer: AgentPromptComposer,
     Egress: SandboxEgressProvisioner,
@@ -59,7 +54,7 @@ where
         warm: bool,
     ) -> agent_session::domain::error::Result<AgentSession> {
         let managed_defaults = self.inner.defaults.managed();
-        let (bot_id, model, harness, instructions, mut mcp_servers) = match request.profile {
+        let (bot_id, model, harness, instructions, mcp_servers) = match request.profile {
             Some(SelectedManagedPersona {
                 bot_id,
                 profile: Some(profile),
@@ -101,56 +96,16 @@ where
         let kind = AgentKind::for_session(bot_id, &harness);
         let harness = kind.harness_slug().map_or(harness, str::to_owned);
         tracing::Span::current().record("agent.harness", &harness);
-        if kind == AgentKind::CodexCloud {
-            mcp_servers = AgentMcpServers::Selected {
-                servers: Vec::new(),
-            };
-        }
         let owner_user = session_owner_user(&request.owner)?;
         let session_id = request.id.unwrap_or_else(AgentSessionId::new);
         tracing::Span::current().record("agent.session.id", tracing::field::display(session_id));
-        // Explicit source choices are a domain decision, before any session or egress grant exists.
-        let selected_repo = if let Some(url) = request.repo_url.as_deref() {
-            if kind != AgentKind::Cursor {
-                return Err(
-                    agent_session::domain::error::AgentSessionError::InvalidRepositorySelection(
-                        "repository selection is supported for Cursor coding agents",
-                    ),
-                );
-            }
-            let repo = SessionRepository::parse(url).ok_or(
+        if request.repo_url.is_some() || request.repo_branch.is_some() {
+            return Err(
                 agent_session::domain::error::AgentSessionError::InvalidRepositorySelection(
-                    "select a valid GitHub repository",
+                    "repository selection is not supported",
                 ),
-            )?;
-            let repositories = self
-                .repositories
-                .as_ref()
-                .ok_or(agent_session::domain::error::AgentSessionError::Forbidden)?;
-            let reachable = repositories
-                .for_user(&owner_user)
-                .await
-                .map_err(into_session_error)?;
-            let listed = reachable
-                .iter()
-                .find(|allowed| allowed.url.eq_ignore_ascii_case(repo.as_str()))
-                .ok_or(agent_session::domain::error::AgentSessionError::Forbidden)?;
-            // The caller's branch, or the one the repository's own clones start on.
-            let branch = request
-                .repo_branch
-                .clone()
-                .unwrap_or_else(|| starting_branch(listed.default_branch.as_deref()));
-            Some((repo, branch))
-        } else {
-            if request.repo_branch.is_some() {
-                return Err(
-                    agent_session::domain::error::AgentSessionError::InvalidRepositorySelection(
-                        "select a repository before choosing a branch",
-                    ),
-                );
-            }
-            None
-        };
+            );
+        }
         self.inner
             .admit_open(bot_id, &harness, &owner_user)
             .instrument(tracing::info_span!("agent.init.admission", agent.session.id = %session_id))
@@ -206,11 +161,6 @@ where
             }
             return Ok(session);
         }
-        let instructions = self
-            .inner
-            .with_owner_coding_preferences(&owner_user, bot_id, kind, instructions)
-            .await?;
-        let defaults = self.inner.defaults.for_bot(bot_id);
         let sandbox_size = self
             .inner
             .sessions
@@ -219,9 +169,6 @@ where
                 tracing::info_span!("agent.init.preferences", agent.session.id = %session_id),
             )
             .await?;
-        // Same ordering as the trigger path's open: the token has to be minted
-        // before the row, because the row is what carries the hash that makes
-        // it mean anything.
         let egress = self
             .inner
             .egress
@@ -238,7 +185,7 @@ where
                 } else {
                     agent_session::domain::model::SessionPurpose::Standalone
                 },
-                repo_branch: selected_repo.as_ref().map(|(_, branch)| branch.clone()),
+                repo_branch: None,
                 id: session_id,
                 owner_id: request.owner,
                 bot_id,
@@ -246,19 +193,11 @@ where
                 originating_message_id: None,
                 model,
                 harness,
-                // Whatever this bot's sessions work in: the deployment's
-                // repository, or nothing for a bot whose sessions work
-                // somewhere this deployment does not name.
-                repo_url: selected_repo
-                    .as_ref()
-                    .map(|(repo, _)| repo)
-                    .or(defaults.repo_url.as_ref())
-                    .map(|repo| repo.as_str().to_owned()),
-                // Managed sandboxes run in the path baked into their image.
+                repo_url: None,
                 workspace: agent_session::MANAGED_CONTAINER_WORKSPACE.to_owned(),
                 sandbox_size,
                 instructions,
-                mcp_servers,
+                mcp_servers: mcp_servers.clone(),
                 egress_token_hash: Some(egress.session_token_hash),
             })
             .instrument(tracing::info_span!("agent.init.persist", agent.session.id = %session_id))
@@ -272,7 +211,7 @@ where
                 .await;
         }
 
-        let mcp_servers = if kind.takes_egress_mcp_servers() {
+        let mcp_servers_list = if kind.takes_egress_mcp_servers() {
             egress.sandbox.acp_servers()
         } else {
             Vec::new()
@@ -283,16 +222,12 @@ where
             .spawn(SpawnContainer {
                 session_id: session.id,
                 kind: AgentKind::for_session(session.bot_id, &session.harness),
-                size: sandbox_size,
                 egress: egress.sandbox,
             })
             .instrument(tracing::info_span!("agent.init.runtime", agent.session.id = %session_id))
             .await
         {
             Ok(container) => container,
-            // The row is already persisted, so a sandbox that never arrived
-            // would otherwise leave a session claiming to be live. Same
-            // handling as the trigger path's open.
             Err(error) => {
                 let _ = self
                     .inner
@@ -317,7 +252,7 @@ where
             )
             .await;
         let attachment = container
-            .mcp_servers(mcp_servers.clone())
+            .mcp_servers(mcp_servers_list)
             .permission_policy(permission_policy);
         let attachment = match requested_model {
             Some(model) if !kind.starts_on_session_model() => attachment.initial_model(model),
@@ -330,9 +265,6 @@ where
             .await?;
 
         if warm {
-            // Ordinary session/new returns while MCP initializes in the background.
-            // Speculation is only ready after the same shared connector pool has
-            // finished listing and the runtime has answered its handshake.
             self.warm_tools.tool_definitions(mcp_servers).await;
             while self
                 .inner
@@ -346,9 +278,6 @@ where
             }
         }
 
-        // Raw, through the session's own command worker: dispatch is where a
-        // prompt is composed, and the worker is what serializes this first
-        // prompt against any control prompt racing the session's birth.
         if let Some(raw_prompt) = request.prompt {
             self.execute_here(
                 session.id,

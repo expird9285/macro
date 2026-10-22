@@ -127,16 +127,6 @@ pub async fn run() -> anyhow::Result<()> {
         ))) as Arc<dyn MicrosoftTokenCipher>
     });
 
-    // A separate KMS key from the Microsoft one by design: sharing it would
-    // grant whatever decrypts Cursor keys access to the key protecting
-    // everyone's mailbox credentials.
-    let cursor_api_key_cipher = Arc::new(cursor_api_key::cipher::KmsCursorApiKeyCipher::new(
-        cursor_api_key::cipher::AwsKmsCiphertexts::new(
-            aws_sdk_kms::Client::new(&aws_config),
-            config.cursor_api_key_kms_key_id()?,
-        ),
-    )) as Arc<dyn cursor_api_key::cipher::CursorApiKeyCipher>;
-
     let internal_api_key = config.internal_api_key.clone();
 
     let stripe_webhook_secret = secretsmanager_client
@@ -512,25 +502,6 @@ pub async fn run() -> anyhow::Result<()> {
         config: gtm_invite_config,
     };
 
-    let codex_connection = if let Some(key_id) = config.codex_oauth_kms_key_id() {
-        let cipher = Arc::new(codex_connection::outbound::cipher::EnvelopeCipher::new(
-            aws_sdk_kms::Client::new(&aws_config),
-            key_id,
-        )?);
-        let repository = Arc::new(
-            codex_connection::outbound::postgres::PostgresRepository::new(db.clone(), cipher),
-        );
-        let provider = codex_cloud_agents::outbound::openai::OpenAi::new()
-            .map_err(|_| anyhow::anyhow!("failed to initialize Codex OAuth client"))?;
-        Some(
-            Arc::new(codex_connection::domain::ConnectionServiceImpl::new(
-                repository, provider,
-            )) as Arc<dyn codex_connection::domain::ConnectionService>,
-        )
-    } else {
-        None
-    };
-
     let plan_customer = CustomerRepositoryImpl::new(
         stripe_client.clone(),
         stripe_prices.seat_prices(),
@@ -672,8 +643,6 @@ pub async fn run() -> anyhow::Result<()> {
             github_link_service: Arc::new(github_link_service_impl),
             auth_client: Arc::new(auth_client),
             microsoft_auth,
-            cursor_api_key_cipher,
-            codex_connection,
             macro_cache_client: Arc::new(macro_cache_client),
             stripe_client,
             subscription_checkout,

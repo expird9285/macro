@@ -116,7 +116,6 @@ use github_pull_requests::{
     },
 };
 use graphql_scheduled_action::ScheduledActionGraphqlContext;
-use harnesses::outbound::pg_harness_repo::PgHarnessRepo;
 use initiative::{
     domain::service::InitiativeServiceImpl, inbound::axum_router::InitiativeRouterState,
     outbound::PgInitiativeRepo,
@@ -125,8 +124,8 @@ use lexical_client::LexicalClient;
 use macro_auth::middleware::decode_jwt::JwtValidationArgs;
 use macro_authorization::{
     InternalAuthConfig, MacroAuthJwtValidator, MacroAuthorizationServiceImpl,
-    MacroAuthorizationState, PgBotAuthorizationRepo, PgBotAuthorizer, PgHarnessAuthorizationRepo,
-    PgHarnessAuthorizer, PgUserApiKeyAuthorizationRepo, PgUserApiKeyAuthorizer,
+    MacroAuthorizationState, PgBotAuthorizationRepo, PgBotAuthorizer,
+    PgUserApiKeyAuthorizationRepo, PgUserApiKeyAuthorizer,
 };
 use macro_env_var::maybe_env_vars;
 use macro_event_broker::{KafkaEventPublisher, MacroEventBrokerService};
@@ -361,13 +360,8 @@ pub async fn run() -> anyhow::Result<()> {
         },
         PgBotAuthorizer::new(PgBotAuthorizationRepo::new(db.clone())),
         PgUserApiKeyAuthorizer::new(PgUserApiKeyAuthorizationRepo::new(db.clone())),
-    )
-    .with_harness_authorizer(PgHarnessAuthorizer::new(PgHarnessAuthorizationRepo::new(
-        db.clone(),
-    )));
+    );
     let authorization_state = MacroAuthorizationState::new(Arc::new(authorization_service));
-    let harnesses_service =
-        harnesses::domain::service::HarnessServiceImpl::new(PgHarnessRepo::new(db.clone()));
 
     // Initialize OpenSearch client
     let opensearch_client = OpensearchClient::new(
@@ -1589,10 +1583,7 @@ pub async fn run() -> anyhow::Result<()> {
                 ForeignEntityServiceImpl::new(PgForeignEntityRepo::new(db.clone())),
                 PgGithubPullRequestRepo::new(db.clone()),
             ),
-        )
-        .with_agent_branches(agent_changes::outbound::postgres::PgChangesetRepo::new(
-            db.clone(),
-        )),
+        ),
     );
 
     // SQL predicates and follow-up reads use the primary, matching the catalog
@@ -1638,10 +1629,7 @@ pub async fn run() -> anyhow::Result<()> {
                 PgGithubPullRequestRepo::new(readonly_db.clone()),
             ),
         )
-        .with_favorites(favorites_service.clone())
-        .with_agent_branches(agent_changes::outbound::postgres::PgChangesetRepo::new(
-            readonly_db.clone(),
-        )),
+        .with_favorites(favorites_service.clone()),
     );
 
     let websocket_notification_consumer_service =
@@ -2269,10 +2257,6 @@ pub async fn run() -> anyhow::Result<()> {
         bots_state: bots::inbound::axum_router::BotsRouterState::new(
             bots_service.clone(),
             (*entity_access_service).clone(),
-            authorization_state.clone(),
-        ),
-        harnesses_state: harnesses::inbound::axum_router::HarnessesRouterState::new(
-            harnesses_service,
             authorization_state.clone(),
         ),
         channel_bot_webhook_state,

@@ -172,10 +172,6 @@ The Macro MCP server exposes a comprehensive set of tools across multiple domain
 - `ImportChannel` - Import Slack/Discord channels (Additive, Open World)
 - `DiscoverConnectors` - List available connectors (Read-Only)
 
-**Coding Agents**:
-- `ReadCodingAgentSession` - Read coding agent transcripts (Read-Only)
-- `ListCodingAgents` - List available coding agents (Read-Only)
-
 ### Tool Annotations Summary
 
 All tools in the Macro MCP server implement the required `ToolAnnotated` trait with explicit boolean values:

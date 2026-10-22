@@ -11,22 +11,15 @@ use agent_runtime_protocol::domain::ports::{
 use agent_runtime_protocol::domain::schema::v0::{
     AcpMessage, SystemEvent, ToRuntimeMessage, ToServerMessage,
 };
-use agent_session::domain::model::{AgentSessionId, SandboxSize};
+use agent_session::domain::model::AgentSessionId;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 
 use crate::domain::error::{HarnessError, Result};
-use crate::domain::model::{AgentKind, SessionBlocker, SpawnContainer};
+use crate::domain::model::SpawnContainer;
 use crate::domain::ports::ContainerManager;
-use crate::domain::sandbox::{SandboxResizeEffect, create_only_resize_effect, resize_effect};
 use crate::testing::helpers::agent::FakeAgent;
-use macro_user_id::user_id::MacroUserIdStr;
 
 /// A container connection driven by hand.
-///
-/// Wraps its agent's raw ACP frames in the envelope and originates lifecycle
-/// events itself, as the real adapter does. `recv` awaits, so a forgotten
-/// enqueue hangs rather than looking like a closed stream; only
-/// [`Self::disconnects`] ends it. Cloning shares one container.
 #[derive(Clone)]
 pub struct ContainerMock {
     agent: FakeAgent,
@@ -192,22 +185,15 @@ impl TransportReceiver<ToServerMessage> for ContainerReceiver {
     }
 }
 
-/// Hands out [`ContainerMock`]s and remembers them. Resuming preserves the
-/// logical sandbox but replaces its disconnected transport.
+/// Hands out [`ContainerMock`]s and remembers them.
 #[derive(Clone, Default)]
 pub struct MockContainerManager {
     containers: Arc<Mutex<HashMap<AgentSessionId, ContainerMock>>>,
-    blocker: Arc<Mutex<Option<SessionBlocker>>>,
     spawn_error: Arc<Mutex<Option<String>>>,
-    spawn_sizes: Arc<Mutex<Vec<SandboxSize>>>,
-    resizes: Arc<Mutex<Vec<(AgentSessionId, SandboxSize)>>>,
-    resize_unsupported: Arc<AtomicBool>,
     resumes: Arc<AtomicUsize>,
     teardowns: Arc<AtomicUsize>,
     teardown_error: Arc<AtomicBool>,
     tokens_lost: Arc<AtomicBool>,
-    /// Signalled on every spawn, so a test waits for a sandbox instead of
-    /// spinning on [`Self::spawned`].
     spawned_signal: Arc<tokio::sync::Notify>,
 }
 
@@ -237,9 +223,6 @@ impl MockContainerManager {
     }
 
     /// The first session a sandbox is booted for, awaited rather than polled.
-    ///
-    /// Returns at once when one has already been spawned, so a caller that
-    /// arrives late still gets its session.
     pub async fn first_spawned(&self) -> AgentSessionId {
         loop {
             let waited = self.spawned_signal.notified();
@@ -248,15 +231,6 @@ impl MockContainerManager {
             }
             waited.await;
         }
-    }
-
-    /// Answer every preflight with `blocker` from now on: the owner is not
-    /// set up for this provider.
-    pub fn block_with(&self, blocker: SessionBlocker) {
-        *self
-            .blocker
-            .lock()
-            .expect("blocker lock should not be poisoned") = Some(blocker);
     }
 
     /// Make the next sandbox spawn fail with `message`.
@@ -273,8 +247,7 @@ impl MockContainerManager {
         self.resumes.load(Ordering::Relaxed)
     }
 
-    /// Hold no session tokens from now on, like an in-process agent's
-    /// manager after a restart.
+    /// Hold no session tokens from now on.
     pub fn lose_tokens(&self) {
         self.tokens_lost.store(true, Ordering::Relaxed);
     }
@@ -290,29 +263,6 @@ impl MockContainerManager {
         self.teardowns.load(Ordering::Relaxed)
     }
 
-    /// Sizes requested at spawn, in order.
-    #[must_use]
-    pub fn spawn_sizes(&self) -> Vec<SandboxSize> {
-        self.spawn_sizes
-            .lock()
-            .expect("spawn sizes lock should not be poisoned")
-            .clone()
-    }
-
-    /// Resize requests, in order.
-    #[must_use]
-    pub fn resizes(&self) -> Vec<(AgentSessionId, SandboxSize)> {
-        self.resizes
-            .lock()
-            .expect("resizes lock should not be poisoned")
-            .clone()
-    }
-
-    /// Report [`SandboxResizeEffect::Unsupported`] for any real size change.
-    pub fn refuse_resize(&self) {
-        self.resize_unsupported.store(true, Ordering::Relaxed);
-    }
-
     fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<AgentSessionId, ContainerMock>> {
         self.containers
             .lock()
@@ -322,17 +272,6 @@ impl MockContainerManager {
 
 impl ContainerManager for MockContainerManager {
     type Transport = ContainerMock;
-
-    async fn preflight(
-        &self,
-        _kind: AgentKind,
-        _owner: &MacroUserIdStr<'_>,
-    ) -> Result<Option<SessionBlocker>> {
-        Ok(*self
-            .blocker
-            .lock()
-            .expect("blocker lock should not be poisoned"))
-    }
 
     async fn spawn(
         &self,
@@ -347,42 +286,12 @@ impl ContainerManager for MockContainerManager {
         {
             return Err(HarnessError::Container(message));
         }
-        self.spawn_sizes
-            .lock()
-            .expect("spawn sizes lock should not be poisoned")
-            .push(command.size);
         let container = ContainerMock::default();
         self.lock().insert(command.session_id, container.clone());
         self.spawned_signal.notify_waiters();
         Ok(agent_session::domain::connection::RuntimeAttachment::solo(
             container,
         ))
-    }
-
-    fn resize_effect(&self, from: SandboxSize, to: SandboxSize) -> SandboxResizeEffect {
-        if self.resize_unsupported.load(Ordering::Relaxed) {
-            create_only_resize_effect(from, to)
-        } else {
-            resize_effect(from, to)
-        }
-    }
-
-    async fn resize(&self, session: AgentSessionId, size: SandboxSize) -> Result<(), HarnessError> {
-        if !self.lock().contains_key(&session) {
-            return Err(HarnessError::Container(format!(
-                "no sandbox was ever spawned for {session}"
-            )));
-        }
-        if self.resize_unsupported.load(Ordering::Relaxed) {
-            return Err(HarnessError::Container(
-                "this container manager cannot resize a live sandbox".to_owned(),
-            ));
-        }
-        self.resizes
-            .lock()
-            .expect("resizes lock should not be poisoned")
-            .push((session, size));
-        Ok(())
     }
 
     async fn resume(
@@ -404,9 +313,6 @@ impl ContainerManager for MockContainerManager {
         ))
     }
 
-    /// The fixed token every mock container "holds", for sessions that were
-    /// spawned; `None` otherwise, like a provider that finds no container,
-    /// and after [`Self::lose_tokens`].
     async fn session_token(&self, session: AgentSessionId) -> Result<Option<String>, HarnessError> {
         if self.tokens_lost.load(Ordering::Relaxed) {
             return Ok(None);

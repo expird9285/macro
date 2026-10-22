@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::domain::error::{HarnessError, Result};
 use crate::domain::model::{
-    AgentTypingUpdate, AnnouncedMessage, DeclinedMention, ReplyPresentation, ResolvedReply,
+    AgentTypingUpdate, AnnouncedMessage, ReplyPresentation, ResolvedReply,
     SessionAnnouncement,
 };
 use crate::domain::ports::SessionAnnouncer;
@@ -14,7 +14,6 @@ use crate::domain::ports::SessionAnnouncer;
 #[derive(Clone, Default)]
 pub struct AnnouncerMock {
     announced: Arc<Mutex<Vec<(SessionAnnouncement, AnnouncedMessage)>>>,
-    declined: Arc<Mutex<Vec<DeclinedMention>>>,
     resolved: Arc<Mutex<Vec<ResolvedReply>>>,
     presented: Arc<Mutex<Vec<ReplyPresentation>>>,
     typed: Arc<Mutex<Vec<AgentTypingUpdate>>>,
@@ -70,17 +69,7 @@ impl AnnouncerMock {
             .collect()
     }
 
-    /// Every mention declined, in order.
-    #[must_use]
-    pub fn declined(&self) -> Vec<DeclinedMention> {
-        self.declined
-            .lock()
-            .expect("announcer mock declined lock should not be poisoned")
-            .clone()
-    }
-
-    /// Every reply resolved, in order - for a coding kind too, since
-    /// deciding that there is nothing to patch is the real adapter's job.
+    /// Every reply resolved, in order.
     #[must_use]
     pub fn resolved(&self) -> Vec<ResolvedReply> {
         self.resolved
@@ -165,22 +154,6 @@ impl SessionAnnouncer for AnnouncerMock {
             .lock()
             .expect("announcer mock resolved lock should not be poisoned")
             .push(resolution);
-        Ok(())
-    }
-
-    async fn decline(&self, declined: DeclinedMention) -> Result<()> {
-        if let Some(message) = self
-            .failure
-            .lock()
-            .expect("announcer mock failure lock should not be poisoned")
-            .clone()
-        {
-            return Err(HarnessError::Announce(rootcause::report!("{message}")));
-        }
-        self.declined
-            .lock()
-            .expect("announcer mock declined lock should not be poisoned")
-            .push(declined);
         Ok(())
     }
 

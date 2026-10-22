@@ -2,25 +2,16 @@
 //! external runtime that dials in. Each creates the row, provisions egress
 //! where there is a sandbox to give it to, and attaches the runtime.
 
-use crate::domain::model::{ReplyPlacement, is_coding_agent, with_coding_preferences};
+use crate::domain::model::{ReplyPlacement, SpawnContainer};
 use agent_session::domain::model::session_owner_user;
-use agent_session::domain::repository_branch::RepositoryBranch;
 use model_owner::Owner;
 
 use super::*;
 
-/// External sessions create the row and announce - the magic-chip message
-/// the session's bot posts into the mention's thread, which is where the
-/// app renders the session's replies. No sandbox (the runtime dials in) and
-/// no first prompt (the runtime sends it through the control endpoint).
-/// The announcement is best-effort: a session a runtime is about to serve
-/// must not die because the courtesy post failed, most plainly when the bot
-/// cannot post in the claimed channel.
 impl<
     Sessions,
     Containers,
     Announcer,
-    Runtimes,
     PromptContext,
     PromptComposer,
     Egress,
@@ -32,7 +23,6 @@ impl<
         Sessions,
         Containers,
         Announcer,
-        Runtimes,
         PromptContext,
         PromptComposer,
         Egress,
@@ -44,7 +34,6 @@ where
     Sessions: AgentSessionService,
     Containers: ContainerManager,
     Announcer: SessionAnnouncer,
-    Runtimes: RuntimeConnections,
     PromptContext: MessagePromptContext,
     PromptComposer: AgentPromptComposer,
     Egress: SandboxEgressProvisioner,
@@ -54,197 +43,13 @@ where
 {
     async fn open_external_session(
         &self,
-        request: agent_session::domain::ports::OpenExternalAgentSession,
+        _request: agent_session::domain::ports::OpenExternalAgentSession,
     ) -> agent_session::domain::error::Result<AgentSession> {
-        let owner_user = session_owner_user(&request.owner)?;
-        // The thread linkage is the caller's claim: it is honoured only when
-        // the owner can write to that parent and the message sits in it.
-        if let Some(thread) = &request.thread {
-            self.inner
-                .prompt_context
-                .authorize_origin(
-                    &owner_user,
-                    &AnnounceOrigin {
-                        reply_placement: Default::default(),
-                        reuse_origin_message: thread.reuse_origin_message,
-                        parent: thread.parent.clone(),
-                        thread_id: thread.thread_id,
-                        message_id: thread.message_id,
-                    },
-                )
-                .await
-                .map_err(|error| {
-                    tracing::warn!(
-                        error = ?error,
-                        owner = %request.owner,
-                        "rejecting an external session whose claimed thread its owner may not post in"
-                    );
-                    AgentSessionError::Forbidden
-                })?;
-        }
-        let defaults = self.inner.defaults.for_bot(request.bot_id);
-        let (model, harness, profile_instructions, mcp_servers) = match request.profile {
-            Some(profile) => (
-                profile.model,
-                profile.harness,
-                Some(profile.instructions).filter(|value| !value.trim().is_empty()),
-                profile.mcp_servers,
-            ),
-            None => (
-                defaults.model.clone(),
-                defaults.harness.clone(),
-                None,
-                AgentMcpServers::OwnerConnections,
-            ),
-        };
-        let instructions = self
-            .inner
-            .with_owner_coding_preferences(
-                &owner_user,
-                request.bot_id,
-                AgentKind::for_session(request.bot_id, &harness),
-                request.instructions.or(profile_instructions),
-            )
-            .await?;
-        let created = self
-            .inner
-            .sessions
-            .create_session(CreateAgentSessionParams {
-                purpose: agent_session::domain::model::SessionPurpose::Standalone,
-                repo_branch: None,
-                id: request.id.unwrap_or_else(AgentSessionId::new),
-                owner_id: request.owner,
-                bot_id: request.bot_id,
-                thread_id: request.thread.as_ref().map(|thread| thread.thread_id),
-                originating_message_id: request.thread.as_ref().map(|thread| thread.message_id),
-                model,
-                harness,
-                repo_url: request.repo_url,
-                workspace: request.workspace,
-                sandbox_size: SandboxSize::Default,
-                instructions,
-                mcp_servers,
-                // Mint the session MCP credential when an authenticated
-                // runtime binds, and rotate it on each subsequent binding.
-                egress_token_hash: None,
-                // The thread linkage is the caller's claim, not an observed
-                // mention; it must not grant the channel anything.
-            })
-            .await;
-        let (session, existing) = match created {
-            Ok(session) => (session, false),
-            Err(AgentSessionError::SessionIdTaken(id))
-                if self.inner.external_replies.is_some() && request.thread.is_some() =>
-            {
-                let session = self.inner.sessions.get_session(id).await?;
-                if session.bot_id != request.bot_id
-                    || session.thread_id != request.thread.as_ref().map(|thread| thread.thread_id)
-                    || session.owner_user()? != &owner_user
-                {
-                    return Err(AgentSessionError::SessionIdTaken(id));
-                }
-                (session, true)
-            }
-            Err(AgentSessionError::ThreadSessionExists)
-                if self.inner.external_replies.is_some() =>
-            {
-                let thread = request
-                    .thread
-                    .as_ref()
-                    .ok_or(AgentSessionError::ThreadSessionExists)?;
-                match self
-                    .inner
-                    .sessions
-                    .find_for_thread(Some(thread.thread_id), Some(request.bot_id))
-                    .await?
-                {
-                    agent_session::domain::model::ThreadSession::CreatedFromThread(session) => {
-                        (session, true)
-                    }
-                    agent_session::domain::model::ThreadSession::None => {
-                        return Err(AgentSessionError::ThreadSessionExists);
-                    }
-                }
-            }
-            Err(error) => return Err(error),
-        };
-        if !existing {
-            self.inner.publish_opened(&session).await;
-        }
-
-        if let Some(thread) = request.thread {
-            let persona = self
-                .inner
-                .reply_persona(&session)
-                .await
-                .map_err(into_session_error)?;
-            if !persona.is_coding
-                && !thread.reuse_origin_message
-                && self.inner.external_replies.is_some()
-            {
-                self.inner
-                    .announce_external_reply(
-                        session.id,
-                        AnnounceOrigin {
-                            reply_placement: Default::default(),
-                            reuse_origin_message: false,
-                            parent: thread.parent,
-                            thread_id: thread.thread_id,
-                            message_id: thread.message_id,
-                        },
-                        owner_user,
-                    )
-                    .await
-                    .map_err(into_session_error)?;
-                return if existing {
-                    Err(AgentSessionError::ThreadSessionExists)
-                } else {
-                    Ok(session)
-                };
-            }
-            if existing {
-                return Err(AgentSessionError::ThreadSessionExists);
-            }
-            let announce = async {
-                let announcement = SessionAnnouncement {
-                    reply_message_id: None,
-                    reply_placement: Default::default(),
-                    reuse_origin_message: thread.reuse_origin_message,
-                    session_id: session.id,
-                    bot_id: request.bot_id,
-                    is_coding: persona.is_coding,
-                    origin_parent: thread.parent,
-                    origin_thread_id: thread.thread_id,
-                    origin_message_id: thread.message_id,
-                    prompted_message_id: MessageId::first(AuthorKind::User),
-                    prompted_content: thread.content,
-                    triggered_by: owner_user,
-                };
-                self.inner.announcer.announce(announcement).await.map(drop)
-            };
-            if let Err(error) = announce.await {
-                tracing::warn!(
-                    error = ?error,
-                    session = %session.id,
-                    "external session announcement failed; the session runs unannounced"
-                );
-            }
-        }
-
-        if existing {
-            return Err(AgentSessionError::ThreadSessionExists);
-        }
-        Ok(session)
+        Err(AgentSessionError::Forbidden)
     }
 
     /// Provision the selected managed persona's runtime, open a session on it,
-    /// and deliver the first prompt if one came with the request. An omitted
-    /// profile uses the deployment's default coding persona.
-    ///
-    /// Nothing is announced: a managed session opened this way has no
-    /// originating mention and no thread to answer back into. The runtime is
-    /// spawned before the session is attached because there is nothing to
-    /// attach to until it exists.
+    /// and deliver the first prompt if one came with the request.
     async fn open_managed_session(
         &self,
         request: agent_session::domain::ports::OpenManagedSession,
@@ -283,7 +88,6 @@ impl<
     Sessions,
     Containers,
     Announcer,
-    Runtimes,
     PromptContext,
     PromptComposer,
     Egress,
@@ -295,7 +99,6 @@ impl<
         Sessions,
         Containers,
         Announcer,
-        Runtimes,
         PromptContext,
         PromptComposer,
         Egress,
@@ -307,7 +110,6 @@ where
     Sessions: AgentSessionService,
     Containers: ContainerManager,
     Announcer: SessionAnnouncer,
-    Runtimes: RuntimeConnections,
     PromptContext: MessagePromptContext,
     PromptComposer: AgentPromptComposer,
     Egress: SandboxEgressProvisioner,
@@ -315,30 +117,6 @@ where
     Mentions: PromptMentions,
     Notifier: AgentSessionNotifier,
 {
-    /// A new session's instructions, ending with the workflows its owner's
-    /// coding preferences add when the session is a coding agent's.
-    ///
-    /// Warm sessions are only ever the in-memory chat agent's, which never
-    /// gets the workflows, so the warm claim's instructions match still holds.
-    pub(super) async fn with_owner_coding_preferences(
-        &self,
-        owner: &MacroUserIdStr<'static>,
-        bot_id: BotId,
-        kind: AgentKind,
-        instructions: Option<String>,
-    ) -> agent_session::domain::error::Result<Option<String>> {
-        let choice = self
-            .coding_agents
-            .coding_agent_choice(bot_id)
-            .await
-            .map_err(AgentSessionError::Unknown)?;
-        if !is_coding_agent(choice, kind) {
-            return Ok(instructions);
-        }
-        let preferences = self.sessions.user_coding_preferences(owner).await?;
-        Ok(with_coding_preferences(instructions, preferences))
-    }
-
     #[tracing::instrument(err, skip(self, command), fields(
         %session_id,
         bot_id = %command.bot_id,
@@ -408,76 +186,11 @@ where
         )
         .await?;
 
-        // Asked before anything exists for the session: a row whose spawn is
-        // bound to fail would be marked disconnected and leave the thread
-        // with a chip that never answers. Declining is the bot's reply
-        // instead - what the mentioner has to connect, where to do it.
-        if let Some(blocker) = self.containers.preflight(runtime.kind, &actor).await? {
-            tracing::info!(
-                bot_id = %bot_id,
-                sender = %actor,
-                ?blocker,
-                "declining a session its owner is not set up for"
-            );
-            if announcement.reply_placement == crate::domain::model::ReplyPlacement::Timeline
-                && let Some(store) = &self.conversation_turns
-                && let Some(record) = store.get(announcement.message_id, bot_id).await?
-            {
-                let flight = InFlightTurn {
-                    action_id: record.action_id,
-                    turn: agent_fold::domain::model::TurnId(0),
-                    actor: Some(actor.clone()),
-                    announce: None,
-                    announcement_message_id: None,
-                    dispatched_at: chrono::Utc::now(),
-                    bot_id: Some(bot_id),
-                    speaks_as_chip: false,
-                    presented: Vec::new(),
-                    held_tool_calls: Vec::new(),
-                };
-                if !store.claim(record.action_id, &flight).await? {
-                    return Ok(());
-                }
-                store
-                    .finish(
-                        record.action_id,
-                        crate::domain::conversation_turns::ConversationTurnState::Failed,
-                        ReplyOutcome::Failed,
-                    )
-                    .await?;
-                store
-                    .finalize_reply(record.action_id, &ReplyOutcome::Failed)
-                    .await?;
-            }
-            self.announcer
-                .decline(DeclinedMention {
-                    bot_id,
-                    origin: announcement,
-                    triggered_by: actor,
-                    blocker,
-                })
-                .await?;
-            return Ok(());
-        }
-
-        let defaults = self.defaults.for_bot(bot_id);
         let sandbox_size = self.sessions.user_sandbox_size(&actor).await?;
-        // Assignments retain the original task and update policy alongside the
-        // profile instructions, including across later turns and reattachments.
-        let instructions = self
-            .with_owner_coding_preferences(
-                &actor,
-                bot_id,
-                runtime.kind,
-                origin.session_instructions(&runtime.instructions),
-            )
-            .await?;
+        let instructions = origin.session_instructions(&runtime.instructions);
 
         // Provisioned before the session exists, because the row is what makes
         // the token mean anything: it carries the hash the proxy recognises.
-        // Minted here, where the session's owner is in hand, and only here -
-        // the token is scoped to this session and spends this person's
-        // credentials, so there is nowhere else it could correctly come from.
         let egress = self
             .egress
             .provision(session_id, &actor, &runtime.mcp_servers)
@@ -505,25 +218,16 @@ where
                     .harness_slug()
                     .unwrap_or(&runtime.harness)
                     .to_owned(),
-                repo_url: defaults
-                    .repo_url
-                    .as_ref()
-                    .map(|repo| repo.as_str().to_owned()),
-                // Managed sandboxes run in the path baked into their image.
+                repo_url: None,
                 workspace: agent_session::MANAGED_CONTAINER_WORKSPACE.to_owned(),
                 sandbox_size,
                 instructions,
-                // Snapshotted so the proxy enforces exactly what this attach
-                // advertised, for as long as the session lives.
                 mcp_servers: runtime.mcp_servers.clone(),
                 egress_token_hash: Some(egress.session_token_hash),
-                // This open came from an observed trigger event.
             })
             .await?;
         self.publish_opened(&session).await;
 
-        // External runtimes bind on first delivery. Their operator owns the
-        // process; opening a conversation must never provision a managed sandbox for it.
         if runtime.kind.is_managed() {
             let mcp_servers = if runtime.kind.takes_egress_mcp_servers() {
                 egress.sandbox.acp_servers()
@@ -535,7 +239,6 @@ where
                 .spawn(SpawnContainer {
                     session_id,
                     kind: runtime.kind,
-                    size: sandbox_size,
                     egress: egress.sandbox,
                 })
                 .await
@@ -568,11 +271,7 @@ where
                 )
                 .await?;
         }
-        // The first prompt goes through the same door as every later one:
-        // queued raw, then dispatched - which is where it is composed with
-        // channel context and announced as the chip the replies render into.
-        // One door is what holds the one-turn-in-flight invariant from the
-        // session's very first action.
+
         let conversation_action =
             if announcement.reply_placement == crate::domain::model::ReplyPlacement::Timeline {
                 match &self.conversation_turns {
@@ -605,17 +304,4 @@ where
         .await?;
         Ok(())
     }
-}
-
-/// The branch a session starts on when its caller selected a repository but
-/// no branch: the repository's own default branch, or `main` for an empty
-/// repository. GitHub reports the default branch's name as git holds it, so
-/// one that fails to parse belongs to a repository nothing could check out
-/// anyway - `main` is as good a guess as any there.
-pub(super) fn starting_branch(default_branch: Option<&str>) -> RepositoryBranch {
-    default_branch
-        .and_then(|branch| RepositoryBranch::parse(branch.to_owned()).ok())
-        .unwrap_or_else(|| {
-            RepositoryBranch::parse("main".to_owned()).expect("main is a valid branch")
-        })
 }

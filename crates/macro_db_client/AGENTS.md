@@ -53,11 +53,6 @@ stable across retries, and `announced` records successful pending-message posts.
 The additive migrations are compatible with older service binaries; session
 deletion cascades its rows.
 
-`agent_preview_*` stores preview-specific ownership, credential hashes and
-watchers; its queries and policy belong to `agent_preview`. Leases have a bounded
-TTL, deletion cascades credentials, and sweepers reclaim expired watchers and
-unreferenced replicas. These additive tables do not change agent-session claims.
-
 ## Gotchas
 
 - Migrations deploy before service code: never drop a column/table in the

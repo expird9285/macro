@@ -6,8 +6,7 @@ use bot_id::BotId;
 use bots::domain::ports::BotRepo;
 use bots::outbound::pg_bots_repo::PgBotsRepo;
 
-/// Reads the persona choice and the harness operator's bypass opt-in.
-/// Fixed system bots retain
+/// Reads the persona choice for database-backed agents; fixed system bots retain
 /// their built-in policy.
 #[derive(Clone)]
 pub struct PgPermissionPolicySource {
@@ -27,18 +26,9 @@ impl PermissionPolicySource for PgPermissionPolicySource {
         let Some(agent) = agent else {
             return Ok(PermissionPolicyConfig::Fixed(AgentKind::of(bot)));
         };
-        let harness_allows_bypass = match agent.harness_id {
-            Some(harness) => Some(
-                self.repo
-                    .get_harness_facts(harness)
-                    .await?
-                    .is_some_and(|facts| facts.allow_permission_bypass),
-            ),
-            None => None,
-        };
         Ok(PermissionPolicyConfig::Persona {
             kind: AgentKind::for_session(bot, &agent.harness),
-            harness_allows_bypass,
+            harness_allows_bypass: None,
             auto_accept_permissions: agent.auto_accept_permissions,
         })
     }
