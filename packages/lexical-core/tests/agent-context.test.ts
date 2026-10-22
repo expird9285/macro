@@ -630,7 +630,7 @@ describe('composeAgentContextPrompt', () => {
       },
     });
     expect(context).toContain(
-      '<anchor type="spreadsheet" sheetId="sheet-1" sheetName="Budget &amp; Forecast" range="B4:C9">'
+      '<anchor type="spreadsheet" sheetId="sheet-1" sheetName="Budget &amp; Forecast" range="B4:C9"/>'
     );
   });
 
