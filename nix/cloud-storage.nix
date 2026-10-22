@@ -54,8 +54,8 @@
       pdfiumFilter = path: _type: builtins.match ".*pdfium-lib/.*\\.(so|dylib)$" path != null;
       # `.sh` is required so `include_str!` of
       # `crates/agent_harness/container/ensure_ready.sh` survives the prune;
-      # `.ttf` and `.xml` for the fonts and preset shape definitions that
-      # `crates/pptx_engine` embeds with `include_bytes!`; `.graphql` for the
+      # `.ttf` and `.xml` for fonts and definitions embedded with
+      # `include_bytes!`; `.graphql` for the
       # `static_assets/schema.graphql` that `cache-core`'s build script reads;
       # `.jsonl` for the recorded sessions `agent_fold` tests embed; `.mjs`
       # for the Deno bootstrap and bundled public SDK/Handlebars runtime.

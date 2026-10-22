@@ -3,17 +3,11 @@
 mod comment_on_text;
 mod create_document;
 mod create_skill;
-mod design;
 mod edit_document;
-mod illustrator;
-mod photoshop;
-mod presentation;
 mod read_content;
 mod read_metadata;
 mod rename_document;
-mod spreadsheet;
 mod upload_file;
-mod word_document;
 
 #[cfg(test)]
 mod comment_test;
@@ -23,29 +17,19 @@ mod test;
 use crate::{
     domain::comments::{DocumentCommentReader, DocumentComments},
     domain::create::DocumentCreator,
-    domain::design::{DesignFiles, DesignService, NoDesignFiles},
-    domain::illustrator::{IllustratorFiles, IllustratorService, NoIllustratorFiles},
-    domain::photoshop::{NoPhotoshopFiles, PhotoshopFiles, PhotoshopService},
     domain::ports::DocumentService,
     domain::ports::create::DocumentCreationService,
     domain::ports::editing::{EditingWorkerService, EditorName},
     domain::ports::mentions::NoOpDocumentMentionTracker,
-    domain::presentation::{NoPresentationFiles, PresentationFiles, PresentationService},
     inbound::toolset::{
         comment_on_text::CommentOnText,
         create_document::CreateDocument,
         create_skill::CreateSkill,
-        design::ReadDesign,
         edit_document::EditDocument,
-        illustrator::ReadIllustratorDocument,
-        photoshop::ReadPhotoshopDocument,
-        presentation::{EditPresentation, ReadPresentation},
         read_content::ReadContent,
         read_metadata::ReadMetadata,
         rename_document::RenameDocument,
-        spreadsheet::{CalculateSpreadsheet, EditSpreadsheet, ReadSpreadsheet},
         upload_file::UploadFile,
-        word_document::{EditWordDocument, ReadWordDocument},
     },
     outbound::{
         document_bytes_upload::ReqwestDocumentBytesUploader,
@@ -103,32 +87,6 @@ pub struct DocumentToolContext<
     /// Shared message service the comment tools reply and resolve through.
     pub messages: Arc<dyn MessageServiceApi>,
 
-    /// Permission-scoped deterministic spreadsheet workflows.
-    pub spreadsheet: Arc<crate::domain::spreadsheet::SpreadsheetService<DSvc, EDSvc>>,
-
-    /// Reading and editing uploaded Word documents through their live copy.
-    pub word_documents: Arc<crate::domain::word_document::WordDocumentService<DSvc, EDSvc>>,
-
-    /// Reading and editing PowerPoint presentations. Hosts without a file
-    /// store keep the default, whose calls fail with a clear message; wire
-    /// one with [`Self::with_presentation_files`].
-    pub presentations: Arc<PresentationService>,
-
-    /// Reading Figma designs. Hosts without a file store keep the default,
-    /// whose calls fail with a clear message; wire one with
-    /// [`Self::with_design_files`].
-    pub designs: Arc<DesignService>,
-
-    /// Reading Photoshop documents. Hosts without a file store keep the
-    /// default, whose calls fail with a clear message; wire one with
-    /// [`Self::with_photoshop_files`].
-    pub photoshop_documents: Arc<PhotoshopService>,
-
-    /// Reading Illustrator documents. Hosts without a file store keep the
-    /// default, whose calls fail with a clear message; wire one with
-    /// [`Self::with_illustrator_files`].
-    pub illustrator_documents: Arc<IllustratorService>,
-
     /// JWT secret used to mint document permission tokens for the editing worker.
     pub document_permission_jwt_secret: String,
 
@@ -167,12 +125,6 @@ impl<
             editing: self.editing.clone(),
             comments: self.comments.clone(),
             messages: self.messages.clone(),
-            spreadsheet: self.spreadsheet.clone(),
-            word_documents: self.word_documents.clone(),
-            presentations: self.presentations.clone(),
-            designs: self.designs.clone(),
-            photoshop_documents: self.photoshop_documents.clone(),
-            illustrator_documents: self.illustrator_documents.clone(),
             document_permission_jwt_secret: self.document_permission_jwt_secret.clone(),
             admission: self.admission.clone(),
             recorder: self.recorder.clone(),
@@ -215,16 +167,6 @@ impl<
             LexicalCommentMarks::new(lexical_client.clone()),
         ));
         let editing = Arc::new(editing);
-        let spreadsheet = Arc::new(crate::domain::spreadsheet::SpreadsheetService::new(
-            service.clone(),
-            editing.clone(),
-            document_permission_jwt_secret.clone(),
-        ));
-        let word_documents = Arc::new(crate::domain::word_document::WordDocumentService::new(
-            service.clone(),
-            editing.clone(),
-            document_permission_jwt_secret.clone(),
-        ));
 
         Self {
             service,
@@ -235,12 +177,6 @@ impl<
             editing,
             comments,
             messages,
-            spreadsheet,
-            word_documents,
-            presentations: Arc::new(PresentationService::new(Arc::new(NoPresentationFiles))),
-            designs: Arc::new(DesignService::new(Arc::new(NoDesignFiles))),
-            photoshop_documents: Arc::new(PhotoshopService::new(Arc::new(NoPhotoshopFiles))),
-            illustrator_documents: Arc::new(IllustratorService::new(Arc::new(NoIllustratorFiles))),
             document_permission_jwt_secret,
             admission: Arc::new(ai_billing::domain::admission::DisabledAiAdmissionService),
             recorder: Arc::new(ai_usage::NoOpUsageRecorder),
@@ -265,32 +201,6 @@ impl<
             self.admission.clone(),
             self.recorder.clone(),
         )
-    }
-
-    /// Store presentations the presentation tools read and edit through `files`.
-    pub fn with_presentation_files(mut self, files: Arc<dyn PresentationFiles>) -> Self {
-        self.presentations = Arc::new(PresentationService::new(files));
-        self
-    }
-
-    /// Read designs the design tools describe through `files`.
-    pub fn with_design_files(mut self, files: Arc<dyn DesignFiles>) -> Self {
-        self.designs = Arc::new(DesignService::new(files));
-        self
-    }
-
-    /// Read the Photoshop documents the Photoshop tools describe through
-    /// `files`.
-    pub fn with_photoshop_files(mut self, files: Arc<dyn PhotoshopFiles>) -> Self {
-        self.photoshop_documents = Arc::new(PhotoshopService::new(files));
-        self
-    }
-
-    /// Read the Illustrator documents the Illustrator tools describe through
-    /// `files`.
-    pub fn with_illustrator_files(mut self, files: Arc<dyn IllustratorFiles>) -> Self {
-        self.illustrator_documents = Arc::new(IllustratorService::new(files));
-        self
     }
 
     /// Set the usage recorder the EditDocument tool logs worker token usage to.
@@ -366,16 +276,6 @@ where
         .add_tool::<RenameDocument, DocumentToolContext<DSvc, ESvc, EDSvc>>()
         .add_tool::<EditDocument, DocumentToolContext<DSvc, ESvc, EDSvc>>()
         .add_tool::<CommentOnText, DocumentToolContext<DSvc, ESvc, EDSvc>>()
-        .add_tool::<ReadSpreadsheet, DocumentToolContext<DSvc, ESvc, EDSvc>>()
-        .add_tool::<CalculateSpreadsheet, DocumentToolContext<DSvc, ESvc, EDSvc>>()
-        .add_tool::<EditSpreadsheet, DocumentToolContext<DSvc, ESvc, EDSvc>>()
-        .add_tool::<ReadPresentation, DocumentToolContext<DSvc, ESvc, EDSvc>>()
-        .add_tool::<EditPresentation, DocumentToolContext<DSvc, ESvc, EDSvc>>()
-        .add_tool::<ReadDesign, DocumentToolContext<DSvc, ESvc, EDSvc>>()
-        .add_tool::<ReadPhotoshopDocument, DocumentToolContext<DSvc, ESvc, EDSvc>>()
-        .add_tool::<ReadIllustratorDocument, DocumentToolContext<DSvc, ESvc, EDSvc>>()
-        .add_tool::<ReadWordDocument, DocumentToolContext<DSvc, ESvc, EDSvc>>()
-        .add_tool::<EditWordDocument, DocumentToolContext<DSvc, ESvc, EDSvc>>()
 }
 
 fn comment_access_error(err: AccessError) -> ToolCallError {

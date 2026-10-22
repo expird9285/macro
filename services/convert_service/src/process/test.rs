@@ -14,7 +14,7 @@ fn docx_detection_requires_the_final_extension() {
 
 mod legacy_upgrade {
     //! Real LibreOfficeKit conversions of legacy Office fixtures, checked by
-    //! opening the results in the engines that serve them.
+    //! reading the OpenXML parts the upgrades produce.
     //!
     //! Needs LibreOffice (with Writer, Calc and Impress) on the host:
     //! `LOK_PATH=/usr/lib/libreoffice/program cargo test -p convert_service -- --ignored`.
@@ -34,24 +34,6 @@ mod legacy_upgrade {
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("fixtures/legacy")
             .join(name)
-    }
-
-    fn fonts() -> pptx_engine::font::FontDb {
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../crates/pptx_engine/fonts");
-        let mut db = pptx_engine::font::FontDb::new();
-        let mut files: Vec<_> = std::fs::read_dir(dir)
-            .expect("pptx_engine fonts")
-            .filter_map(|entry| entry.ok().map(|entry| entry.path()))
-            .filter(|path| {
-                path.extension()
-                    .is_some_and(|e| e.eq_ignore_ascii_case("ttf") || e.eq_ignore_ascii_case("otf"))
-            })
-            .collect();
-        files.sort();
-        for file in files {
-            db.register(std::fs::read(file).expect("font file"));
-        }
-        db
     }
 
     /// LibreOffice shares one user profile per host, so conversions run one
@@ -110,7 +92,7 @@ mod legacy_upgrade {
 
     #[test]
     #[ignore = "needs LibreOfficeKit; see module docs"]
-    fn doc_upgrades_to_a_docx_the_word_engine_lays_out() {
+    fn doc_upgrades_to_a_docx() {
         let docx = upgrade("memo.doc", FileType::Doc, FileType::Docx);
 
         assert_main_content_type(
@@ -142,15 +124,11 @@ mod legacy_upgrade {
                 .any(|name| name.starts_with("word/media/")),
             "picture lost"
         );
-
-        let document = docx_engine::Document::open(docx).expect("docx engine opens the upgrade");
-        let layout = document.layout(&fonts());
-        assert!(layout.pages.len() >= 2, "page break should give two pages");
     }
 
     #[test]
     #[ignore = "needs LibreOfficeKit; see module docs"]
-    fn ppt_upgrades_to_a_pptx_the_presentation_engine_renders() {
+    fn ppt_upgrades_to_a_pptx() {
         let pptx = upgrade("deck.ppt", FileType::Ppt, FileType::Pptx);
 
         assert_main_content_type(
@@ -169,15 +147,13 @@ mod legacy_upgrade {
             "speaker notes lost"
         );
 
-        let mut presentation =
-            pptx_engine::Presentation::open(pptx.clone()).expect("pptx engine opens the upgrade");
-        assert_eq!(presentation.slides().len(), 4);
-        let fonts = fonts();
-        for index in 0..presentation.slides().len() {
-            presentation
-                .render_slide(index, 320, &fonts)
-                .unwrap_or_else(|e| panic!("slide {} failed to render: {e}", index + 1));
-        }
+        assert_eq!(
+            names
+                .iter()
+                .filter(|name| name.starts_with("ppt/slides/slide") && name.ends_with(".xml"))
+                .count(),
+            4
+        );
 
         let slides: String = (1..=4)
             .map(|n| zip_part(&pptx, &format!("ppt/slides/slide{n}.xml")))

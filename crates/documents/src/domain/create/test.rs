@@ -388,38 +388,6 @@ async fn mentions_are_tracked_with_an_optional_acting_user() {
     }
 }
 
-#[tokio::test]
-async fn native_spreadsheet_creation_uses_shared_service_without_upload_or_markdown() {
-    let tracker = RecordingMentionTracker::default();
-    let creator = creator(&tracker);
-    let project = uuid::Uuid::new_v4();
-    let principal = CreationPrincipal::BotForUser {
-        bot: bot_id::MACRO_AI_BOT_ID,
-        user: MacroUserIdStr::try_from_email("owner@macro.com").unwrap(),
-    };
-    let result = creator
-        .create_spreadsheet(
-            &principal,
-            NewDocumentMetadata::builder("Budget")
-                .project_id(project)
-                .build(),
-        )
-        .await
-        .unwrap()
-        .into_response();
-    assert_eq!(result.file_type.as_deref(), Some("spreadsheet"));
-    let calls = creator.document_service.calls.lock().unwrap();
-    assert_eq!(calls.len(), 1);
-    let (called_principal, document) = &calls[0];
-    assert_eq!(*called_principal, principal);
-    assert_eq!(document.file_type, Some(FileType::Spreadsheet));
-    assert_eq!(document.sha, crate::domain::models::EMPTY_SHA256);
-    assert_eq!(document.document_name, "Budget");
-    assert_eq!(document.project_id, Some(project));
-    assert!(document.sub_type.is_none());
-    assert!(tracker.calls().is_empty());
-}
-
 #[test]
 fn link_share_defaults_to_the_entity_default_unless_set_exactly() {
     use models_permissions::share_permission::access_level::AccessLevel;

@@ -111,16 +111,11 @@ pub struct DocumentServiceImpl<
     pub macro_event_broker: B,
 }
 
-/// Blank native spreadsheets have no object upload; importing workbook bytes is
-/// a separate operation and must never silently discard an uploaded workbook.
-fn validate_spreadsheet_creation(
-    file_type: Option<FileType>,
-    sha: &str,
-) -> Result<(), DocumentError> {
-    const EMPTY_SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
-    if file_type == Some(FileType::Spreadsheet) && sha != EMPTY_SHA256 {
+/// Native spreadsheets are not supported, so no entry point creates one.
+fn reject_spreadsheet_creation(file_type: Option<FileType>) -> Result<(), DocumentError> {
+    if file_type == Some(FileType::Spreadsheet) {
         return Err(DocumentError::BadRequest(
-            "Native spreadsheet file imports are not supported; create a blank spreadsheet and paste cells instead".to_string(),
+            "Native spreadsheets are not supported".to_string(),
         ));
     }
     Ok(())
@@ -162,9 +157,6 @@ fn presigned_location_content(
 
 fn pending_content_for_file_type(file_type: Option<FileType>) -> DocumentContent {
     match file_type {
-        Some(FileType::Spreadsheet) => {
-            DocumentContent::pending_at(DocumentContentLocation::SyncService)
-        }
         Some(FileType::Docx) => DocumentContent::pending_at(DocumentContentLocation::ConvertedPdf),
         _ => DocumentContent::pending_at(DocumentContentLocation::ObjectStorage),
     }
@@ -706,7 +698,7 @@ impl<
     ) -> Result<CreateDocumentResponseData, DocumentError> {
         let document_id = document_metadata.document_id.clone();
 
-        let mut initial_content = pending_content_for_file_type(file_type);
+        let initial_content = pending_content_for_file_type(file_type);
         if let Err(e) = self
             .repo
             .set_document_content(&document_id, initial_content.clone())
@@ -735,26 +727,6 @@ impl<
         let mime_type = content_type.mime_type().to_string();
 
         let presigned_url = match file_type {
-            Some(FileType::Spreadsheet) => {
-                if let Err(error) = self
-                    .sync_service_client
-                    .initialize_spreadsheet(&document_id)
-                    .await
-                {
-                    self.cleanup_document(&document_id).await;
-                    return Err(DocumentError::Internal(error));
-                }
-                initial_content = DocumentContent::ready(DocumentContentLocation::SyncService);
-                if let Err(error) = self
-                    .repo
-                    .set_document_content(&document_id, initial_content.clone())
-                    .await
-                {
-                    self.cleanup_document(&document_id).await;
-                    return Err(DocumentError::Internal(error.into()));
-                }
-                Ok(None)
-            }
             Some(FileType::Docx) => {
                 let docx_key = build_docx_staging_bucket_document_key(
                     &document_metadata.owner,
@@ -1449,7 +1421,7 @@ impl<
         mut document: NewDocument,
         job_id: Option<String>,
     ) -> Result<CreateDocumentResponseData, DocumentError> {
-        validate_spreadsheet_creation(document.file_type, &document.sha)?;
+        reject_spreadsheet_creation(document.file_type)?;
         if document.document_name.graphemes(true).count() > MAX_DOCUMENT_NAME_GRAPHEMES {
             return Err(DocumentError::NameTooLong {
                 max: MAX_DOCUMENT_NAME_GRAPHEMES,
@@ -1516,7 +1488,7 @@ impl<
         &self,
         args: ImportEmailAttachmentRepoArgs,
     ) -> Result<CreateDocumentResponseData, DocumentError> {
-        validate_spreadsheet_creation(args.document.file_type, &args.document.sha)?;
+        reject_spreadsheet_creation(args.document.file_type)?;
         if args.document.document_name.graphemes(true).count() > MAX_DOCUMENT_NAME_GRAPHEMES {
             return Err(DocumentError::NameTooLong {
                 max: MAX_DOCUMENT_NAME_GRAPHEMES,

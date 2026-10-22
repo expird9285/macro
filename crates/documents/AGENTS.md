@@ -3,8 +3,7 @@
 ## What it is
 
 The core of the Documents feature: document CRUD, content storage, AI
-editing/tools, and file-type-specific services (spreadsheets, presentations,
-word docs, Illustrator/Photoshop files).
+editing/tools, and file-type-specific services.
 
 ## Start here
 
@@ -17,7 +16,7 @@ word docs, Illustrator/Photoshop files).
 - `src/domain/docx_export.rs`: DOCX export readiness policy; empty parts mean
   extraction is pending. Its entry point requires a checked document receipt.
 - `src/inbound/toolset.rs`: one submodule per AI document tool (`create_document`,
-  `edit_document`, `word_document`, `spreadsheet`, `presentation`, ...).
+  `edit_document`, `read_content`, `comment_on_text`, ...).
 - `src/inbound/axum_router.rs`: the HTTP surface; `axum_router/get_text.rs`
   serves `/text-content` through `src/domain/text.rs`. Native Markdown comes
   from live collaborative storage, not the legacy S3 export.
@@ -25,8 +24,7 @@ word docs, Illustrator/Photoshop files).
 ## Scope
 
 - Owns: document lifecycle (create/rename/purge/upgrade), content storage and
-  markdown backfill, comments, AI-editing tools, and file-type domain services
-  (spreadsheet, presentation, word, illustrator, photoshop).
+  markdown backfill, comments, AI-editing tools, and file-type domain services.
 - Not here: realtime collaborative sync of document content → sync-service;
   the lexical markdown node/editor implementation → `packages/lexical-core`;
   Discussion comments, replies and thread state on any entity → the `messages`
@@ -36,8 +34,7 @@ word docs, Illustrator/Photoshop files).
 ## Boundaries
 
 - Depends on (feature-gated): `entity_access`/`entity_registry` (permissions),
-  `ai_engine`/`ai_toolset`/`ai_billing`/`ai_usage` (AI tools), `pptx_engine`/
-  `psd_engine` (file formats), `lexical_client` (sync-service calls),
+  `ai_toolset`/`ai_billing`/`ai_usage` (AI tools), `lexical_client` (sync-service calls),
   `comms_db_client` (create/purge adapters), `macro_db_client` (purge/backfill).
 - Used by: `ai_tools`, `agent_harness`, `webhook`, `soup_realtime`, `memory`,
   `projects`, `skills`, `github` — this crate's service and toolset are widely

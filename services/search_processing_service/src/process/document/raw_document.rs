@@ -20,19 +20,12 @@ use s3_key::{
 #[cfg(feature = "pdf")]
 use crate::parsers::pdf::parse_pdf_pages;
 use crate::{
-    parsers::{
-        ai::parse_ai_text, fig::parse_fig_pages, markdown::parse_markdown_legacy,
-        psd::parse_psd_text,
-    },
+    parsers::markdown::parse_markdown_legacy,
     process::document::document_info::{DocumentInfo, get_document_info},
     process::properties::to_indexed_properties,
 };
 
 use super::SearchExtractorMessage;
-
-/// The node id of the one chunk a Photoshop or Illustrator document indexes
-/// as, fixed so that a new version replaces it.
-const DESIGN_TEXT_NODE_ID: &str = "0";
 
 async fn upsert_document(
     opensearch_client: &OpensearchClient,
@@ -42,14 +35,8 @@ async fn upsert_document(
     let index_override = search_extractor_message.index_override.as_deref();
     // Delete existing documents for the document id
     // This ensures we replace any old nodes with new ones for editable files
-    // (a design's removed pages, for example)
     match search_extractor_message.file_type {
-        FileType::Md
-        | FileType::Canvas
-        | FileType::Fig
-        | FileType::Psd
-        | FileType::Psb
-        | FileType::Ai => {
+        FileType::Md | FileType::Canvas => {
             tracing::debug!("deleting existing search results");
             opensearch_client
                 .delete_document(&search_extractor_message.document_id, index_override)
@@ -204,39 +191,6 @@ fn should_index_parent_only(file_type: &FileType) -> bool {
     matches!(file_type, FileType::Canvas) || !is_searchable_file_type(file_type)
 }
 
-/// The searchable text of a Photoshop or Illustrator document. Decoding is
-/// CPU work, so it runs off the async workers; the engine failing on a
-/// damaged file is a read error like any other.
-async fn read_design_text(file_type: FileType, content: Vec<u8>) -> anyhow::Result<String> {
-    let parse: fn(&[u8]) -> anyhow::Result<String> = match file_type {
-        FileType::Ai => parse_ai_text,
-        FileType::Psd | FileType::Psb => parse_psd_text,
-        other => anyhow::bail!("{other} files are not read as designs"),
-    };
-    tokio::task::spawn_blocking(move || parse(&content))
-        .await
-        .unwrap_or_else(|e| Err(anyhow::anyhow!("the design engine failed: {e}")))
-}
-
-/// Indexes a design the engines cannot read (an old or damaged file, or one
-/// too large to decode here) by name only, dropping the text an earlier
-/// version left, so it stays findable. Reading it again would fail the same
-/// way, so this is not an error to retry.
-async fn update_search_with_unreadable_design(
-    opensearch_client: &OpensearchClient,
-    db: &sqlx::Pool<sqlx::Postgres>,
-    search_extractor_message: &SearchExtractorMessage,
-) -> anyhow::Result<()> {
-    opensearch_client
-        .delete_document(
-            &search_extractor_message.document_id,
-            search_extractor_message.index_override.as_deref(),
-        )
-        .await
-        .context("unable to delete existing search results")?;
-    update_search_with_parent_only_document(opensearch_client, db, search_extractor_message).await
-}
-
 /// The S3 key of the content to index, or `None` when the message names a
 /// superseded version. Content is stored under the document's owner; sync
 /// messages carry no `user_id`.
@@ -387,56 +341,6 @@ pub async fn update_search_with_raw_document(
                 let _ = content;
                 tracing::debug!("pdf/docx indexing skipped: pdf feature disabled");
                 vec![]
-            }
-        }
-        FileType::Fig => {
-            // Decoding a design is CPU work.
-            let pages = tokio::task::spawn_blocking(move || parse_fig_pages(&content))
-                .await
-                .context("decoding the design")?
-                .context("unable to parse the design")?;
-            pages
-                .into_iter()
-                .map(|page| UpsertDocumentArgs {
-                    document_id: search_extractor_message.document_id.clone(),
-                    // The page's node id, so a page keeps its chunk.
-                    node_id: page.node_id,
-                    raw_content: None,
-                    document_name: document_name.clone(),
-                    content: page.content,
-                    owner_id: owner_id.clone(),
-                    file_type: file_type.to_string(),
-                    updated_at_millis,
-                    sub_type: sub_type.clone(),
-                    properties: vec![],
-                })
-                .collect()
-        }
-        FileType::Psd | FileType::Psb | FileType::Ai => {
-            match read_design_text(file_type, content).await {
-                Ok(text) if !text.trim().is_empty() => vec![UpsertDocumentArgs {
-                    document_id: search_extractor_message.document_id.clone(),
-                    node_id: DESIGN_TEXT_NODE_ID.to_string(),
-                    raw_content: None,
-                    document_name,
-                    content: text,
-                    owner_id,
-                    file_type: file_type.to_string(),
-                    updated_at_millis,
-                    sub_type: sub_type.clone(),
-                    properties: vec![],
-                }],
-                read => {
-                    if let Err(error) = &read {
-                        tracing::warn!(error = ?error, "indexing an unreadable design by name only");
-                    }
-                    return update_search_with_unreadable_design(
-                        opensearch_client,
-                        db,
-                        search_extractor_message,
-                    )
-                    .await;
-                }
             }
         }
         FileType::Md => {

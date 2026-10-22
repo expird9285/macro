@@ -943,27 +943,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ai_engine"
-version = "0.1.0"
-dependencies = [
- "clap",
- "console_error_panic_hook",
- "fig_engine",
- "js-sys",
- "miniz_oxide",
- "png",
- "ruzstd",
- "serde",
- "serde_json",
- "skrifa",
- "thiserror 2.0.18",
- "tiny-skia",
- "wasm-bindgen",
- "zune-core",
- "zune-jpeg",
-]
-
-[[package]]
 name = "ai_projections"
 version = "0.1.0"
 dependencies = [
@@ -1212,21 +1191,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc890384c8602f339876ded803c97ad529f3842aba97f6392b3dba0dd171769b"
 dependencies = [
  "equator",
-]
-
-[[package]]
-name = "alloc-no-stdlib"
-version = "2.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc7bb162ec39d46ab1ca8c77bf72e890535becd1751bb45f64c597edb4c8c6b3"
-
-[[package]]
-name = "alloc-stdlib"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e76a019e91224d279006ff972f1e984179a6e9feb050adba6ce8274aef23195"
-dependencies = [
- "alloc-no-stdlib",
 ]
 
 [[package]]
@@ -1523,12 +1487,6 @@ dependencies = [
  "quote",
  "syn 2.0.117",
 ]
-
-[[package]]
-name = "arrayref"
-version = "0.3.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76a2e8124351fda1ef8aaaa3bbd7ebbcb486bbcd4225aca0aa0d84bb2db8fecb"
 
 [[package]]
 name = "arrayvec"
@@ -3430,16 +3388,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "brotli-decompressor"
-version = "5.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a32acac15fe1967bc3986b2a6347dffc965602354ea6f450ad07e8bfd253583"
-dependencies = [
- "alloc-no-stdlib",
- "alloc-stdlib",
-]
-
-[[package]]
 name = "bs58"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5039,7 +4987,6 @@ dependencies = [
  "aws-sdk-sqs",
  "axum",
  "database_env_vars",
- "docx_engine",
  "doppler-config",
  "futures",
  "http-body-util",
@@ -5058,7 +5005,6 @@ dependencies = [
  "macro_uuid",
  "model",
  "nix 0.29.0",
- "pptx_engine",
  "remote_env_var",
  "rs-libreoffice-bindings",
  "s3_client",
@@ -6754,7 +6700,6 @@ version = "0.1.0"
 dependencies = [
  "activity",
  "ai_billing",
- "ai_engine",
  "ai_toolset",
  "ai_usage",
  "anyhow",
@@ -6780,7 +6725,6 @@ dependencies = [
  "entity_mutation",
  "entity_registry",
  "entity_registry_db_utils",
- "fig_engine",
  "foreign_entity",
  "futures",
  "github_pull_requests",
@@ -6814,8 +6758,6 @@ dependencies = [
  "models_permissions",
  "models_properties",
  "non_empty",
- "pptx_engine",
- "psd_engine",
  "rdkafka",
  "redis",
  "reqwest 0.13.4",
@@ -6842,21 +6784,6 @@ dependencies = [
  "utoipa",
  "uuid",
  "workspace-hack",
-]
-
-[[package]]
-name = "docx_engine"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "clap",
- "console_error_panic_hook",
- "js-sys",
- "pptx_engine",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -8048,29 +7975,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "64cd1e32ddd350061ae6edb1b082d7c54915b5c672c389143b9a63403a109f24"
 
 [[package]]
-name = "fig_engine"
-version = "0.1.0"
-dependencies = [
- "brotli-decompressor",
- "clap",
- "console_error_panic_hook",
- "gif",
- "image-webp",
- "js-sys",
- "miniz_oxide",
- "png",
- "ruzstd",
- "serde",
- "serde_json",
- "skrifa",
- "thiserror 2.0.18",
- "tiny-skia",
- "wasm-bindgen",
- "zune-core",
- "zune-jpeg",
-]
-
-[[package]]
 name = "filter_ast"
 version = "0.1.0"
 dependencies = [
@@ -8147,15 +8051,6 @@ name = "foldhash"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
-
-[[package]]
-name = "font-types"
-version = "0.12.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c92d9081c7ab3bd83ef1eecdfad090f3d966e3ce74106779664114cfe1a6274"
-dependencies = [
- "bytemuck",
-]
 
 [[package]]
 name = "foreign-types"
@@ -15228,28 +15123,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "439ee305def115ba05938db6eb1644ff94165c5ab5e9420d1c1bcedbba909391"
 
 [[package]]
-name = "pptx_engine"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "clap",
- "console_error_panic_hook",
- "gif",
- "js-sys",
- "miniz_oxide",
- "png",
- "schemars 1.2.1",
- "serde",
- "serde_json",
- "skrifa",
- "thiserror 2.0.18",
- "tiny-skia",
- "wasm-bindgen",
- "zune-core",
- "zune-jpeg",
-]
-
-[[package]]
 name = "ppv-lite86"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -15705,23 +15578,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "psd_engine"
-version = "0.1.0"
-dependencies = [
- "clap",
- "console_error_panic_hook",
- "fig_engine",
- "js-sys",
- "miniz_oxide",
- "png",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tiny-skia",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "pxfm"
 version = "0.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -16144,18 +16000,6 @@ dependencies = [
  "num_enum",
  "openssl-sys",
  "pkg-config",
-]
-
-[[package]]
-name = "read-fonts"
-version = "0.45.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a5b7bed3d16ab428d8fa533640ab805ff50e7ad8a4d00649de1259e70023282"
-dependencies = [
- "bytemuck",
- "font-types",
- "once_cell",
- "yoke",
 ]
 
 [[package]]
@@ -17024,12 +16868,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 
 [[package]]
-name = "ruzstd"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69e4ce4a039f42bf25920b95667e4d789e98749ab11bbb8d2c2936f788421bb5"
-
-[[package]]
 name = "ryu"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -17296,7 +17134,6 @@ version = "0.1.0"
 dependencies = [
  "agent_fold",
  "agent_session",
- "ai_engine",
  "anyhow",
  "aws-sdk-dynamodb",
  "aws-sdk-s3",
@@ -17317,7 +17154,6 @@ dependencies = [
  "ensure_exists",
  "entity_registry",
  "entity_registry_db_utils",
- "fig_engine",
  "futures",
  "http-body-util",
  "kafka_util",
@@ -17352,7 +17188,6 @@ dependencies = [
  "pdfium-render",
  "projects",
  "properties",
- "psd_engine",
  "rdkafka",
  "rootcause",
  "rust-embed",
@@ -18308,16 +18143,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "skrifa"
-version = "0.48.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5213b4825bac3587046330052d61bfac7bd3bd0d203c758d7c2ef726fcea034"
-dependencies = [
- "bytemuck",
- "read-fonts",
-]
-
-[[package]]
 name = "slab"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -19124,12 +18949,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "strict-num"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6637bab7722d379c8b41ba849228d680cc12d0a45ba1fa2b48f2a30577a06731"
-
-[[package]]
 name = "string_cache"
 version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -19826,31 +19645,6 @@ checksum = "2e70e4c5a0e0a8a4823ad65dfe1a6930e4f4d756dcd9dd7939022b5e8c501215"
 dependencies = [
  "num-conv",
  "time-core",
-]
-
-[[package]]
-name = "tiny-skia"
-version = "0.11.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83d13394d44dae3207b52a326c0c85a8bf87f1541f23b0d143811088497b09ab"
-dependencies = [
- "arrayref",
- "arrayvec 0.7.6",
- "bytemuck",
- "cfg-if",
- "log",
- "tiny-skia-path",
-]
-
-[[package]]
-name = "tiny-skia-path"
-version = "0.11.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c9e7fc0c2e86a30b117d0462aa261b72b7a99b7ebd7deb3a14ceda95c5bdc93"
-dependencies = [
- "arrayref",
- "bytemuck",
- "strict-num",
 ]
 
 [[package]]

@@ -167,12 +167,17 @@ fn test_generate_parent_only_upsert_without_file_type() {
 }
 
 #[test]
-fn test_design_content_is_indexed_but_other_vector_files_are_name_only() {
-    for design in [FileType::Fig, FileType::Psd, FileType::Psb, FileType::Ai] {
-        assert!(!should_index_parent_only(&design), "{design}");
+fn test_design_and_vector_files_are_name_only() {
+    for file_type in [
+        FileType::Fig,
+        FileType::Psd,
+        FileType::Psb,
+        FileType::Ai,
+        FileType::Eps,
+        FileType::Dwg,
+    ] {
+        assert!(should_index_parent_only(&file_type), "{file_type}");
     }
-    assert!(should_index_parent_only(&FileType::Eps));
-    assert!(should_index_parent_only(&FileType::Dwg));
 }
 
 #[test]
@@ -209,12 +214,4 @@ fn raw_document_key_is_under_the_stored_owner() {
         CONVERTED_DOCUMENT_FILE_NAME,
         Some(&converted),
     );
-}
-
-#[tokio::test]
-async fn test_unreadable_designs_are_read_errors() {
-    for file_type in [FileType::Psd, FileType::Psb, FileType::Ai, FileType::Md] {
-        let read = read_design_text(file_type, b"not a design".to_vec()).await;
-        assert!(read.is_err(), "{file_type}");
-    }
 }

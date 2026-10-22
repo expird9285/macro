@@ -222,11 +222,6 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
     );
 
     let s3_client = macro_aws_config::s3_client().await;
-    let document_files = documents::outbound::s3_document_files::S3DocumentFiles::new(
-        db.clone(),
-        s3_client.clone(),
-        config.document_storage_bucket.as_ref(),
-    );
     let s3_upload_adapter = S3UploadUrlAdapter::new(
         s3_client,
         config.document_storage_bucket.as_ref(),
@@ -316,11 +311,7 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
             lexical_client.clone(),
             &side_effect_clients,
         ),
-    )
-    .with_presentation_files(Arc::new(document_files.clone()))
-    .with_design_files(Arc::new(document_files.clone()))
-    .with_photoshop_files(Arc::new(document_files.clone()))
-    .with_illustrator_files(Arc::new(document_files));
+    );
 
     let properties_tool_context = ai_tools::build_properties_tool_context(
         properties_service.clone(),

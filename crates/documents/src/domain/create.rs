@@ -512,26 +512,6 @@ where
     BytesUpload: DocumentBytesUploadPort,
     MentionTracker: DocumentMentionTrackingPort,
 {
-    /// Create a blank native workbook. The document service initializes its shared
-    /// sync room before returning; no browser or object-storage upload is needed.
-    pub async fn create_spreadsheet(
-        &self,
-        principal: &CreationPrincipal,
-        metadata: NewDocumentMetadata,
-    ) -> Result<CreatedDocument, DocumentError> {
-        let document = metadata.into_new_document(RepoDocumentKind {
-            file_type: Some(FileType::Spreadsheet),
-            sha: EMPTY_SHA256.to_string(),
-            subtype: RepoDocumentSubtype::Regular,
-            team_id: None,
-            share_with_team: false,
-        });
-        self.document_service
-            .create_document(principal, document, None)
-            .await
-            .map(CreatedDocument::new)
-    }
-
     /// Create a plaintext document using the lifecycle implied by its file type.
     #[tracing::instrument(skip(self, document), err)]
     pub async fn create_plain_text(

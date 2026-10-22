@@ -21,7 +21,6 @@ const ONBOARDING_FOLDER_NAME: &str = "ONBOARDING_DOCUMENTS";
 const PROJECT_NAME: &str = "Starter Docs";
 
 const MARKDOWN_TEMPLATE: &str = include_str!("./template/markdown_template.md");
-const CANVAS_TEMPLATE: &str = include_str!("./template/canvas_template.canvas");
 
 #[utoipa::path(
         tag = "document",
@@ -62,7 +61,6 @@ pub async fn handler(
 
     // Need to explicitly add the markdown file to this list
     documents.push(("Why use Macro?".to_string(), "md".to_string()));
-    documents.push(("Macro Canvas".to_string(), "canvas".to_string()));
 
     tracing::trace!(documents=?documents, elapsed_time=?start_time.elapsed(), "got documents");
 
@@ -141,29 +139,15 @@ pub async fn handler(
     })?;
     tracing::trace!(elapsed_time=?start_time.elapsed(), "filled markdown template");
 
-    let canvas_template = fill_template(CANVAS_TEMPLATE, &db_documents).map_err(|e| {
-        tracing::error!(error=?e, "failed to fill canvas template");
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                message: "failed to fill canvas template".into(),
-            }),
-        )
-            .into_response()
-    })?;
-    tracing::trace!(elapsed_time=?start_time.elapsed(), "filled markdown template");
-
     let start_time = std::time::Instant::now();
     // Note: this is as good as it gets for speed, the s3 calls themselves are the slow part
     // here unfortunately
     let shared_s3_client = &state.s3_client;
     let shared_markdown_template = markdown_template.clone();
-    let shared_canvas_template = canvas_template.clone();
     let results: Vec<anyhow::Result<()>> = futures::stream::iter(db_documents)
         .map(|document| {
             let s3_client = shared_s3_client.clone(); // Clone the client for parallel usage
             let markdown_template = shared_markdown_template.clone();
-            let canvas_template = shared_canvas_template.clone();
             let owner = Owner::User(user_context.authorization.user.macro_user_id.clone());
             async move {
                 let uri_document_name = urlencoding::encode(document.document_name.as_str());
@@ -184,10 +168,6 @@ pub async fn handler(
                     Some("md") => {
                         tracing::trace!(target_key=?target_key, "uploading markdown template");
                         s3_client.upload_document(&target_key, markdown_template.as_bytes().to_vec()).await?;
-                    }
-                    Some("canvas") => {
-                        tracing::trace!(target_key=?target_key, "uploading canvas template");
-                        s3_client.upload_document(&target_key, canvas_template.as_bytes().to_vec()).await?;
                     }
                     Some("docx") => {
                         tracing::trace!("skipping because docx is not a standard file");

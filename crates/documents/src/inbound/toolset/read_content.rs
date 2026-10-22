@@ -168,128 +168,56 @@ where
             .as_deref()
             .and_then(|file_type| FileType::from_str(file_type).ok());
 
-        let content: Content = if file_type == Some(FileType::Spreadsheet) {
-            let result = service_context
-                .spreadsheet
-                .read(
-                    entity_access_receipt.clone(),
-                    &request_context.user_id,
-                    service_context.actor.into_storage_id().as_ref(),
-                    crate::domain::spreadsheet::SpreadsheetRequest::Read {
-                        sheet_id: None,
-                        ranges: None,
-                        include_styles: None,
-                    },
-                )
-                .await
-                .map_err(|e| ToolCallError {
-                    description: e.to_string(),
-                    internal_error: e,
-                })?;
-            Content::Text(serde_json::to_string(&result).map_err(|e| ToolCallError {
-                description: "unable to serialize spreadsheet overview".to_string(),
-                internal_error: e.into(),
-            })?)
-        } else if file_type == Some(FileType::Pptx) {
-            // Slides, shape ids, and text as ReadPresentation describes them.
-            Content::Text(
+        let content: Content = match file_type.map(|file_type| file_type.macro_app_path()) {
+            Some(FileAssociation::Pdf(_)) | Some(FileAssociation::Write(_)) => Content::Text(
                 service_context
-                    .presentations
-                    .read(entity_access_receipt.clone(), None)
+                    .service
+                    .get_document_text(entity_access_receipt.clone())
                     .await
                     .map_err(|e| ToolCallError {
-                        description: format!("unable to read the presentation: {e:#}"),
-                        internal_error: e,
+                        description: "unable to get document text".to_string(),
+                        internal_error: e.into(),
                     })?,
-            )
-        } else if file_type == Some(FileType::Fig) {
-            // Pages, frames, text, and components as ReadDesign describes them.
-            Content::Text(
+            ),
+            Some(FileAssociation::Md(_)) => Content::Markdown(
                 service_context
-                    .designs
-                    .read(entity_access_receipt.clone(), None)
+                    .lexical_client
+                    .parse_cognition_v2(&self.document_id.to_string())
                     .await
                     .map_err(|e| ToolCallError {
-                        description: format!("unable to read the design: {e:#}"),
+                        description: "unable to parse markdown".to_string(),
                         internal_error: e,
-                    })?,
-            )
-        } else if matches!(file_type, Some(FileType::Psd | FileType::Psb)) {
-            // The canvas, layers, and text as ReadPhotoshopDocument describes them.
-            Content::Text(
-                service_context
-                    .photoshop_documents
-                    .read(entity_access_receipt.clone())
-                    .await
-                    .map_err(|e| ToolCallError {
-                        description: format!("unable to read the Photoshop document: {e:#}"),
-                        internal_error: e,
-                    })?,
-            )
-        } else if file_type == Some(FileType::Ai) {
-            // Artboards, layers, and text as ReadIllustratorDocument describes them.
-            Content::Text(
-                service_context
-                    .illustrator_documents
-                    .read(entity_access_receipt.clone())
-                    .await
-                    .map_err(|e| ToolCallError {
-                        description: format!("unable to read the Illustrator document: {e:#}"),
-                        internal_error: e,
-                    })?,
-            )
-        } else {
-            match file_type.map(|file_type| file_type.macro_app_path()) {
-                Some(FileAssociation::Pdf(_)) | Some(FileAssociation::Write(_)) => Content::Text(
-                    service_context
-                        .service
-                        .get_document_text(entity_access_receipt.clone())
-                        .await
-                        .map_err(|e| ToolCallError {
-                            description: "unable to get document text".to_string(),
-                            internal_error: e.into(),
-                        })?,
-                ),
-                Some(FileAssociation::Md(_)) => Content::Markdown(
-                    service_context
-                        .lexical_client
-                        .parse_cognition_v2(&self.document_id.to_string())
-                        .await
-                        .map_err(|e| ToolCallError {
-                            description: "unable to parse markdown".to_string(),
-                            internal_error: e,
-                        })?
-                        .data
-                        .into_iter()
-                        .map(|i| i.into())
-                        .collect(),
-                ),
-                Some(FileAssociation::Code(_)) | Some(FileAssociation::Document(_)) => {
-                    Content::Text(
-                        get_document_content_from_location(
-                            service_context.clone(),
-                            &document_context,
-                            entity_access_receipt.clone(),
-                        )
-                        .await
-                        .map_err(|e| ToolCallError {
-                            description: "unable to get document content using location"
-                                .to_string(),
-                            internal_error: e,
-                        })?,
+                    })?
+                    .data
+                    .into_iter()
+                    .map(|i| i.into())
+                    .collect(),
+            ),
+            Some(FileAssociation::Code(_)) | Some(FileAssociation::Document(_)) => {
+                Content::Text(
+                    get_document_content_from_location(
+                        service_context.clone(),
+                        &document_context,
+                        entity_access_receipt.clone(),
                     )
-                }
-                _ => get_document_inline_text_or_download(
-                    service_context.clone(),
-                    &document_context,
-                    entity_access_receipt.clone(),
+                    .await
+                    .map_err(|e| ToolCallError {
+                        description: "unable to get document content using location"
+                            .to_string(),
+                        internal_error: e,
+                    })?,
                 )
-                .await
-                .map_err(|e| ToolCallError {
-                    description: "unable to download document".to_string(),
-                    internal_error: e,
-                })?,
             }
+            _ => get_document_inline_text_or_download(
+                service_context.clone(),
+                &document_context,
+                entity_access_receipt.clone(),
+            )
+            .await
+            .map_err(|e| ToolCallError {
+                description: "unable to download document".to_string(),
+                internal_error: e,
+            })?,
         };
 
         let comments = service_context
