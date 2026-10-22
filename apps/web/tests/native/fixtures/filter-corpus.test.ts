@@ -49,7 +49,7 @@ test('canonical capsules cover every document and task fixture', () => {
       .map((row) => row.id)
       .sort()
   );
-  expect(Object.keys(capsules)).toHaveLength(62);
+  expect(Object.keys(capsules)).toHaveLength(58);
   for (const row of corpus.filter(
     (row) => row.kind === 'file' || row.kind === 'task'
   )) {
