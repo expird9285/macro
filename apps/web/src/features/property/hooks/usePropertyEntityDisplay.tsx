@@ -162,7 +162,7 @@ export function usePropertyEntityDisplay(
           return <CoreEntityIcon targetType="unknown" size="xs" />;
         }
         const { subType, fileType } = item;
-        const blockName = fileTypeToBlockName(subType?.type ?? fileType, true);
+        const blockName = fileTypeToBlockName(subType?.type ?? fileType);
         return <CoreEntityIcon targetType={blockName} size="xs" />;
       })
       .with('PROJECT', () => <CoreEntityIcon targetType="project" size="xs" />)

@@ -1,8 +1,4 @@
 import {
-  CanvasDetail,
-  type CanvasDetailContext,
-} from '@app/features/drive-view/views/CanvasDetail';
-import {
   CodeDetail,
   type CodeDetailContext,
 } from '@app/features/drive-view/views/CodeDetail';
@@ -58,7 +54,6 @@ const PdfDetail = lazyNamed(
 type DocumentDetailContext =
   | MarkdownDetailContext
   | CodeDetailContext
-  | CanvasDetailContext
   | ImageDetailContext
   | VideoDetailContext
   | PdfDetailContext
@@ -122,8 +117,6 @@ export function entityDetailBlockType(
     blockType === 'task' ||
     blockType === 'snippet' ||
     blockType === 'skill' ||
-    blockType === 'canvas' ||
-    blockType === 'spreadsheet' ||
     blockType === 'code' ||
     blockType === 'csv' ||
     blockType === 'image' ||
@@ -210,11 +203,6 @@ export function EntityDetail(props: EntityDetailProps) {
         <CodeDetail documentId={props.target.id}>
           {(context) => <>{renderChildren(context)}</>}
         </CodeDetail>
-      </Match>
-      <Match when={blockType() === 'canvas'}>
-        <CanvasDetail documentId={props.target.id}>
-          {(context) => <>{renderChildren(context)}</>}
-        </CanvasDetail>
       </Match>
       <Match when={blockType() === 'image'}>
         <ImageDetail documentId={props.target.id}>

@@ -225,7 +225,7 @@ export default function EditorTestPage() {
               buildMentionMarkdownString({
                 type: 'document',
                 documentId: '85a8b7c3-5976-440e-a0b6-5f9d9448073a',
-                blockName: 'canvas',
+                blockName: 'md',
                 documentName: '',
               }),
               buildMentionMarkdownString({

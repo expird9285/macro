@@ -135,7 +135,7 @@ async function onFilesReady(
     if (result.destination !== 'dss') continue;
 
     if (result.type === 'document') {
-      const blockName = fileTypeToBlockName(result.fileType, true);
+      const blockName = fileTypeToBlockName(result.fileType);
       if (blockName) {
         const item = await documentUploadToItem(result);
         if (!item) {

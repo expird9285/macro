@@ -9,20 +9,6 @@ const flags = vi.hoisted(() => ({ agents: false }));
 vi.mock('@app/features/agents-view/primitives/open-composer', () => ({}));
 vi.mock('@app/features/block-agent/context/pending-session', () => ({}));
 vi.mock('@app/features/block-agent/ui/AgentInput', () => ({}));
-vi.mock(
-  '@app/features/block-spreadsheet/primitives/use-spreadsheet-access',
-  () => ({})
-);
-vi.mock(
-  '@app/features/block-spreadsheet/queries/create-spreadsheet',
-  () => ({})
-);
-vi.mock('@app/features/block-ai/queries/create-ai', () => ({}));
-vi.mock('@app/features/block-psd/queries/create-psd', () => ({}));
-vi.mock('@app/features/block-fig/queries/create-fig', () => ({}));
-vi.mock('@app/features/block-spreadsheet/queries/spreadsheet-access', () => ({
-  isSpreadsheetEnabledForCurrentUser: () => true,
-}));
 vi.mock('@app/features/reminders/reminder-composer', () => ({}));
 vi.mock('@app/lib/analytics/posthog', () => ({}));
 vi.mock('@app/features/routines', () => ({}));
@@ -34,13 +20,10 @@ vi.mock('@core/component/EntityIcon', () => ({
   getIconConfig: () => ({ icon: () => null }),
 }));
 vi.mock('@core/constant/featureFlags', () => ({
-  enableAiEditor: 'ai',
   enableChatV3Agents: 'agents',
   enableDatabases: 'databases',
-  enableFigViewer: 'fig',
   enableForms: 'forms',
   enableProjects: 'projects',
-  enablePsdEditor: 'psd',
   enableReminders: 'reminders',
   enableSnippets: 'snippets',
   isFeatureEnabled: (flag: string) => flag !== 'agents' || flags.agents,
@@ -60,7 +43,7 @@ vi.mock('./mobile/MobileCreateSheet', () => ({}));
 
 describe('create-menu keyboard shortcuts', () => {
   it.each([false, true])(
-    'keeps database and spreadsheet reachable with agent rollout %s',
+    'keeps database reachable with agent rollout %s',
     (agents) => {
       flags.agents = agents;
       const enabled = CREATABLE_BLOCKS.filter(
@@ -68,18 +51,13 @@ describe('create-menu keyboard shortcuts', () => {
       );
       const bindings = new Map(enabled.map((item) => [item.hotkey, item]));
 
-      // Registration overrides earlier entries with the same key. Both pilots
+      // Registration overrides earlier entries with the same key. The pilot
       // must survive, alongside every other available create action.
       expect(bindings.size).toBe(enabled.length);
       expect(bindings.get('l')).toMatchObject({
         blockName: 'database',
         hotkeyToken: TOKENS.create.database,
         altHotkeyToken: TOKENS.create.databaseNewSplit,
-      });
-      expect(bindings.get('b')).toMatchObject({
-        blockName: 'spreadsheet',
-        hotkeyToken: TOKENS.create.spreadsheet,
-        altHotkeyToken: TOKENS.create.spreadsheetNewSplit,
       });
     }
   );

@@ -1,12 +1,4 @@
 import type { SplitHandle } from '@components/app/split-layout/layoutManager';
-import { createHeadlessEditor } from '@lexical/headless';
-import {
-  $convertFromMarkdownString,
-  $convertToMarkdownString,
-} from '@lexical/markdown';
-import { SupportedNodeTypes } from '@macro-inc/lexical-core/node-list';
-import { ALL_TRANSFORMERS } from '@macro-inc/lexical-core/transformers';
-import { $getRoot } from 'lexical';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -71,47 +63,14 @@ describe('openChatWithAgent', () => {
     );
   });
 
-  it('attaches a spreadsheet with its current sheet and range without sending a message', async () => {
-    const opened = await openChatWithAgent({
-      type: 'document',
-      id: 'sheet-id',
-      name: 'Budget',
-      fileType: 'spreadsheet',
-      blockParams: {
-        sheetId: 'sheet-2',
-        sheetName: 'Annual budget',
-        range: 'B4:E9',
-      },
-    });
-    expect(opened).toBe(true);
-    expect(mocks.startPendingSession).toHaveBeenCalledWith({
-      prompt: undefined,
-      initialInput:
-        '<m-document-mention>{"documentId":"sheet-id","documentName":"Budget","blockName":"spreadsheet","blockParams":{"sheetId":"sheet-2","sheetName":"Annual budget","range":"B4:E9"}}</m-document-mention> ',
-    });
-    const input: string =
-      mocks.startPendingSession.mock.calls[0][0].initialInput;
-    const editor = createHeadlessEditor({ nodes: SupportedNodeTypes });
-    editor.update(() => $convertFromMarkdownString(input, ALL_TRANSFORMERS), {
-      discrete: true,
-    });
-    editor.getEditorState().read(() => {
-      const serialized = $convertToMarkdownString(ALL_TRANSFORMERS);
-      expect(serialized).toContain(
-        '"blockParams":{"sheetId":"sheet-2","sheetName":"Annual budget","range":"B4:E9"}'
-      );
-      expect($getRoot().getTextContent()).toBe('Budget ');
-    });
-  });
-
   it('does not start a session when navigation is unavailable', async () => {
     mocks.manager = false;
     expect(
       await openChatWithAgent({
         type: 'document',
-        id: 'sheet-id',
-        name: 'Budget',
-        fileType: 'spreadsheet',
+        id: 'document-id',
+        name: 'Project plan',
+        fileType: 'md',
       })
     ).toBe(false);
     expect(mocks.openWithSplit).not.toHaveBeenCalled();

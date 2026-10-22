@@ -121,7 +121,7 @@ interface HotkeyProps extends JSX.HTMLAttributes<HTMLDivElement> {
  * A component that displays a hotkey for a given hotkey token, as registered in the hotkey registry.
  * @param props.token - The hotkey registry token to display the hotkey for.
  * @example
- * <Hotkey token={TOKENS.canvas.cut} />
+ * <Hotkey token={TOKENS.global.commandMenu} />
  */
 /**
  * Returns the hotkey as a plain string, handling the same props as Hotkey.
@@ -130,7 +130,7 @@ interface HotkeyProps extends JSX.HTMLAttributes<HTMLDivElement> {
  * @param props.lowercase - Whether to lowercase the key.
  * @param props.showPlus - Whether to include '+' between parts.
  * @example
- * getNormalizedKeyString({ token: TOKENS.canvas.cut }) // "⌘X"
+ * getNormalizedKeyString({ token: TOKENS.global.commandMenu }) // "⌘K"
  * getNormalizedKeyString({ shortcut: 'meta+shift+k', showPlus: true }) // "⌘ + ⇧ + K"
  */
 export function getNormalizedKeyString(

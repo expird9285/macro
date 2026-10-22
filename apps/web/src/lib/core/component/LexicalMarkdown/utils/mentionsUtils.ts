@@ -88,15 +88,13 @@ export type UserMentionRecord = {
 };
 
 const getCombinedEntityBlockName = (
-  item: CombinedEntity<'item' | 'channel' | 'email'>,
-  icon?: boolean
+  item: CombinedEntity<'item' | 'channel' | 'email'>
 ): BlockName | BlockAlias => {
   switch (item.kind) {
     case 'item':
       if (item.data.type === 'document')
         return fileTypeToBlockName(
-          (item.data.subType?.type as string | undefined) ?? item.data.fileType,
-          icon
+          (item.data.subType?.type as string | undefined) ?? item.data.fileType
         );
       if (item.data.type === 'chat') return 'chat';
       if (item.data.type === 'project') return 'project';

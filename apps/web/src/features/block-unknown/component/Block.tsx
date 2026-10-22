@@ -16,17 +16,7 @@ import { downloadFile } from '@filesystem/download';
 import { waitForDocumentContentReady } from '@queries/storage/document-location';
 import { fetchDocumentMetadata } from '@queries/storage/document-metadata';
 import { createCallback } from '@solid-primitives/rootless';
-import {
-  createSignal,
-  lazy,
-  onCleanup,
-  onMount,
-  Show,
-  Suspense,
-} from 'solid-js';
-import { SpreadsheetSkeleton } from '../../block-spreadsheet/components/SpreadsheetSkeleton';
-import { isUploadedWorkbook } from '../../block-spreadsheet/core/uploaded-workbook';
-import { useSpreadsheetAccess } from '../../block-spreadsheet/primitives/use-spreadsheet-access';
+import { createSignal, onCleanup, onMount } from 'solid-js';
 import {
   legacyOfficeUpgradeTarget,
   pollForLegacyUpgrade,
@@ -36,10 +26,6 @@ import {
 import { useGetFileBlob } from '../signal/blockData';
 import { TopBar } from './TopBar';
 import { UnknownContent } from './UnknownContent';
-
-const UploadedWorkbook = lazy(
-  () => import('../../block-spreadsheet/views/UploadedWorkbook')
-);
 
 export default function BlockUnknown() {
   return (
@@ -52,9 +38,6 @@ export default function BlockUnknown() {
 }
 
 function BlockUnknownContent() {
-  const enabled = useSpreadsheetAccess();
-  const spreadsheet = () =>
-    enabled() && isUploadedWorkbook(blockMetadataSignal.get()?.fileType);
   const fileName = useBlockDocumentName();
   const downloadName = useBlockDocumentDownloadName();
   const blockId = useBlockId();
@@ -81,30 +64,19 @@ function BlockUnknownContent() {
   });
 
   return (
-    <SidePanel.Layout defaultOpen={!spreadsheet()} floating>
+    <SidePanel.Layout defaultOpen floating>
       <FileSidePanelSections />
       <div class="flex size-full min-w-0 flex-col overflow-hidden">
         <div class="relative">
           <TopBar onShare={openShare} />
         </div>
         <div class="w-full grow relative overflow-hidden">
-          <Show
-            when={spreadsheet()}
-            fallback={
-              <UnknownContent
-                fileName={fileName()}
-                convertingTo={convertingTo()}
-                onShare={openShare}
-                onDownload={() =>
-                  fireAndForget(downloadDocument(), 'unknown-file')
-                }
-              />
-            }
-          >
-            <Suspense fallback={<SpreadsheetSkeleton />}>
-              <UploadedWorkbook />
-            </Suspense>
-          </Show>
+          <UnknownContent
+            fileName={fileName()}
+            convertingTo={convertingTo()}
+            onShare={openShare}
+            onDownload={() => fireAndForget(downloadDocument(), 'unknown-file')}
+          />
         </div>
       </div>
     </SidePanel.Layout>
@@ -153,7 +125,7 @@ function useLegacyOfficeUpgrade(documentId: string) {
         }
         const blockName = fileTypeToBlockName(upgraded.fileType);
         if (blockName === 'unknown') {
-          // Excel workbooks stay in this block, which previews them.
+          // Types without a viewer of their own stay in this block.
           blockMetadataSignal.set(upgraded);
           setWaiting(false);
           return;

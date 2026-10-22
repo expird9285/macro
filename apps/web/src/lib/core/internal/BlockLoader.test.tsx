@@ -165,7 +165,7 @@ it('keeps document permissions unavailable until its pending load finishes', asy
         id="01a140ad-06d5-7791-8b68-bc128654bbba"
         source={{ type: 'dss', id: '01a140ad-06d5-7791-8b68-bc128654bbba' }}
         definition={{
-          name: 'write',
+          name: 'pdf',
           description: 'Document',
           accepted: {},
           component: () => null,
@@ -201,7 +201,7 @@ it.each(['MISSING', 'GONE', 'INVALID'] as const)(
           id="01a140ad-06d5-7791-8b68-bc128654bbba"
           source={{ type: 'dss', id: '01a140ad-06d5-7791-8b68-bc128654bbba' }}
           definition={{
-            name: 'write',
+            name: 'pdf',
             description: 'Document',
             accepted: {},
             component: () => null,

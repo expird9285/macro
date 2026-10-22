@@ -74,9 +74,6 @@
       "@phosphor-fill/*": [
         "../../node_modules/@phosphor-icons/core/assets/fill/*"
       ],
-      "@block-canvas/*": [
-        "./src/features/block-canvas/*"
-      ],
       "@block-pdf/*": [
         "./src/features/block-pdf/*"
       ],

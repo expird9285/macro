@@ -1,25 +1,13 @@
-import { createAiDocument } from '@app/features/block-ai/queries/create-ai';
-import { createFigDocument } from '@app/features/block-fig/queries/create-fig';
-import { createPsdDocument } from '@app/features/block-psd/queries/create-psd';
-import { useSpreadsheetAccess } from '@app/features/block-spreadsheet/primitives/use-spreadsheet-access';
-import { createSpreadsheetDocument } from '@app/features/block-spreadsheet/queries/create-spreadsheet';
 import { openChatWithAgent } from '@app/features/chat/ChatWithAgentButton';
 import type { BlockTool } from '@components/app/ResponsiveBlockToolbar';
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import type { BlockAlias, BlockName } from '@core/block';
 import { EntityIcon } from '@core/component/EntityIcon';
 import { toast } from '@core/component/Toast/Toast';
-import {
-  enableAiEditor,
-  enableChatV3Agents,
-  enableFigViewer,
-  enablePsdEditor,
-  isFeatureEnabled,
-} from '@core/constant/featureFlags';
+import { enableChatV3Agents, isFeatureEnabled } from '@core/constant/featureFlags';
 import { pressedKeys } from '@core/hotkey/state';
 import { type HotkeyToken, TOKENS } from '@core/hotkey/tokens';
 import {
-  createCanvasFileFromJsonString,
   createChat,
   createMarkdownFile,
   createTask,
@@ -51,26 +39,6 @@ type CreateBlockSpec = {
 };
 
 const BLOCK_CREATE_SPECS: CreateBlockSpec[] = [
-  {
-    label: 'Spreadsheet',
-    blockName: 'spreadsheet',
-    hotkeyToken: TOKENS.create.spreadsheet,
-    icon: () => (
-      <div class="size-4 shrink-0">
-        <EntityIcon
-          targetType="spreadsheet"
-          size="shrinkFill"
-          theme="monochrome"
-        />
-      </div>
-    ),
-    loading: true,
-    createFn: async (projectId) => {
-      const documentId = await createSpreadsheetDocument({ projectId });
-      if (!documentId) throw new Error('Failed to create spreadsheet');
-      return documentId;
-    },
-  },
   {
     label: 'Note',
     blockName: 'md' as BlockName,
@@ -137,77 +105,6 @@ const BLOCK_CREATE_SPECS: CreateBlockSpec[] = [
         throw new Error('Failed to create chat');
       }
       return result.chatId;
-    },
-  },
-  {
-    label: 'Canvas',
-    blockName: 'canvas' as BlockName,
-    hotkeyToken: TOKENS.create.canvas,
-    icon: () => (
-      <div class="size-4 shrink-0">
-        <EntityIcon targetType="canvas" size="shrinkFill" theme="monochrome" />
-      </div>
-    ),
-    loading: true,
-    createFn: async (projectId) => {
-      const result = await createCanvasFileFromJsonString({
-        json: JSON.stringify({ nodes: [], edges: [] }),
-        title: 'New Canvas',
-        projectId,
-      });
-      if ('error' in result) {
-        console.error(result.error);
-        throw new Error('Failed to create canvas');
-      }
-      return result.documentId;
-    },
-  },
-  {
-    label: 'Photoshop file',
-    blockName: 'psd' as BlockName,
-    hotkeyToken: TOKENS.create.photoshop,
-    icon: () => (
-      <div class="size-4 shrink-0">
-        <EntityIcon targetType="psd" size="shrinkFill" theme="monochrome" />
-      </div>
-    ),
-    loading: true,
-    createFn: async (projectId) => {
-      const id = await createPsdDocument({ projectId, source: 'project' });
-      if (!id) throw new Error('Failed to create Photoshop file');
-      return id;
-    },
-  },
-  {
-    label: 'Design',
-    blockName: 'fig' as BlockName,
-    hotkeyToken: TOKENS.create.design,
-    icon: () => (
-      <div class="size-4 shrink-0">
-        <EntityIcon targetType="fig" size="shrinkFill" theme="monochrome" />
-      </div>
-    ),
-    loading: true,
-    createFn: async (projectId) => {
-      const id = await createFigDocument({ projectId, source: 'project' });
-      if (!id) throw new Error('Failed to create design');
-      return id;
-    },
-  },
-  {
-    label: 'Illustrator file',
-    blockName: 'ai' as BlockName,
-    hotkeyToken: TOKENS.create.illustration,
-    icon: () => (
-      <div class="size-4 shrink-0">
-        <EntityIcon targetType="ai" size="shrinkFill" theme="monochrome" />
-      </div>
-    ),
-    loading: true,
-    createFn: async (projectId) => {
-      const id = await createAiDocument({ projectId, source: 'project' });
-      if (!id) throw new Error('Failed to create Illustrator file');
-      return id;
     },
   },
   {
@@ -298,14 +195,6 @@ function ProjectCreateDialog(props: {
 }) {
   const { replaceSplit, insertSplit } = useSplitLayout();
   const createBlock = makeCreateBlock({ replaceSplit, insertSplit });
-  const spreadsheetAccess = useSpreadsheetAccess();
-  const offered = (spec: CreateBlockSpec) => {
-    if (spec.blockName === 'spreadsheet') return spreadsheetAccess();
-    if (spec.blockName === 'psd') return isFeatureEnabled(enablePsdEditor);
-    if (spec.blockName === 'fig') return isFeatureEnabled(enableFigViewer);
-    if (spec.blockName === 'ai') return isFeatureEnabled(enableAiEditor);
-    return true;
-  };
 
   return (
     <Dialog open={props.open} onOpenChange={(o) => !o && props.onClose()}>
@@ -315,7 +204,7 @@ function ProjectCreateDialog(props: {
             <Dialog.Title class="text-base font-semibold text-ink pb-3">
               Create in {props.name}
             </Dialog.Title>
-            <For each={BLOCK_CREATE_SPECS.filter(offered)}>
+            <For each={BLOCK_CREATE_SPECS}>
               {(spec) => (
                 <button
                   class="flex items-center gap-2 py-1 text-sm hover:bg-hover w-full text-left min-h-11"
@@ -374,17 +263,9 @@ function MenuItem(props: MenuItemProps) {
 function MenuContent(props: { projectId: string; name: string }) {
   const { replaceSplit, insertSplit } = useSplitLayout();
   const createBlock = makeCreateBlock({ replaceSplit, insertSplit });
-  const spreadsheetAccess = useSpreadsheetAccess();
-  const offered = (spec: CreateBlockSpec) => {
-    if (spec.blockName === 'spreadsheet') return spreadsheetAccess();
-    if (spec.blockName === 'psd') return isFeatureEnabled(enablePsdEditor);
-    if (spec.blockName === 'fig') return isFeatureEnabled(enableFigViewer);
-    if (spec.blockName === 'ai') return isFeatureEnabled(enableAiEditor);
-    return true;
-  };
 
   const items = (): MenuItemProps[] =>
-    BLOCK_CREATE_SPECS.filter(offered).map((spec) => ({
+    BLOCK_CREATE_SPECS.map((spec) => ({
       label: spec.label,
       Icon: spec.icon,
       action: () => {

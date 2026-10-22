@@ -193,7 +193,6 @@ function migrateLegacySearch({
       case 'task':
       case 'skill':
       case 'snippet':
-      case 'spreadsheet':
         return MD_URL_PARAMS.commentId;
       case 'pdf':
         return PDF_URL_PARAMS.annotationId;

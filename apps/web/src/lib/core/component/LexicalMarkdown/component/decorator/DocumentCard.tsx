@@ -2,7 +2,7 @@ import { pollCardHeight } from '@app/features/block-form/core/poll-card-layout';
 import { openChatWithAgent } from '@app/features/chat/ChatWithAgentButton';
 import { globalSplitManager } from '@app/signal/splitLayout';
 import { URL_PARAMS as CHANNEL_PARAMS } from '@block-channel/constants';
-import { isInBlock, type PreviewState, useMaybeBlockName } from '@core/block';
+import { isInBlock, useMaybeBlockName } from '@core/block';
 import { useItemPreviewData } from '@core/component/ItemPreview';
 import { toast } from '@core/component/Toast/Toast';
 import { resolveBlockAlias, verifyBlockName } from '@core/constant/allBlocks';
@@ -20,7 +20,6 @@ import {
   $isDocumentCardNode,
   DEFAULT_PREVIEW_BOX,
   type DocumentCardDecoratorProps,
-  HISTORY_MERGE_TAG,
   type PreviewBox,
   setDocumentCardPreviewComponent,
   unsetDocumentCardPreviewCache,
@@ -42,7 +41,6 @@ import { createCallback } from '@solid-primitives/rootless';
 import { debounce } from '@solid-primitives/scheduled';
 import { Card, cn, Dropdown, Item } from '@ui';
 import {
-  $addUpdateTag,
   $createNodeSelection,
   $getNodeByKey,
   $setSelection,
@@ -178,56 +176,6 @@ function DocumentCardInner(props: DocumentCardDecoratorProps) {
   const [dropdownOpen, setDropdownOpen] = createSignal(false);
   const [, setContainerRef] = createSignal<HTMLDivElement>();
 
-  const resizePreview = (height: string) => {
-    editor()?.update(() => {
-      $addUpdateTag(HISTORY_MERGE_TAG);
-      const node = $getNodeByKey(props.key);
-      if (!$isDocumentCardNode(node)) return;
-      const [width] = node.getPreviewBox();
-      node.setPreviewBox([width, height]);
-      dispatchInternalLayoutShift(editor()!);
-    });
-  };
-
-  const previewContext = createMemo<
-    Partial<PreviewState & { showDraftSelectorButton: boolean }>
-  >(() => {
-    return {
-      onChangePreviewHeight: (h: string) => resizePreview(h),
-      showDraftSelectorButton: true,
-      canvas: {
-        onLocationChange: (location) => {
-          const currentEditor = editor();
-          if (!currentEditor) return;
-          const focused = document.activeElement;
-          const restoreFocus =
-            focused instanceof HTMLElement &&
-            currentEditor.getElementByKey(props.key)?.contains(focused);
-          currentEditor.update(
-            () => {
-              $addUpdateTag(HISTORY_MERGE_TAG);
-              const node = $getNodeByKey(props.key);
-              if (!$isDocumentCardNode(node)) return;
-              node.setPreviewData({
-                view: location,
-              });
-            },
-            {
-              onUpdate: () => {
-                if (
-                  restoreFocus &&
-                  focused instanceof HTMLElement &&
-                  focused.isConnected
-                )
-                  focused.focus({ preventScroll: true });
-              },
-            }
-          );
-        },
-      },
-    };
-  });
-
   const previewData = () => {
     const data = props.previewData;
     if (data && 'view' in data) {
@@ -298,7 +246,7 @@ function DocumentCardInner(props: DocumentCardDecoratorProps) {
         i.id,
         {
           params: previewData(),
-          nested: { parentContext: previewContext() },
+          nested: {},
         }
       );
       if (!preview) return;
@@ -363,7 +311,7 @@ function DocumentCardInner(props: DocumentCardDecoratorProps) {
 
   const canOpenInChat = () =>
     currentBlockName !== 'chat' &&
-    ['write', 'pdf', 'md', 'code', 'image', 'canvas'].includes(props.blockName);
+    ['pdf', 'md', 'code', 'image'].includes(props.blockName);
 
   const handleOpenInChat = () => {
     const preview = item();

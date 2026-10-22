@@ -1,6 +1,5 @@
 import { agentsRouteSegments } from '@app/features/agents-view/core/route';
 import { agentDetailSearch } from '@app/features/block-agent/agent-route';
-import { SPREADSHEET_COMMENT_PARAMS } from '@app/features/block-spreadsheet/core/spreadsheet-comments';
 import {
   CALENDAR_ROUTE_ID,
   CALENDAR_SEARCH_NAMESPACE,
@@ -292,8 +291,6 @@ export const driveSplitRoute = defineRoute({
       return Object.values(MARKDOWN_URL_PARAMS);
     }
     if (type === 'pdf') return Object.values(PDF_URL_PARAMS);
-    if (type === 'spreadsheet')
-      return Object.values(SPREADSHEET_COMMENT_PARAMS);
     if (typeof routeParams(entry.location.route).callId === 'string')
       return [CALL_URL_PARAMS.transcriptId, CALL_URL_PARAMS.messageId];
     return [];
@@ -397,7 +394,7 @@ export const homeDocumentRoute = defineRoute({
       return Object.values(MARKDOWN_URL_PARAMS);
     }
     if (type === 'pdf') return Object.values(PDF_URL_PARAMS);
-    return type === 'spreadsheet' ? [MARKDOWN_URL_PARAMS.commentId] : [];
+    return [];
   },
   remountKey: ({ documentType, documentId }) =>
     `${homeBaseBlockType(documentType)}:${documentId}`,
@@ -422,7 +419,7 @@ export const homePreviewRoute = defineRoute({
       return Object.values(MARKDOWN_URL_PARAMS);
     }
     if (type === 'pdf') return Object.values(PDF_URL_PARAMS);
-    return type === 'spreadsheet' ? [MARKDOWN_URL_PARAMS.commentId] : [];
+    return [];
   },
   remountKey: ({ blockType, previewId }) =>
     `${homeBaseBlockType(blockType)}:${previewId}`,
@@ -723,7 +720,6 @@ const debugComponentIds = [
         'diff-view-ui',
       ]
     : []),
-  ...(import.meta.env.DEV ? ['spreadsheet-demo'] : []),
   ...(DEV_MODE_ENV
     ? [
         'document-where-playground',

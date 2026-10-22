@@ -12,8 +12,6 @@ import type {
   EntityData,
   ForeignEntity,
 } from '@entity';
-import Spreadsheet from '@icon/wide-spreadsheet.svg';
-import SpreadsheetBold from '@icon/wide-spreadsheet-bold.svg';
 import AddressBook from '@phosphor/address-book.svg';
 import BellSimple from '@phosphor/bell-simple.svg';
 import Blueprint from '@phosphor/blueprint.svg';
@@ -27,15 +25,12 @@ import Code from '@phosphor/code.svg';
 import Database from '@phosphor/database.svg';
 import Email from '@phosphor/envelope.svg';
 import EmailRead from '@phosphor/envelope-open.svg';
-import FigmaLogo from '@phosphor/figma-logo.svg';
 import File from '@phosphor/file.svg';
 import FileArchive from '@phosphor/file-archive.svg';
 import FileCsv from '@phosphor/file-csv.svg';
 import FileDashed from '@phosphor/file-dashed.svg';
-import FileDoc from '@phosphor/file-doc.svg';
 import FileHtml from '@phosphor/file-html.svg';
 import FilePdf from '@phosphor/file-pdf.svg';
-import Presentation from '@phosphor/file-ppt.svg';
 import FileVideo from '@phosphor/file-video.svg';
 import Files from '@phosphor/files.svg';
 import Folder from '@phosphor/folder-simple.svg';
@@ -46,10 +41,7 @@ import GlobeIcon from '@phosphor/globe.svg';
 import HashStraight from '@phosphor/hash-straight.svg';
 import FileImage from '@phosphor/image.svg';
 import ListChecks from '@phosphor/list-checks.svg';
-import PaintBrushBroad from '@phosphor/paint-brush-broad.svg';
-import PenNib from '@phosphor/pen-nib.svg';
 import PhoneCall from '@phosphor/phone-call.svg';
-import Shapes from '@phosphor/shapes.svg';
 import Sparkle from '@phosphor/sparkle.svg';
 import Stack from '@phosphor/stack.svg';
 import Table from '@phosphor/table.svg';
@@ -68,15 +60,12 @@ import CodeBold from '@phosphor-icons/core/bold/code-bold.svg';
 import DatabaseBold from '@phosphor-icons/core/bold/database-bold.svg';
 import EmailBold from '@phosphor-icons/core/bold/envelope-bold.svg';
 import EmailReadBold from '@phosphor-icons/core/bold/envelope-open-bold.svg';
-import FigmaLogoBold from '@phosphor-icons/core/bold/figma-logo-bold.svg';
 import FileArchiveBold from '@phosphor-icons/core/bold/file-archive-bold.svg';
 import FileBold from '@phosphor-icons/core/bold/file-bold.svg';
 import FileCsvBold from '@phosphor-icons/core/bold/file-csv-bold.svg';
 import FileDashedBold from '@phosphor-icons/core/bold/file-dashed-bold.svg';
-import FileDocBold from '@phosphor-icons/core/bold/file-doc-bold.svg';
 import FileHtmlBold from '@phosphor-icons/core/bold/file-html-bold.svg';
 import FilePdfBold from '@phosphor-icons/core/bold/file-pdf-bold.svg';
-import PresentationBold from '@phosphor-icons/core/bold/file-ppt-bold.svg';
 import FileVideoBold from '@phosphor-icons/core/bold/file-video-bold.svg';
 import FilesBold from '@phosphor-icons/core/bold/files-bold.svg';
 import FolderBold from '@phosphor-icons/core/bold/folder-simple-bold.svg';
@@ -87,10 +76,7 @@ import GlobeIconBold from '@phosphor-icons/core/bold/globe-bold.svg';
 import HashStraightBold from '@phosphor-icons/core/bold/hash-straight-bold.svg';
 import FileImageBold from '@phosphor-icons/core/bold/image-bold.svg';
 import ListChecksBold from '@phosphor-icons/core/bold/list-checks-bold.svg';
-import PaintBrushBroadBold from '@phosphor-icons/core/bold/paint-brush-broad-bold.svg';
-import PenNibBold from '@phosphor-icons/core/bold/pen-nib-bold.svg';
 import PhoneCallBold from '@phosphor-icons/core/bold/phone-call-bold.svg';
-import ShapesBold from '@phosphor-icons/core/bold/shapes-bold.svg';
 import SparkleBold from '@phosphor-icons/core/bold/sparkle-bold.svg';
 import StackBold from '@phosphor-icons/core/bold/stack-bold.svg';
 import TableBold from '@phosphor-icons/core/bold/table-bold.svg';
@@ -162,48 +148,6 @@ export const ENTITY_ICON_CONFIGS: Record<EntityWithValidIcon, IconConfig> = {
     foreground: 'text-default',
     background: 'bg-default/20',
     prettyName: 'Calendar',
-  },
-  canvas: {
-    icon: Shapes,
-    boldIcon: ShapesBold,
-    foreground: 'text-canvas',
-    background: 'bg-canvas/20',
-    prettyName: 'Canvas',
-  },
-  spreadsheet: {
-    icon: Spreadsheet,
-    boldIcon: SpreadsheetBold,
-    foreground: 'text-success',
-    background: 'bg-success/20',
-    prettyName: 'Spreadsheet',
-  },
-  pptx: {
-    icon: Presentation,
-    boldIcon: PresentationBold,
-    foreground: 'text-orange',
-    background: 'bg-orange/20',
-    prettyName: 'Presentation',
-  },
-  psd: {
-    icon: PaintBrushBroad,
-    boldIcon: PaintBrushBroadBold,
-    foreground: 'text-blue',
-    background: 'bg-blue/20',
-    prettyName: 'Photoshop file',
-  },
-  fig: {
-    icon: FigmaLogo,
-    boldIcon: FigmaLogoBold,
-    foreground: 'text-violet',
-    background: 'bg-violet/20',
-    prettyName: 'Figma file',
-  },
-  ai: {
-    icon: PenNib,
-    boldIcon: PenNibBold,
-    foreground: 'text-amber',
-    background: 'bg-amber/20',
-    prettyName: 'Illustrator file',
   },
   database: {
     icon: Database,
@@ -309,13 +253,6 @@ export const ENTITY_ICON_CONFIGS: Record<EntityWithValidIcon, IconConfig> = {
     foreground: 'text-image',
     background: 'bg-image/20',
     prettyName: 'Image',
-  },
-  write: {
-    icon: FileDoc,
-    boldIcon: FileDocBold,
-    foreground: 'text-write',
-    background: 'bg-write/20',
-    prettyName: 'Document',
   },
   chat: {
     icon: Sparkle,
@@ -527,7 +464,7 @@ function validateEntity(entity: string): EntityWithValidIcon {
   } else if (isBlockAlias(entity)) {
     return entity as EntityWithValidIcon;
   } else if (isFileType(entity)) {
-    return fileTypeToBlockName(entity, true);
+    return fileTypeToBlockName(entity);
   } else if (isArchiveType(entity)) {
     return 'archive';
   } else {
@@ -677,10 +614,9 @@ export function getEntityIconType(entity: EntityIconData): EntityWithValidIcon {
   return match<EntityIconData, EntityWithValidIcon>(entity)
     .with({ type: 'document' }, (e) => {
       if (e.subType?.type === 'task') return 'task';
-      if (e.fileType === 'spreadsheet') return 'spreadsheet';
       if (e.fileType === 'ics') return 'calendar';
       if (e.fileType && isArchiveType(e.fileType)) return 'archive';
-      const blockName = itemToBlockName(e, true);
+      const blockName = itemToBlockName(e);
       return blockName === 'unknown' ? 'document' : blockName;
     })
     .with(

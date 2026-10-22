@@ -12,7 +12,6 @@ on:
     - services/ai-editing-worker/**
     - packages/collaboration/**
     - packages/lexical-core/**
-    - packages/spreadsheet/**
     - packages/loro-mirror/**
   workflow_call:
     inputs:

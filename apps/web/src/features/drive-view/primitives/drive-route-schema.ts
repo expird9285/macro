@@ -3,13 +3,11 @@ export const DRIVE_DOCUMENT_TYPES = [
   'task',
   'skill',
   'snippet',
-  'canvas',
   'pdf',
   'code',
   'csv',
   'image',
   'video',
-  'spreadsheet',
   'unknown',
 ] as const;
 

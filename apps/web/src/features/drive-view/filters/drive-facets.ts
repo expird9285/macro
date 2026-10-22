@@ -36,8 +36,6 @@ type DocumentTypeOptionId =
   | 'database'
   | 'form'
   | 'doc-markdown'
-  | 'doc-canvas'
-  | 'doc-spreadsheet'
   | 'file-code'
   | 'file-image'
   | 'file-pdf'
@@ -77,16 +75,6 @@ const TYPE_OPTIONS: DriveFacetOption[] = [
     clause.and(clause.eq('fileType', 'md'), clause.not(namedDocumentSubtype)),
     (entity) =>
       entity.type === 'document' && entity.fileType === 'md' && !entity.subType
-  ),
-  typeOption(
-    'doc-canvas',
-    clause.eq('fileType', 'canvas'),
-    (entity) => entity.type === 'document' && entity.fileType === 'canvas'
-  ),
-  typeOption(
-    'doc-spreadsheet',
-    clause.eq('fileType', 'spreadsheet'),
-    (entity) => entity.type === 'document' && entity.fileType === 'spreadsheet'
   ),
   typeOption(
     'file-code',
@@ -146,7 +134,7 @@ const TYPE_OPTIONS: DriveFacetOption[] = [
 
       const fileType = entity.fileType ?? '';
 
-      if (['md', 'canvas', 'spreadsheet', 'pdf', 'docx'].includes(fileType)) {
+      if (['md', 'pdf', 'docx'].includes(fileType)) {
         return false;
       }
       if ((codeFileExtensions as readonly string[]).includes(fileType)) {
@@ -166,8 +154,6 @@ const TYPE_OPTIONS: DriveFacetOption[] = [
 
 const SEARCH_FILE_TYPES: Record<string, readonly string[] | undefined> = {
   'doc-markdown': ['md'],
-  'doc-canvas': ['canvas'],
-  'doc-spreadsheet': ['spreadsheet'],
   'doc-snippet': ['md'],
   'doc-skill': ['md'],
   'file-code': codeFileExtensions,

@@ -103,15 +103,8 @@ export function buildEntityData(
       )
       .with(
         'pdf',
-        'write',
         'code',
         'image',
-        'canvas',
-        'spreadsheet',
-        'pptx',
-        'psd',
-        'fig',
-        'ai',
         'video',
         'unknown',
         'csv',

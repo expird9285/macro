@@ -27,7 +27,7 @@ function breadcrumbIcon(target: EntityDetailTarget): EntityIconSelector {
   ) {
     return 'channel';
   }
-  return fileTypeToBlockName(target.type, true);
+  return fileTypeToBlockName(target.type);
 }
 
 function fallbackBreadcrumbName(target: EntityDetailTarget) {

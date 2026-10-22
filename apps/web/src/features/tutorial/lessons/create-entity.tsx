@@ -39,7 +39,6 @@ const BLOCK_TO_SANDBOX: Record<string, SandboxEntityType> = {
   task: 'task',
   channel: 'channel',
   chat: 'chat',
-  canvas: 'canvas',
   project: 'project',
   code: 'code',
 };

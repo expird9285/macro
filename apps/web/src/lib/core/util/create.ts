@@ -394,59 +394,6 @@ export async function createCodeFileFromText({
   return ok({ documentId: document.metadata.documentId });
 }
 
-export async function createCanvasFileFromJsonString(args: {
-  json: string;
-  title?: string;
-  projectId?: string;
-  /** UI surface the creation originated from, for analytics. */
-  source?: string;
-}) {
-  const { json, title, projectId, source } = args;
-  const encoder = new TextEncoder();
-  const buffer = encoder.encode(json);
-  const sha = await contentHash(buffer);
-
-  const maybeCanvas = await storageServiceClient.createDocument({
-    documentName: title ?? 'New Canvas',
-    fileType: 'canvas',
-    sha: sha,
-    projectId,
-  });
-  fireAndForget(invalidateUserQuota(), 'create-entity');
-  if (maybeCanvas.isErr()) return { error: 'Document creation failed.' };
-  const canvas = maybeCanvas.value;
-
-  const uploadResult = await uploadToPresignedUrl({
-    presignedUrl: canvas.presignedUrl,
-    buffer,
-    sha,
-    type: 'application/x-macro-canvas',
-  });
-
-  if (uploadResult.isErr()) return { error: 'Failed to upload file.' };
-
-  fireAndForget(
-    postNewHistoryItem('document', canvas.metadata.documentId),
-    'create-entity'
-  );
-  setPreviewOnCreate({
-    itemId: canvas.metadata.documentId,
-    itemType: 'document',
-    name: title ?? 'New Canvas',
-    fileType: 'canvas',
-  });
-  refreshCreatedSoupEntity(canvas.metadata.documentId, 'document');
-
-  analytics.track('create_entity', {
-    entityType: 'canvas',
-    entityId: canvas.metadata.documentId,
-    projectId,
-    source,
-  });
-
-  return { documentId: canvas.metadata.documentId };
-}
-
 export async function createChat(
   args?: CreateChatRequest,
   opts?: {

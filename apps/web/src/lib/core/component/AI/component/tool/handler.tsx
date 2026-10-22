@@ -92,11 +92,6 @@ import {
   lazyDatabaseToolHandlers,
 } from './DatabaseToolHandlers';
 import { deleteTagHandler } from './DeleteTag';
-import { readDesignHandler } from './Design';
-import {
-  readIllustratorDocumentHandler,
-  readPhotoshopDocumentHandler,
-} from './DesignDocument';
 import { discoverConnectorsHandler } from './DiscoverConnectors';
 import { displayResultsHandler } from './DisplayResults';
 import { editDocumentHandler } from './EditDocument';
@@ -131,10 +126,6 @@ import {
   markNotificationsSeenHandler,
   muteNotificationsHandler,
 } from './Notifications';
-import {
-  editPresentationHandler,
-  readPresentationHandler,
-} from './Presentation';
 import {
   bulkSetEntityPropertyOptionsHandler,
   getEntityPropertiesHandler,
@@ -172,11 +163,6 @@ import { sendConfirmedEmailHandler } from './SendConfirmedEmail';
 import { sendEmailHandler } from './SendEmail';
 import { setFavoriteHandler } from './SetFavorite';
 import { setSenderPolicyHandler } from './SetSenderPolicy';
-import {
-  calculateSpreadsheetHandler,
-  editSpreadsheetHandler,
-  readSpreadsheetHandler,
-} from './Spreadsheet';
 import { subagentHandler } from './Subagent';
 import { getTeamAvailabilityHandler } from './TeamAvailability';
 import { textEditorCodeExecutionHandler } from './TextEditorCodeExecution';
@@ -191,10 +177,6 @@ import { updateThreadLabelsHandler } from './UpdateThreadLabels';
 import { uploadFileHandler } from './UploadFile';
 import { webFetchHandler } from './WebFetch';
 import { webSearchHandler } from './WebSearch';
-import {
-  editWordDocumentHandler,
-  readWordDocumentHandler,
-} from './WordDocument';
 
 const toolHandlers: ToolHandlerMap<RenderContext> = {
   ...initiativeToolHandlers,
@@ -202,16 +184,6 @@ const toolHandlers: ToolHandlerMap<RenderContext> = {
   DescribeCodeTools: describeCodeToolsHandler,
   DispatchCodingAgent: dispatchCodingAgentHandler,
   ListCodingAgents: listCodingAgentsHandler,
-  ReadSpreadsheet: readSpreadsheetHandler,
-  CalculateSpreadsheet: calculateSpreadsheetHandler,
-  EditSpreadsheet: editSpreadsheetHandler,
-  ReadPresentation: readPresentationHandler,
-  EditPresentation: editPresentationHandler,
-  ReadDesign: readDesignHandler,
-  ReadPhotoshopDocument: readPhotoshopDocumentHandler,
-  ReadIllustratorDocument: readIllustratorDocumentHandler,
-  ReadWordDocument: readWordDocumentHandler,
-  EditWordDocument: editWordDocumentHandler,
   ConfigureAgent: configureAgentHandler,
   ListAgents: listAgentsHandler,
   ConfigureBot: configureBotHandler,

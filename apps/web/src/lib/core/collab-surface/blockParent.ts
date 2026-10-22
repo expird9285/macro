@@ -18,12 +18,9 @@ const BLOCK_PARENT_TYPE: Partial<
   Record<BlockName, CollabSurfaceParent['entityType']>
 > = {
   md: 'document',
-  write: 'document',
   pdf: 'document',
   code: 'document',
   image: 'document',
-  canvas: 'document',
-  spreadsheet: 'document',
   video: 'document',
   channel: 'channel',
   project: 'project',

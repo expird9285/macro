@@ -76,7 +76,7 @@ describe('agent session menu selection', () => {
     const handler = createItemHandler({
       editor: { dispatchCommand } as unknown as LexicalEditor,
       blockId: 'doc-1',
-      blockName: 'write',
+      blockName: 'pdf',
     });
     await handler(item);
     expect(trackMention).toHaveBeenCalledWith(

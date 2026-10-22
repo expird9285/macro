@@ -136,8 +136,8 @@ The Cartesian product includes every static option and every subset of the
 bounded fixture domains (two people, two tags and two linked inboxes, including
 both All inboxes and an explicit empty inbox selection). Registry assertions
 fail when a UI gains an option/facet that has not been added to the matrix.
-The corpus has 77 entities and fits within one initial page. Every file type,
-including Spreadsheet, has owned and shared examples; snippet and skill subtypes
+The corpus has 73 entities and fits within one initial page. Every file type
+has owned and shared examples; snippet and skill subtypes
 are keyed by category rather than array position. Mail includes both favorited
 and non-favorited threads across linked inboxes and shared-thread scope. The
 app chrome may fetch the favorites collection and ID-scoped label previews, but

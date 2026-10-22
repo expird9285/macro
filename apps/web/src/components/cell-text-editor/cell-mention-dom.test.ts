@@ -1,4 +1,4 @@
-import { encodeCellMention } from '@macro-inc/spreadsheet/cell-mentions';
+import { encodeCellMention } from './cell-mentions';
 import { expect, it } from 'vitest';
 import {
   cellTextSelection,

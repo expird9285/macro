@@ -216,7 +216,6 @@ function $mentionItemFromNode(node: MentionNode): ItemMention {
       fileType = 'md';
       itemType = 'skill';
     } else if (blockName === 'csv') fileType = 'csv';
-    else if (blockName === 'canvas') fileType = 'canvas';
     else if (blockName === 'code') {
       const blockParams = node.getBlockParams();
       fileType = blockParams?.fileType || 'txt';

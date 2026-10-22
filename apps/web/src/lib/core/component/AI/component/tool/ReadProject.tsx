@@ -20,7 +20,7 @@ const ReadProjectToolResponse = (props: { items: ReadProjectItem[] }) => {
       case 'document':
         return (
           <EntityIcon
-            targetType={fileTypeToBlockName(item.fileType, true)}
+            targetType={fileTypeToBlockName(item.fileType)}
             size="xs"
             theme="monochrome"
           />

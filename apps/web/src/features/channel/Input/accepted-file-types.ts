@@ -26,7 +26,6 @@ export const CHANNEL_VIDEO_FILE_EXTENSIONS = [
 ] as const;
 
 export const CHANNEL_DOCUMENT_FILE_EXTENSIONS = [
-  'canvas',
   'csv',
   'doc',
   'docx',

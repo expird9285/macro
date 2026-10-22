@@ -53,16 +53,11 @@ function markdownKind(target: DocumentDetailTarget): MarkdownDocumentKind {
 }
 
 /**
- * Spreadsheets, databases and forms use their live block in PreviewPanel,
- * which supplies its own title, sharing controls and the enclosing ViewShell's
- * sidebar toggle.
+ * Databases and forms use their live block in PreviewPanel, which supplies its
+ * own title, sharing controls and the enclosing ViewShell's sidebar toggle.
  */
 function hasBlockHeader(target: EntityDetailTarget) {
-  return (
-    target.type === 'database' ||
-    target.type === 'form' ||
-    entityDetailBlockType(target) === 'spreadsheet'
-  );
+  return target.type === 'database' || target.type === 'form';
 }
 
 function DriveDetailTopBar() {

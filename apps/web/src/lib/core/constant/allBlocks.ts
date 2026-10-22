@@ -10,11 +10,7 @@ import type { SubType } from '@entity';
 import type { ItemType } from '@service-storage/client';
 import type { BasicDocumentSubTypeProperty } from '@service-storage/generated/schemas';
 import type { BasicDocumentFileType } from '@service-storage/generated/schemas/basicDocumentFileType';
-import {
-  ENABLE_DOCX_TO_PDF,
-  enableDocxEditor,
-  isFeatureEnabled,
-} from './featureFlags';
+import { ENABLE_DOCX_TO_PDF } from './featureFlags';
 import { DefaultFilename } from './filename';
 
 const discoveredBlockDefinitions = Object.values<AnyBlockDefinition>(
@@ -172,15 +168,11 @@ export function resolveBlockAlias(name: BlockName | BlockAlias): BlockName {
  * getBlockName('junk') // undefined
  * @param blockOrFiletype - The block name or file type like 'py', 'md', 'chat',
  *     'png', etc.
- * @param icon - Whether to return the icon name or the block name. In the case of
- *     'docx', icon should still show as docx icon, not pdf.
  * @return Either the name of the block or 'unknown' if there is no
  *     appropriate block.
  */
 export function fileTypeToBlockName(
-  blockOrFiletype?: string | null,
-  // For docx: icon should still show as docx icon, not pdf
-  icon?: boolean
+  blockOrFiletype?: string | null
 ): BlockName | BlockAlias {
   if (!blockOrFiletype) return 'unknown';
 
@@ -194,9 +186,11 @@ export function fileTypeToBlockName(
   if (blockOrFiletype === 'crm_contact') return 'contact';
   if (blockOrFiletype === 'crm_pipeline') return 'pipeline';
 
-  if (blockOrFiletype === 'docx' || blockOrFiletype === 'write') {
-    if (isFeatureEnabled(enableDocxEditor)) return 'write';
-    if (ENABLE_DOCX_TO_PDF) return icon ? 'write' : 'pdf';
+  if (
+    (blockOrFiletype === 'docx' || blockOrFiletype === 'write') &&
+    ENABLE_DOCX_TO_PDF
+  ) {
+    return 'pdf';
   }
 
   if (isBlockAlias(blockOrFiletype)) {
@@ -257,16 +251,13 @@ export type ItemLike = {
 /**
  * Get a block name from an item-shaped object.
  * @example
- * itemToBlockName({ type: 'document', fileType: 'docx' }) // 'write'
+ * itemToBlockName({ type: 'document', fileType: 'docx' }) // 'pdf'
  * itemToBlockName({ type: 'document', fileType: 'py' }) // 'code'
  * itemToBlockName({ type: 'document', fileType: 'md', subType: { type: 'task', is_completed: false } }) // 'task'
  * itemToBlockName({ type: 'chat' }) // 'chat'
  * @return The block name
  */
-export function itemToBlockName(
-  item: ItemLike,
-  icon?: boolean
-): BlockName | BlockAlias {
+export function itemToBlockName(item: ItemLike): BlockName | BlockAlias {
   const subTypeName =
     item.subType && 'type' in item.subType
       ? (item.subType.type as string)
@@ -275,11 +266,11 @@ export function itemToBlockName(
     return subTypeName;
   }
   if (item.fileType) {
-    return fileTypeToBlockName(item.fileType, icon);
+    return fileTypeToBlockName(item.fileType);
   }
   if (item.type === 'agent_session') return 'agent';
   if (item.type === 'channel_thread') return 'channel';
-  return fileTypeToBlockName(item.type, icon);
+  return fileTypeToBlockName(item.type);
 }
 
 /**
@@ -319,10 +310,7 @@ export function verifyBlockName(
 ): BlockName | BlockAlias {
   if (!name) return 'unknown';
   if (name === 'automation') return 'routine';
-  if (name === 'write') {
-    if (isFeatureEnabled(enableDocxEditor)) return 'write';
-    if (ENABLE_DOCX_TO_PDF) return 'pdf';
-  }
+  if (name === 'write' && ENABLE_DOCX_TO_PDF) return 'pdf';
   if (isBlockAlias(name)) return name;
   if (name && name in blocks) return name as BlockName;
   return 'unknown';

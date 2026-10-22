@@ -117,10 +117,7 @@ export function AttachmentPart(props: { part: AttachmentPartData }) {
             title={props.part.name}
           >
             <EntityIcon
-              targetType={fileTypeToBlockName(
-                fileExtension(props.part.name),
-                true
-              )}
+              targetType={fileTypeToBlockName(fileExtension(props.part.name))}
               size="xs"
             />
             <span class="truncate">{props.part.name}</span>

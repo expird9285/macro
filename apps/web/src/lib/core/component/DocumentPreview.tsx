@@ -12,7 +12,6 @@ import { openCalendarEventSplit } from '@app/features/calendar-view/open-calenda
 import { CALENDAR_VIEW_ID } from '@app/features/calendar-view/types';
 import { openChatWithAgent } from '@app/features/chat/ChatWithAgentButton';
 import { globalSplitManager } from '@app/signal/splitLayout';
-import { URL_PARAMS as URL_PARAMS_CANVAS } from '@block-canvas/constants';
 import { URL_PARAMS as CHANNEL_PARAMS } from '@block-channel/constants';
 import { URL_PARAMS as URL_PARAMS_MD } from '@block-md/constants';
 import { URL_PARAMS as URL_PARAMS_PDF } from '@block-pdf/constants';
@@ -152,15 +151,6 @@ export const mentionsAccessories = (
       }
       return { note: `Page ${pageIndex}` };
     }
-  }
-  // Canvas block handling
-  else if (blockName === 'canvas') {
-    const x = 0 - Number(params[URL_PARAMS_CANVAS.x]);
-    const y = Number(params[URL_PARAMS_CANVAS.y]);
-    if (!isNaN(x) && !isNaN(y)) {
-      return { note: `(x: ${x},  y: ${y})`, icon: 'map-pin' };
-    }
-    return;
   }
   // Channel block handling
   else if (blockName === 'channel') {
@@ -504,14 +494,7 @@ export function DocumentPreviewContent(props: DocumentPreviewContentProps) {
     if (blockName && ['chat'].includes(blockName)) {
       return false;
     }
-    const validChatInputTypes = [
-      'write',
-      'pdf',
-      'md',
-      'code',
-      'image',
-      'canvas',
-    ];
+    const validChatInputTypes = ['pdf', 'md', 'code', 'image'];
     return validChatInputTypes.includes(props.documentInfo.type);
   });
 

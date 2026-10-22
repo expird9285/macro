@@ -1,5 +1,5 @@
 import { createMenuOperations } from '@core/component/LexicalMarkdown/shared/inlineMenu';
-import { cellMentionQuery } from '@macro-inc/spreadsheet/cell-mentions';
+import { cellMentionQuery } from './cell-mentions';
 import {
   createEffect,
   createSignal,

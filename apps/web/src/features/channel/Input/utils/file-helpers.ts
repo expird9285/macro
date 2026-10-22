@@ -50,7 +50,7 @@ export function fileExtension(filename: string): string | undefined {
 }
 
 export function iconTypeFromFilename(filename: string) {
-  return fileTypeToBlockName(fileExtension(filename), true);
+  return fileTypeToBlockName(fileExtension(filename));
 }
 
 export function getAttachmentKindFromFile(file: {
@@ -99,7 +99,7 @@ export function buildUploadedAttachment(
       id: result.documentId,
       name: filenameWithoutExtension(file.name) ?? file.name,
       kind: 'document',
-      iconType: fileTypeToBlockName(result.fileType, true),
+      iconType: fileTypeToBlockName(result.fileType),
     };
   }
 

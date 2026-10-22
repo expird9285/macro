@@ -3,7 +3,6 @@ import type { CreatableBlock } from '../types';
 export type CreateMenuGroupId =
   | 'docs'
   | 'organization'
-  | 'design'
   | 'data'
   | 'comms'
   | 'tasks'
@@ -23,7 +22,6 @@ export const CREATE_MENU_GROUPS: readonly CreateMenuGroup[] = [
     label: 'Organization',
     tagline: 'Keep related work together',
   },
-  { id: 'design', label: 'Design', tagline: 'Diagram, sketch, design' },
   { id: 'data', label: 'Data', tagline: 'Collect, organize, analyze' },
   { id: 'comms', label: 'Comms', tagline: 'Reach people' },
   { id: 'tasks', label: 'Tasks', tagline: 'Stay on top of the work' },
@@ -75,20 +73,6 @@ const DETAILS: Record<string, CreateMenuDetails> = {
       'Keep related documents and files in one place.\nOrganize folders and share them together.',
     examples: ['Client files', 'Archive', 'Team drive'],
   },
-  Canvas: {
-    group: 'design',
-    tagline: 'Whiteboard for diagrams and sketches',
-    details:
-      'Map out ideas on an infinite shared whiteboard.\nSketch flows, diagrams and connections.',
-    examples: ['Flowchart', 'Mind map', 'Architecture diagram'],
-  },
-  Design: {
-    group: 'design',
-    tagline: 'Figma-compatible design editor',
-    details:
-      'Design interfaces and graphics with vector tools.\nBuild with frames and save as a Figma file.',
-    examples: ['App mockup', 'Social graphic', 'Design system'],
-  },
   Database: {
     group: 'data',
     tagline: 'Structured records in tables and boards',
@@ -96,33 +80,12 @@ const DETAILS: Record<string, CreateMenuDetails> = {
       'Organize records with fields that fit your work.\nExplore your data in tables and boards.',
     examples: ['CRM', 'Content calendar', 'Inventory'],
   },
-  Spreadsheet: {
-    group: 'data',
-    tagline: 'Excel-style workbook with formulas',
-    details:
-      'Build shared spreadsheets for budgets and models.\nUse formulas, multiple sheets and AI edits.',
-    examples: ['Budget', 'Financial model', 'Tracker'],
-  },
   Form: {
     group: 'data',
     tagline: 'Collect responses',
     details:
       'Collect feedback, requests and survey responses.\nSave every answer directly into your database.',
     examples: ['Survey', 'Intake form', 'Feedback'],
-  },
-  'Photoshop file': {
-    group: 'design',
-    tagline: 'Layered image editing',
-    details:
-      'Create layered images, photo edits and graphics.\nSave your work as a layered Photoshop file.',
-    examples: ['Photo edit', 'Composite', 'Banner'],
-  },
-  'Illustrator file': {
-    group: 'design',
-    tagline: 'Vector artwork',
-    details:
-      'Draw scalable logos, icons and vector illustrations.\nWork on artboards and save an Illustrator file.',
-    examples: ['Logo', 'Illustration', 'Icon set'],
   },
   Email: {
     group: 'comms',
@@ -274,9 +237,6 @@ const SHORT_TAGLINES: Record<string, string> = {
   Snippet: 'Reusable template',
   Code: 'Syntax-highlighted file',
   Folder: 'Keep files together',
-  Canvas: 'Diagrams & whiteboard',
-  Design: 'Figma-compatible editor',
-  Spreadsheet: 'Formulas & sheets',
   Database: 'Tables & boards',
   Email: 'Compose from inbox',
   Message: 'Quick DM',
@@ -289,8 +249,6 @@ const SHORT_TAGLINES: Record<string, string> = {
   Routine: 'Automate recurring work',
   Skill: 'Reusable agent instructions',
   Form: 'Collect responses',
-  'Photoshop file': 'Layered image editing',
-  'Illustrator file': 'Vector artwork',
 };
 
 export function createMenuShortTagline(item: CreatableBlock): string {

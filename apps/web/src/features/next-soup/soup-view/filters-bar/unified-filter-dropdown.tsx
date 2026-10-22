@@ -291,16 +291,6 @@ const DOCUMENTS_FILTER_CATEGORIES: FilterCategory[] = [
         icon: () => <EntityIcon targetType="md" size="xs" />,
       },
       {
-        id: 'doc-canvas',
-        label: 'Canvas',
-        icon: () => <EntityIcon targetType="canvas" size="xs" />,
-      },
-      {
-        id: 'doc-spreadsheet',
-        label: 'Spreadsheet',
-        icon: () => <EntityIcon targetType="spreadsheet" size="xs" />,
-      },
-      {
         id: 'file-code',
         label: 'Code',
         icon: () => <EntityIcon targetType="code" size="xs" />,

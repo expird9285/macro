@@ -3,7 +3,7 @@
 ## What it is
 
 Powers real-time collaboration on Documents and other collab surfaces
-(spreadsheets, forms): a Cloudflare Worker (Rust compiled to wasm) hosting
+(forms): a Cloudflare Worker (Rust compiled to wasm) hosting
 one Durable Object per collaborative document ("room"), syncing Loro CRDT
 updates over WebSocket.
 
@@ -15,7 +15,7 @@ updates over WebSocket.
 - `src/durable_object.rs` + `src/durable_object/document_api.rs`: the Durable
   Object — WebSocket handling, loro document state, alarm-driven snapshotting.
 - `src/durable_object/surface_api.rs`, `surface_migration.rs`: non-document
-  surfaces (spreadsheets, forms, etc.) hosted the same way.
+  surfaces (forms, etc.) hosted the same way.
 - `src/storage/` + `src/storage/backends/`: snapshot/op-log persistence,
   pluggable across D1/KV/R2/combined backends (see the Cargo feature flags).
 - `src/auth.rs`: JWT verification against tokens minted by

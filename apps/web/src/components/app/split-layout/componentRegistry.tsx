@@ -1,5 +1,4 @@
 import { parseAgentsRoute } from '@app/features/agents-view/core/route';
-import { useSpreadsheetAccess } from '@app/features/block-spreadsheet/primitives/use-spreadsheet-access';
 import type { EventEditorInitialValues } from '@app/features/calendar/components/composer/event-form-model';
 import type { CalendarEvent } from '@app/features/calendar/types';
 import { HomeRouteView } from '@app/features/home/route-views';
@@ -579,26 +578,6 @@ if (LOCAL_ONLY) {
   registerComponent(
     'diff-view-ui',
     lazy(() => import('@app/components/diff-view/debug/DiffViewGallery'))
-  );
-}
-
-if (import.meta.env.DEV) {
-  registerComponent(
-    'spreadsheet-demo',
-    withAuth(() => {
-      const enabled = useSpreadsheetAccess();
-      const Demo = lazy(
-        () => import('@app/features/block-spreadsheet/SpreadsheetDemo')
-      );
-      return (
-        <Show
-          when={enabled()}
-          fallback={<RedirectSplit to={{ type: 'component', id: 'home' }} />}
-        >
-          <Demo />
-        </Show>
-      );
-    })
   );
 }
 

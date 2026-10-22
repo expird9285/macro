@@ -24,7 +24,7 @@ export function useGlobalAttachableHistory(): void {
         ? historyQuery.data
         : [];
     return history.filter((item) => {
-      const blockName = getItemBlockName(item, true);
+      const blockName = getItemBlockName(item);
       return SUPPORTED_CHAT_ATTACHMENT_BLOCKS.includes(blockName);
     });
   });

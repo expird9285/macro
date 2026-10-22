@@ -9,7 +9,7 @@ import {
 import type { MentionItem } from '@core/component/LexicalMarkdown/utils/mentionsUtils';
 import { toast } from '@core/component/Toast/Toast';
 import { UserIcon } from '@core/component/UserIcon';
-import { encodeCellMention } from '@macro-inc/spreadsheet/cell-mentions';
+import { encodeCellMention } from '@app/components/cell-text-editor/cell-mentions';
 import { usePropertyEntityDisplay } from '@property/hooks/usePropertyEntityDisplay';
 import { ErrorBoundary, Show, Suspense } from 'solid-js';
 import { match } from 'ts-pattern';

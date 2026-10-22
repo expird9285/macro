@@ -48,7 +48,7 @@ export function useEntityDropAttachment(
 
     // Check if it's a supported attachment type
     const fileType = 'fileType' in dragData ? dragData.fileType : undefined;
-    const blockName = fileTypeToBlockName(fileType ?? dragData.type, true);
+    const blockName = fileTypeToBlockName(fileType ?? dragData.type);
     return SUPPORTED_CHAT_ATTACHMENT_BLOCKS.includes(blockName);
   });
 
@@ -64,7 +64,7 @@ export function useEntityDropAttachment(
     const fileType = 'fileType' in data ? data.fileType : undefined;
 
     // Determine block name and check if it's a supported attachment type
-    const blockName = fileTypeToBlockName(fileType ?? entityType, true);
+    const blockName = fileTypeToBlockName(fileType ?? entityType);
     if (!SUPPORTED_CHAT_ATTACHMENT_BLOCKS.includes(blockName)) {
       toast.failure('This file type cannot be attached to chat');
       return;

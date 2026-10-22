@@ -10,11 +10,10 @@ type DocumentItem = Pick<
 
 type ItemBlockNameInfo = NonDocumentItem | DocumentItem;
 
-export function getItemBlockName(item: ItemBlockNameInfo, icon?: boolean) {
+export function getItemBlockName(item: ItemBlockNameInfo) {
   if (item.type === 'document')
     return fileTypeToBlockName(
-      (item.subType?.type as string | undefined) ?? item.fileType,
-      icon
+      (item.subType?.type as string | undefined) ?? item.fileType
     );
   return item.type;
 }

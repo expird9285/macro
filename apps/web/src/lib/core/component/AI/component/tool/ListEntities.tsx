@@ -53,10 +53,7 @@ const ListEntitiesToolResponse = (props: {
       case 'document':
         return (
           <EntityIcon
-            targetType={fileTypeToBlockName(
-              item.subType ?? item.fileType,
-              true
-            )}
+            targetType={fileTypeToBlockName(item.subType ?? item.fileType)}
             size="xs"
             theme="monochrome"
           />

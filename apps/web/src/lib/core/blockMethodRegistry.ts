@@ -1,4 +1,3 @@
-import type { CanvasSpec } from '@block-canvas/definition';
 import type { BlockChatSpec } from '@block-chat/blockClient';
 import type { BlockName } from './block';
 
@@ -22,18 +21,11 @@ export interface BlockMethodRegistry {
   database: EmptySpec;
   form: EmptySpec;
   channel: EmptySpec;
-  write: EmptySpec;
   pdf: EmptySpec;
   html: EmptySpec;
   md: EmptySpec;
   code: EmptySpec;
   image: EmptySpec;
-  canvas: AssertSpec<CanvasSpec>;
-  spreadsheet: EmptySpec;
-  pptx: EmptySpec;
-  psd: EmptySpec;
-  fig: EmptySpec;
-  ai: EmptySpec;
   project: EmptySpec;
   start: EmptySpec;
   unknown: EmptySpec;

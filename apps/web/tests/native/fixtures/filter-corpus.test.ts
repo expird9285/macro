@@ -11,7 +11,7 @@ import { fixtureId } from './mail';
 const corpus = filterCorpus(capsules);
 
 test('matrix corpus has unique identities and stays within one initial page', () => {
-  expect(corpus).toHaveLength(77);
+  expect(corpus).toHaveLength(73);
   expect(
     new Set(corpus.map((row) => `${row.api.__typename}:${row.id}`)).size
   ).toBe(corpus.length);
@@ -28,16 +28,6 @@ test.each(FILE_TYPES)(
     expect(rows.map((row) => row.owner)).toEqual(PEOPLE);
   }
 );
-
-test('spreadsheets have native spreadsheet types, not ordinary file stand-ins', () => {
-  const rows = corpus.filter((row) => row.category === 'doc-spreadsheet');
-  expect(rows.map((row) => row.id)).toEqual([fixtureId(103), fixtureId(114)]);
-  for (const row of rows) {
-    expect(row.fileType).toBe('spreadsheet');
-    expect(row.api.fileType).toBe('spreadsheet');
-    expect(row.api.subType).toBeNull();
-  }
-});
 
 test('inserting a file type does not move snippet and skill subtype meanings', () => {
   for (const [category, typename] of [

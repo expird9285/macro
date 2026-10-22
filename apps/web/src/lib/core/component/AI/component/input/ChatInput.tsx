@@ -163,7 +163,7 @@ export function ChatInput(props: ChatInputComponentProps) {
           insertChatAttachmentMention(props.editor.controls.getLexical(), {
             documentId: upload.attachment.entity_id,
             documentName: metadata.document_name,
-            blockName: fileTypeToBlockName(metadata.document_type, true),
+            blockName: fileTypeToBlockName(metadata.document_type),
           });
         }
       });

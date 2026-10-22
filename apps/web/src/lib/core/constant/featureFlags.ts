@@ -223,21 +223,6 @@ export const ENABLE_PROJECT_SHARING = defineFlag({
   default: true,
 }).enabled;
 
-export const ENABLE_CANVAS_IMAGES = defineFlag({
-  env: 'ENABLE_CANVAS_IMAGES',
-  default: true,
-}).enabled;
-
-export const ENABLE_CANVAS_FILES = defineFlag({
-  env: 'ENABLE_CANVAS_FILES',
-  default: true,
-}).enabled;
-
-export const ENABLE_CANVAS_TEXT = defineFlag({
-  env: 'ENABLE_CANVAS_TEXT',
-  default: true,
-}).enabled;
-
 export const ENABLE_LIVE_INDICATORS = defineFlag({
   env: 'ENABLE_LIVE_INDICATORS',
   default: true,
@@ -257,16 +242,6 @@ export const ENABLE_DOCX_TO_PDF = defineFlag({
   env: 'ENABLE_DOCX_TO_PDF',
   default: true,
 }).enabled;
-
-/**
- * Open DOCX files in the collaborative DOCX editor instead of the converted
- * PDF. On in development; deployed environments defer to PostHog.
- */
-export const enableDocxEditor = defineFlag({
-  key: 'enable-docx-editor',
-  env: 'ENABLE_DOCX_EDITOR',
-  default: DEV_MODE_ENV || undefined,
-});
 
 export const ENABLE_MARKDOWN_LIVE_COLLABORATION = defineFlag({
   env: 'ENABLE_MARKDOWN_LIVE_COLLABORATION',
@@ -794,56 +769,6 @@ export const enableRecentView = defineFlag({
   key: 'enable-recent-view',
   env: 'ENABLE_RECENT_VIEW',
   default: onInDev,
-});
-
-/**
- * The in-browser PowerPoint editor (`block-pptx`). Off shows uploaded
- * `.pptx` files as before: download only. On in dev; deployed environments
- * follow PostHog.
- */
-export const enablePptxEditor = defineFlag({
-  key: 'enable-pptx-editor',
-  env: 'ENABLE_PPTX_EDITOR',
-  default: onInDev,
-});
-
-/**
- * The in-browser Photoshop editor (`block-psd`). Off shows uploaded `.psd`
- * and `.psb` files for download only, and hides creating them. On in dev;
- * deployed environments follow PostHog.
- */
-export const enablePsdEditor = defineFlag({
-  key: 'enable-psd-editor',
-  env: 'ENABLE_PSD_EDITOR',
-  default: onInDev,
-});
-
-/**
- * The in-browser Figma file viewer (`block-fig`). Off shows uploaded `.fig`
- * files as before: download only. On in dev; deployed environments follow
- * PostHog.
- */
-export const enableFigViewer = defineFlag({
-  key: 'enable-fig-viewer',
-  env: 'ENABLE_FIG_VIEWER',
-  default: onInDev,
-});
-
-/**
- * The in-browser Illustrator editor (`block-ai`) and creating `.ai`
- * documents. Off shows uploaded `.ai` files as before: download only. On in
- * dev; deployed environments follow PostHog.
- */
-export const enableAiEditor = defineFlag({
-  key: 'enable-ai-editor',
-  env: 'ENABLE_AI_EDITOR',
-  default: onInDev,
-});
-
-// PostHog controls the internal pilot and team targeting in every environment.
-export const enableSpreadsheets = defineFlag({
-  key: 'enable-spreadsheets',
-  env: 'ENABLE_SPREADSHEETS',
 });
 
 /**

@@ -191,7 +191,6 @@ function entityDetailTarget(
     !documentType ||
     !documentId ||
     !isHomeDocumentType(documentType) ||
-    documentType === 'spreadsheet' ||
     documentType === 'unknown' ||
     preview.params
   ) {

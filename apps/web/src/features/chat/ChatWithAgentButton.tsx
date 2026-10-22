@@ -31,7 +31,7 @@ type ChatWithAgentEntity =
 function buildMention(entity: ChatWithAgentEntity): ChatAttachmentMention {
   const blockName =
     entity.type === 'document'
-      ? fileTypeToBlockName(entity.fileType, true)
+      ? fileTypeToBlockName(entity.fileType)
       : entity.type === 'email'
         ? 'email'
         : entity.type;

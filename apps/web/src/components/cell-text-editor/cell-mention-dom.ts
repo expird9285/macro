@@ -3,7 +3,7 @@ import {
   type CellMention,
   cellMentionLabel,
   cellTextParts,
-} from '@macro-inc/spreadsheet/cell-mentions';
+} from './cell-mentions';
 
 /** Match the grid, where date chips relabel themselves as days pass. */
 function pillLabel(mention: CellMention) {

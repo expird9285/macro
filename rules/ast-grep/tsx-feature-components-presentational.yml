@@ -32,10 +32,7 @@ files:
   - apps/web/src/features/projects/components/**
   - apps/web/src/features/channel/Call/chat/components/**
   - apps/web/src/features/block-agent/ui/**
-  - apps/web/src/features/block-ai/components/**
-  - apps/web/src/features/block-psd/components/**
   - apps/web/src/features/meetings/components/**
-  - apps/web/src/features/block-spreadsheet/components/**
   - apps/web/src/features/property/tags/components/**
   - apps/web/src/features/claude-connection/components/**
   - apps/web/src/features/activity/components/**
@@ -44,7 +41,6 @@ files:
   - apps/web/src/features/email-thread/components/**
   - apps/web/src/features/email-compose/components/**
   - apps/web/src/features/changes/components/**
-  - apps/web/src/features/block-write/components/**
   - apps/web/src/features/onboarding/components/**
   - apps/web/src/features/auth/components/**
   - apps/web/src/features/block-form/components/**

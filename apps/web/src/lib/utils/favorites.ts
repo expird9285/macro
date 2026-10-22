@@ -56,11 +56,7 @@ export function favoriteIconType(favorite: Favorite): EntityIconSelector {
     return (favorite.channelType ?? 'channel') as EntityIconSelector;
   }
   if (favorite.entityType === 'document') {
-    // icon: true keeps e.g. docx showing the write icon instead of pdf
-    return fileTypeToBlockName(
-      favorite.documentSubType ?? favorite.fileType,
-      true
-    );
+    return fileTypeToBlockName(favorite.documentSubType ?? favorite.fileType);
   }
   return favoriteBlockName(favorite);
 }

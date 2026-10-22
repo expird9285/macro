@@ -173,7 +173,7 @@ const configs = [
   },
   {
     title: 'Bug Report & Analysis',
-    entityType: 'canvas' as const,
+    entityType: 'md' as const,
     markdown:
       '# Critical Bug Report\n\n**Status**: Open\n**Priority**: High\n\nUsers experiencing login issues on mobile devices.',
     markdownTop:
@@ -227,7 +227,7 @@ const configs = [
   },
   {
     title: 'Performance Metrics',
-    entityType: 'canvas' as const,
+    entityType: 'md' as const,
     markdown:
       '# Analytics Dashboard\n\n📈 **Page Views**: 125K\n📊 **Bounce Rate**: 32%\n⚡ **Load Time**: 2.1s\n👥 **Active Users**: 8.5K',
     markdownTop:

@@ -61,8 +61,6 @@ export function DriveCreateMenu(props: {
         [
           'md',
           'snippet',
-          'spreadsheet',
-          'canvas',
           'code',
           'project',
           'database',

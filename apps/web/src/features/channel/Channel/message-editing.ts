@@ -30,7 +30,7 @@ export function messageAttachmentToInputAttachment(
     kind,
     iconType:
       kind === 'document'
-        ? fileTypeToBlockName(attachment.entity_type, true)
+        ? fileTypeToBlockName(attachment.entity_type)
         : undefined,
   };
 }

@@ -27,7 +27,6 @@ import { createMemo, createSignal, For, Show } from 'solid-js';
 type FilterTokenId =
   | 'pdf'
   | 'docx'
-  | 'canvas'
   | 'image-assoc'
   | 'code-assoc'
   | 'md'
@@ -63,12 +62,6 @@ const FILTER_TOKENS: {
     label: 'DOCX',
     detail: 'fileType = docx',
     expression: { include: { fileType: ['docx'] } },
-  },
-  {
-    id: 'canvas',
-    label: 'Canvas',
-    detail: 'fileType = canvas',
-    expression: { include: { fileType: ['canvas'] } },
   },
   {
     id: 'image-assoc',
@@ -185,7 +178,7 @@ const EXAMPLES: {
     tokens: ['pdf', 'snippet', 'task'],
   },
   {
-    label: 'Documents: md/canvas but not tasks',
+    label: 'Documents: markdown but not tasks',
     mode: 'and',
     tokens: ['md', 'plain-md'],
   },
@@ -285,7 +278,6 @@ function simpleRequestFromClauses(
 
   if (selected.has('pdf')) fileTypes.add('pdf');
   if (selected.has('docx')) fileTypes.add('docx');
-  if (selected.has('canvas')) fileTypes.add('canvas');
 
   if (
     selected.has('md') ||

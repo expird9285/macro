@@ -173,7 +173,7 @@ const SEED_ENTITIES: EntityData[] = [
   seedTask('seed_task_4', 'Fix login page regression', ago(60 * 168)),
   seedChannel('seed_channel_4', 'product', ago(60 * 200)),
   seedChat('seed_chat_4', 'Summarize: customer feedback Q3', ago(60 * 240)),
-  seedDoc('seed_doc_4', 'Customer Interview Summary', ago(60 * 288), 'canvas'),
+  seedDoc('seed_doc_4', 'Customer Interview Summary', ago(60 * 288), 'md'),
   seedDM('seed_dm_4', 'Priya Patel', ago(60 * 336)),
   MOCK_DOCUMENT_BASIC,
   seedEmail(
@@ -278,7 +278,6 @@ export type SandboxEntityType =
   | 'task'
   | 'channel'
   | 'chat'
-  | 'canvas'
   | 'project'
   | 'code';
 
@@ -289,7 +288,6 @@ const SAMPLE_NAMES: Record<SandboxEntityType, string> = {
   task: 'My Sample Task',
   channel: 'My Sample Message',
   chat: 'My Sample Agent Chat',
-  canvas: 'My Sample Canvas',
   project: 'My Sample Folder',
   code: 'My Sample Code File',
 };
@@ -316,8 +314,6 @@ export function createSandboxEntity(type: SandboxEntityType): EntityData {
         fileType: 'md',
         subType: { type: 'snippet' },
       };
-    case 'canvas':
-      return { ...base, type: 'document', fileType: 'canvas' };
     case 'code':
       return { ...base, type: 'document', fileType: 'py' };
     case 'task':

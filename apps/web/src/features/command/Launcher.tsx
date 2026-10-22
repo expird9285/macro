@@ -1,12 +1,6 @@
 import { openAgentComposer } from '@app/features/agents-view/primitives/open-composer';
 import { startPendingSession } from '@app/features/block-agent/context/pending-session';
 import { AGENT_INPUT_TEXT_AREA_ID } from '@app/features/block-agent/ui/AgentInput';
-import { createAiDocument } from '@app/features/block-ai/queries/create-ai';
-import { createFigDocument } from '@app/features/block-fig/queries/create-fig';
-import { createPsdDocument } from '@app/features/block-psd/queries/create-psd';
-import { useSpreadsheetAccess } from '@app/features/block-spreadsheet/primitives/use-spreadsheet-access';
-import { createSpreadsheetDocument } from '@app/features/block-spreadsheet/queries/create-spreadsheet';
-import { isSpreadsheetEnabledForCurrentUser } from '@app/features/block-spreadsheet/queries/spreadsheet-access';
 import { EMAIL_COMPOSE_TO_INPUT_ID } from '@app/features/email-compose/core/constants';
 import { useQuickCallsFlag } from '@app/features/meetings/use-quick-calls-flag';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
@@ -22,14 +16,11 @@ import { CHAT_INPUT_TEXT_AREA_ID } from '@core/component/AI/component/input/Chat
 import { getIconConfig } from '@core/component/EntityIcon';
 import { toast } from '@core/component/Toast/Toast';
 import {
-  enableAiEditor,
   enableCarouselCreateMenu,
   enableChatV3Agents,
   enableDatabases,
-  enableFigViewer,
   enableForms,
   enableProjects,
-  enablePsdEditor,
   enableSnippets,
   isFeatureEnabled,
 } from '@core/constant/featureFlags';
@@ -44,7 +35,6 @@ import { TOKENS } from '@core/hotkey/tokens';
 import type { ValidHotkey } from '@core/hotkey/types';
 import { isMobile } from '@core/mobile/isMobile';
 import {
-  createCanvasFileFromJsonString,
   createChat,
   createCodeFileFromText,
   createMarkdownFile,
@@ -307,74 +297,6 @@ export function runCreateAction(
         });
       return;
     }
-    case 'spreadsheet':
-      if (!isSpreadsheetEnabledForCurrentUser()) return;
-      fireAndForget(
-        createBlock({
-          blockName: 'spreadsheet',
-          loading: true,
-          createFn: () =>
-            createSpreadsheetDocument({
-              projectId: options.projectId,
-              source,
-            }),
-          shouldInsert,
-          openCreated,
-        }),
-        'launcher'
-      );
-      return;
-    case 'psd':
-      if (!isFeatureEnabled(enablePsdEditor)) return;
-      createBlock({
-        blockName: 'psd',
-        loading: true,
-        createFn: () =>
-          createPsdDocument({ projectId: options.projectId, source }),
-        shouldInsert,
-        openCreated,
-      }).catch(reportCreateBlockError);
-      return;
-    case 'fig':
-      if (!isFeatureEnabled(enableFigViewer)) return;
-      createBlock({
-        blockName: 'fig',
-        loading: true,
-        createFn: () =>
-          createFigDocument({ projectId: options.projectId, source }),
-        shouldInsert,
-        openCreated,
-      }).catch(reportCreateBlockError);
-      return;
-    case 'ai':
-      if (!isFeatureEnabled(enableAiEditor)) return;
-      createBlock({
-        blockName: 'ai',
-        loading: true,
-        createFn: () =>
-          createAiDocument({ projectId: options.projectId, source }),
-        shouldInsert,
-        openCreated,
-      }).catch(reportCreateBlockError);
-      return;
-    case 'canvas':
-      createBlock({
-        blockName: 'canvas',
-        loading: true,
-        createFn: async () => {
-          const result = await createCanvasFileFromJsonString({
-            json: JSON.stringify({ nodes: [], edges: [] }),
-            title: 'New Canvas',
-            projectId: options.projectId,
-            source,
-          });
-          if ('error' in result) return;
-          return result.documentId ?? undefined;
-        },
-        shouldInsert,
-        openCreated,
-      }).catch(reportCreateBlockError);
-      return;
     case 'task':
       createComponent({
         componentId: 'task-compose',
@@ -783,96 +705,6 @@ const createBlocks = (
     },
   },
   {
-    label: 'Canvas',
-    icon: getIconConfig('canvas').icon,
-    description: 'Create canvas',
-    keywords: ['new', 'make', 'add', 'diagram'],
-    blockName: 'canvas',
-    hotkeyToken: TOKENS.create.canvas,
-    altHotkeyToken: TOKENS.create.canvasNewSplit,
-    hotkey: 'n',
-    keyDownHandler: () => {
-      createAction('canvas', {
-        shouldInsert: pressedKeys().has('shift'),
-      });
-      return true;
-    },
-  },
-  {
-    label: 'Photoshop file',
-    enabled: () => isFeatureEnabled(enablePsdEditor),
-    icon: getIconConfig('psd').icon,
-    description: 'New Photoshop file',
-    launcherHint: 'Layered image editing, saved as .psd',
-    keywords: ['new', 'make', 'add', 'photoshop', 'psd', 'image', 'photo'],
-    blockName: 'psd',
-    hotkeyToken: TOKENS.create.photoshop,
-    altHotkeyToken: TOKENS.create.photoshopNewSplit,
-    hotkey: 'h',
-    keyDownHandler: () => {
-      createAction('psd', { shouldInsert: pressedKeys().has('shift') });
-      return true;
-    },
-  },
-  {
-    label: 'Design',
-    enabled: () => isFeatureEnabled(enableFigViewer),
-    icon: getIconConfig('fig').icon,
-    description: 'Create design',
-    launcherHint: 'Figma-compatible canvas for UI and graphics',
-    keywords: ['new', 'make', 'add', 'design', 'figma', 'mockup', 'ui'],
-    blockName: 'fig',
-    hotkeyToken: TOKENS.create.design,
-    altHotkeyToken: TOKENS.create.designNewSplit,
-    hotkey: 'i',
-    keyDownHandler: () => {
-      createAction('fig', { shouldInsert: pressedKeys().has('shift') });
-      return true;
-    },
-  },
-  {
-    label: 'Illustrator file',
-    enabled: () => isFeatureEnabled(enableAiEditor),
-    icon: getIconConfig('ai').icon,
-    description: 'Create Illustrator file',
-    launcherHint: 'Vector artwork on artboards, saved as .ai',
-    keywords: [
-      'new',
-      'make',
-      'add',
-      'illustrator',
-      'illustration',
-      'vector',
-      'artboard',
-    ],
-    blockName: 'ai',
-    hotkeyToken: TOKENS.create.illustration,
-    altHotkeyToken: TOKENS.create.illustrationNewSplit,
-    hotkey: 'v',
-    keyDownHandler: () => {
-      createAction('ai', { shouldInsert: pressedKeys().has('shift') });
-      return true;
-    },
-  },
-  {
-    label: 'Spreadsheet',
-    enabled: isSpreadsheetEnabledForCurrentUser,
-    icon: getIconConfig('spreadsheet').icon,
-    description: 'Create spreadsheet',
-    launcherHint: 'Tables, formulas, and shared calculations',
-    keywords: ['new', 'make', 'add', 'sheet', 'table', 'formula'],
-    blockName: 'spreadsheet',
-    hotkeyToken: TOKENS.create.spreadsheet,
-    altHotkeyToken: TOKENS.create.spreadsheetNewSplit,
-    hotkey: 'b',
-    keyDownHandler: () => {
-      createAction('spreadsheet', {
-        shouldInsert: pressedKeys().has('shift'),
-      });
-      return true;
-    },
-  },
-  {
     label: 'Folder',
     icon: getIconConfig('project').icon,
     description: 'Create folder',
@@ -929,7 +761,6 @@ export function useCreateMenuBlocks(
   source: () => CreatableBlock[] | undefined = () => undefined
 ): Accessor<CreatableBlock[]> {
   const commands = useCreateCommands();
-  const spreadsheets = useSpreadsheetAccess();
   const snippetsFlag = useFeatureFlag(enableSnippets);
   // Subscribed to rather than left to the block's own `enabled`, which reads
   // PostHog without tracking it: this memo has no other reason to re-run, so a
@@ -937,19 +768,12 @@ export function useCreateMenuBlocks(
   const agentsFlag = useFeatureFlag(enableChatV3Agents);
   const projectsFlag = useFeatureFlag(enableProjects);
   const databasesFlag = useFeatureFlag(enableDatabases);
-  const psdFlag = useFeatureFlag(enablePsdEditor);
-  const figFlag = useFeatureFlag(enableFigViewer);
-  const aiFlag = useFeatureFlag(enableAiEditor);
   const formsFlag = useFeatureFlag(enableForms);
   return createMemo(() => {
     agentsFlag();
     databasesFlag();
-    psdFlag();
-    figFlag();
-    aiFlag();
     formsFlag();
     return (source() ?? commands).filter((block) => {
-      if (block.blockName === 'spreadsheet') return spreadsheets();
       if (block.blockName === 'snippet') return snippetsFlag().enabled;
       if (block.blockName === 'initiative') return projectsFlag().enabled;
       return block.enabled?.() ?? true;

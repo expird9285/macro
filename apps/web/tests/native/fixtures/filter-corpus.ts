@@ -27,8 +27,6 @@ const priorityIds = [
 ];
 export const FILE_TYPES = [
   'doc-markdown',
-  'doc-canvas',
-  'doc-spreadsheet',
   'file-code',
   'file-image',
   'file-pdf',
@@ -40,8 +38,6 @@ export const FILE_TYPES = [
 ];
 const fileTypes = [
   'md',
-  'canvas',
-  'spreadsheet',
   'ts',
   'png',
   'pdf',

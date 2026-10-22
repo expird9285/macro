@@ -57,18 +57,11 @@ const _LARGE_BLOCK_ICON = 'md';
 const defaultFileColor = 'bg-hover/20 group/item';
 
 const _fileTypeColors: Record<BlockName | BlockAlias | 'default', string> = {
-  write: 'bg-write/20 group/item',
   pdf: 'bg-pdf/20 group/item',
   md: 'bg-note/20 group/item',
   code: 'bg-code/20 group/item',
   csv: 'bg-code/20 group/item',
   image: 'bg-image/20 group/item',
-  canvas: 'bg-canvas/20 group/item',
-  spreadsheet: 'bg-success/20 group/item',
-  pptx: 'bg-orange/20 group/item',
-  psd: 'bg-blue/20 group/item',
-  fig: 'bg-violet/20 group/item',
-  ai: 'bg-amber/20 group/item',
   video: 'bg-video/20 group/item',
   call: defaultFileColor,
   calendar: defaultFileColor,

@@ -140,8 +140,7 @@ fully applied delta succeeds with `applied: false`, even after intervening edits
 
 Sync accepts arbitrary Loro document schemas. It validates the update encoding,
 operation/byte limits and causal dependencies, but does not interpret cells,
-styles, sheet names or document content types. Spreadsheet validation and
-operations live in `packages/spreadsheet` and the backend AI editing worker.
+styles, sheet names or document content types.
 Binary updates and read snapshots are limited to 4 MiB, revisions to 64 KiB,
 and HTTP bodies are bounded while streaming. Signed actor/user attribution is
 bounded and stored beside the existing operation log; request bodies cannot

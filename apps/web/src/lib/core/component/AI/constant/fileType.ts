@@ -32,7 +32,6 @@ const SUPPORTED_DOCUMENT_ATTACHMENT_EXTENSIONS = [
   'pdf',
   'docx',
   'md',
-  'canvas',
   ...codeFileExtensions,
 ];
 
@@ -44,12 +43,10 @@ export const SUPPORTED_ATTACHMENT_EXTENSIONS = [
 export const SUPPORTED_CHAT_ATTACHMENT_BLOCKS: (BlockName | BlockAlias)[] = [
   'image',
   'channel',
-  'write',
   'pdf',
   'md',
   'code',
   'csv',
-  'canvas',
   'email',
   'task',
   'project',

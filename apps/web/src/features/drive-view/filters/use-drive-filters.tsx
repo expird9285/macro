@@ -14,8 +14,6 @@ const typeOptions = [
   { id: 'database', label: 'Database', type: 'database' },
   { id: 'form', label: 'Form', type: 'form' },
   { id: 'doc-markdown', label: 'Markdown', type: 'md' },
-  { id: 'doc-canvas', label: 'Canvas', type: 'canvas' },
-  { id: 'doc-spreadsheet', label: 'Spreadsheet', type: 'spreadsheet' },
   { id: 'file-code', label: 'Code', type: 'code' },
   { id: 'file-image', label: 'Images', type: 'image' },
   { id: 'file-pdf', label: 'PDFs', type: 'pdf' },

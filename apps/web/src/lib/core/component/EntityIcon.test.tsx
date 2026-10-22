@@ -137,7 +137,7 @@ describe('entity glyphs', () => {
     vi.mocked(itemToBlockName).mockReturnValue('pdf');
     const targetType = getEntityIconType(entity);
     expect(targetType).toBe('pdf');
-    expect(itemToBlockName).toHaveBeenCalledWith(entity, true);
+    expect(itemToBlockName).toHaveBeenCalledWith(entity);
     const Glyph = FilePdf;
     expect(getIconConfig(targetType).icon).toBe(Glyph);
     const actual = render(() => <EntityIcon targetType={targetType} />);

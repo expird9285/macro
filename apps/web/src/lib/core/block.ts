@@ -1,5 +1,4 @@
 import type { CalendarBlockProps } from '@block-calendar/types';
-import type { BlockCanvasProps } from '@block-canvas/component/Block';
 import type { BlockChannelProps } from '@block-channel/component/NewChannelBlockAdapter';
 import type { BlockMarkdownProps } from '@block-md/component/Block';
 import type { IDocumentStorageServiceFile } from '@filesystem/file';
@@ -96,20 +95,9 @@ type BlockCombinationRules = {
   [Key in BlockName | BlockAlias]: Set<BlockName>;
 };
 
-export type PreviewState = {
-  canvas?: {
-    onLocationChange?: (location: {
-      x: number;
-      y: number;
-      scale: number;
-    }) => void;
-  };
-};
-
 export type NestedState<Name extends BlockName> = {
   parentId?: string;
   parentName?: Name;
-  parentContext?: PreviewState;
 };
 
 const allBlockNames = new Set([...BlockRegistry]);
@@ -126,18 +114,11 @@ const _ValidBlockCombinations: BlockCombinationRules = {
   database: allBlockNames,
   form: allBlockNames,
   pdf: ENABLE_PDF_MULTISPLIT ? allBlockNames : exclude(['pdf']),
-  write: exclude(['write']),
   md: allBlockNames,
   code: exclude(['code']),
   image: allBlockNames,
   channel: allBlockNames,
   email: allBlockNames,
-  canvas: allBlockNames,
-  spreadsheet: allBlockNames,
-  pptx: allBlockNames,
-  psd: allBlockNames,
-  fig: allBlockNames,
-  ai: allBlockNames,
   project: allBlockNames,
   unknown: allBlockNames,
   video: allBlockNames,
@@ -158,18 +139,11 @@ const _ValidBlockCombinations: BlockCombinationRules = {
 export const ValidNestingCombinations: BlockCombinationRules = {
   call: new Set([]),
   calendar: new Set([]),
-  canvas: new Set(['md']),
-  spreadsheet: new Set([]),
-  pptx: new Set([]),
-  psd: new Set([]),
-  fig: new Set([]),
-  ai: new Set([]),
   database: new Set([]),
   // A form card fills in place inside messages and documents (RFC 03 §1).
   form: new Set(['md', 'channel']),
   chat: new Set([]),
   pdf: new Set(['md']),
-  write: new Set([]),
   md: new Set([]),
   code: new Set(['md']),
   image: new Set([]),
@@ -329,13 +303,11 @@ export type ExtractLoadType<T extends LoadFunction<any, any>> =
 
 export interface BlockComponentProps extends Record<BlockName, ObjectLike> {
   calendar: CalendarBlockProps;
-  canvas: BlockCanvasProps;
   channel: BlockChannelProps;
   md: BlockMarkdownProps;
 }
 
 interface BlockComponentLoadData extends Record<BlockName, ObjectLike> {
-  canvas: DocumentBlockData & DssFileData;
   pdf: DocumentBlockData;
   video: DocumentBlockData;
   md: DocumentBlockData &

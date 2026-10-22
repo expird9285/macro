@@ -359,7 +359,7 @@ app. Force-killing loses the in-memory download and the next launch checks again
 No network work is started during quit. Errors retry with backoff.
 
 The ready notification and Settings → Account offer **Restart to update**. Explicit
-restart waits for registered canvas/PDF saves and local query persistence, and is
+restart waits for registered PDF saves and local query persistence, and is
 blocked during calls, uploads and imports. Native installation closes the native
 cache and excludes concurrent frontend OTA reloads. Neither update channel wipes
 user data. Mobile updates remain managed by the app stores. Debug, recording,

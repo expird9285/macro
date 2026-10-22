@@ -1447,11 +1447,9 @@ describe('Hosted details and Drive document routing', () => {
   it.each([
     'md',
     'pdf',
-    'canvas',
     'code',
     'image',
     'video',
-    'spreadsheet',
     'unknown',
   ] as const)(
     'opens %s documents as legacy blocks on touch',
@@ -1473,7 +1471,7 @@ describe('Hosted details and Drive document routing', () => {
       );
     }
   );
-  it.each(['md', 'pdf', 'canvas'] as const)(
+  it.each(['md', 'pdf'] as const)(
     'opens %s documents as canonical Drive content',
     async (fileType) => {
       const openWithSplit = vi.fn(() => ({ status: 'unavailable' }));
