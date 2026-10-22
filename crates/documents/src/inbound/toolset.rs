@@ -22,14 +22,9 @@ use crate::{
     domain::ports::editing::{EditingWorkerService, EditorName},
     domain::ports::mentions::NoOpDocumentMentionTracker,
     inbound::toolset::{
-        comment_on_text::CommentOnText,
-        create_document::CreateDocument,
-        create_skill::CreateSkill,
-        edit_document::EditDocument,
-        read_content::ReadContent,
-        read_metadata::ReadMetadata,
-        rename_document::RenameDocument,
-        upload_file::UploadFile,
+        comment_on_text::CommentOnText, create_document::CreateDocument, create_skill::CreateSkill,
+        edit_document::EditDocument, read_content::ReadContent, read_metadata::ReadMetadata,
+        rename_document::RenameDocument, upload_file::UploadFile,
     },
     outbound::{
         document_bytes_upload::ReqwestDocumentBytesUploader,

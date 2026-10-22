@@ -193,21 +193,18 @@ where
                     .map(|i| i.into())
                     .collect(),
             ),
-            Some(FileAssociation::Code(_)) | Some(FileAssociation::Document(_)) => {
-                Content::Text(
-                    get_document_content_from_location(
-                        service_context.clone(),
-                        &document_context,
-                        entity_access_receipt.clone(),
-                    )
-                    .await
-                    .map_err(|e| ToolCallError {
-                        description: "unable to get document content using location"
-                            .to_string(),
-                        internal_error: e,
-                    })?,
+            Some(FileAssociation::Code(_)) | Some(FileAssociation::Document(_)) => Content::Text(
+                get_document_content_from_location(
+                    service_context.clone(),
+                    &document_context,
+                    entity_access_receipt.clone(),
                 )
-            }
+                .await
+                .map_err(|e| ToolCallError {
+                    description: "unable to get document content using location".to_string(),
+                    internal_error: e,
+                })?,
+            ),
             _ => get_document_inline_text_or_download(
                 service_context.clone(),
                 &document_context,

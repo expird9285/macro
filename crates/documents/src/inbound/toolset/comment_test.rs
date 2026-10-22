@@ -369,9 +369,7 @@ async fn comment_on_text_rejects_documents_that_are_not_markdown() {
         .unwrap_err();
 
     assert!(
-        error
-            .description
-            .contains("markdown documents only"),
+        error.description.contains("markdown documents only"),
         "{}",
         error.description
     );
