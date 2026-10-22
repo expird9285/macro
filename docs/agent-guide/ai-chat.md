@@ -200,7 +200,7 @@ horizontal overflow.
 
 `UploadFile` accepts a filename and standard padded base64 contents, up to 25 MiB
 decoded. An optional project ID places the file in a folder the caller can edit.
-Use `CreateDocument` for generated text and native Macro spreadsheets. Agents with
+Use `CreateDocument` for generated text. Agents with
 code execution should construct the base64 argument from the original bytes;
 the tool cannot access an agent's local path or download a URL.
 
@@ -255,11 +255,10 @@ session is ready; an empty search opens an empty composer. Desktop search replac
 its current split into the Agents workspace, while command-menu actions open a new split.
 
 **Ask Macro** and **Chat with Agent** on documents, tasks, PDFs, DOCX files,
-code files, images, canvases, spreadsheets, email, channels, calls, and projects
+code files, images, email, channels, calls, and projects
 also open agent sessions. Like command-menu Ask AI, they open the bare session in
 a new split, without the Agents workspace's conversation sidebar. Their entity mention stays
-in the composer as an unsent draft. Spreadsheet mentions retain the current sheet
-and selected range; channel-message actions retain the referenced message.
+in the composer as an unsent draft. Channel-message actions retain the referenced message.
 Add a question and press Send to submit that context. These actions do not create
 legacy cognition chats, regardless of the Agents workspace feature flag.
 
@@ -1070,7 +1069,7 @@ rim in dark mode. The recipients, subject, body, and send controls stay inside
 that card. Touch-device styling is unchanged.
 
 A drafted email can carry attachments. The agent attaches uploaded Macro files
-(PDFs, images, spreadsheets, Word documents; a Word document is attached as its
+(PDFs, images, Word documents; a Word document is attached as its
 PDF rendering) through `SendEmail`'s `attachments`, and each appears as a
 removable file pill under the body once its name resolves. The card's paperclip
 `Attach` control and dropping files onto the body add more: each file is first

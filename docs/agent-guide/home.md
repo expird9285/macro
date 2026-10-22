@@ -148,7 +148,7 @@ sidebar visibility. Use the hamburger to reopen the feed. Mobile continues to
 show the activity list alone.
 
 Document previews opened from Home expose **Share** and **Copy Share Link** before
-the details toggle, including tasks, snippets, skills, canvases, PDFs, images,
+the details toggle, including tasks, snippets, skills, PDFs, images,
 code, and videos. Share uses the selected item's permissions and updates when
 switching items; copied links point to the entity rather than the Home feed.
 

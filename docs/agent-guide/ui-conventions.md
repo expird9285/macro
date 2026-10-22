@@ -93,5 +93,5 @@ with a slight slide from the right and a 120ms fade;
 closing fades it out in 70ms.
 This applies across Markdown/tasks,
 snippets, email, calls, agents, pull requests, projects, and all file blocks
-including PDFs, images, code, video, canvas, unknown file types, and CRM company
+including PDFs, images, code, video, unknown file types, and CRM company
 and contact views (both inside the CRM workspace and in standalone blocks).

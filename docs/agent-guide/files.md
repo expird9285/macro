@@ -134,13 +134,12 @@ Check both one file and multiple files; the nested list drop target must retain
 the open folder as the upload destination.
 File rows retain
 selection and context menus; ordinary folder clicks and Enter browse inside Drive,
-while Markdown, code/CSV, image, video, PDF/DOCX, canvas, and unrecognized file
+while Markdown, code/CSV, image, video, PDF/DOCX, and unrecognized file
 clicks and Enter replace the list with a breadcrumbed detail. Those detail
 menus include Duplicate, Rename, Move to folder, and Delete. Code, CSV, image,
-video, canvas, PDF, DOCX, and unrecognized files also include Download. PDF
+video, PDF, DOCX, and unrecognized files also include Download. PDF
 details include Print, and DOCX files include Download DOCX. Markdown details
-use the document menu, which already includes Download. Spreadsheets keep the
-editor's Import and export menu for Excel and CSV downloads. Choose the current location
+use the document menu, which already includes Download. Choose the current location
 breadcrumb to return to the list; choosing an ancestor file drops newer detail
 entries. Opening a list row or sidebar favorite pushes a new one-item detail path;
 sidebar favorites start from My Files instead of inheriting a previously selected

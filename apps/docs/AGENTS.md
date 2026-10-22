@@ -21,7 +21,7 @@ expose.
 ## Terminology
 
 - Call a form’s conditional answer check a **gate** in UI copy, AI tools, and docs.
-- A **block** is the core unit in Macro (doc, email, channel, task, call, canvas, etc.). Use "block", not "module" or "app"
+- A **block** is the core unit in Macro (doc, email, channel, task, call, etc.). Use "block", not "module" or "app"
 - Use **@mention** (not "at-mention" or "tag") for references created with `@`
 - Use **channel** (not "chat room"), **agent** (not "bot"), and **workspace** for a user's whole Macro environment
 - Use **personal memory** and **team memory** for the two memory levels

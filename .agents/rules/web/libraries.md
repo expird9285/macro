@@ -61,7 +61,7 @@ under `services/` throw and validate with zod; elsewhere in `apps/web` and
   persisted state, service responses, worker request bodies.
 - **FE-43** Ids: `uuid` `v7` for server-persisted entities (`v5` for
   deterministic ones), `crypto.randomUUID()` for ephemeral or optimistic ids,
-  `nanoid` only for Lexical and canvas node keys. Never `Math.random()` ids,
+  `nanoid` only for Lexical node keys. Never `Math.random()` ids,
   `uuid` `v4`, or `short-uuid`.
 - **FE-44** Dates: `date-fns` (and `@date-fns/tz`) for arithmetic and the house
   `@core/util/date` / `@core/util/time` helpers; `Intl.DateTimeFormat` for

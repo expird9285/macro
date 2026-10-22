@@ -117,7 +117,7 @@ successfully rather than hashing the empty JavaScript placeholder.
 | `/app/drive/<recent-or-shared>` | A Drive tab (`/app/drive/tab/<...>` remains a compatibility alias) |
 | `/app/drive/folder/<uuid>` | A Drive folder; breadcrumbs resolve from current accessible folder data |
 | `/app/drive/<document-type>/<uuid>` | An item opened inline in My Files |
-| `/app/drive/folder/<uuid>/<document-type>/<uuid>` | An item opened inline in its Drive folder; document types include `md`, `task`, `skill`, `snippet`, `canvas`, `pdf`, `code`, `csv`, `image`, `video`, `spreadsheet`, and `unknown`. Databases and forms opened from Drive use `database` and `form` |
+| `/app/drive/folder/<uuid>/<document-type>/<uuid>` | An item opened inline in its Drive folder; document types include `md`, `task`, `skill`, `snippet`, `pdf`, `code`, `csv`, `image`, `video`, and `unknown`. Databases and forms opened from Drive use `database` and `form` |
 | `/app/tasks` | Tasks table |
 | `/app/tasks/<uuid>` | Tasks with a task document opened inline |
 | `/app/agents` | AI chats / agents list |
@@ -136,7 +136,7 @@ successfully rather than hashing the empty JavaScript placeholder.
 | `/app/activity` | Activity heatmap + feed |
 | `/app/calendar/<month-or-week-or-day>` | Calendar; the focused event, its occurrence, and the locator range use `sN.calendar.*` |
 | `/app/scheduling` | Scheduling workspace: booking links, availability, bookings, insights, and booking page |
-| `/app/<document-type>/<uuid>` | Legacy document URL (including `md`, `pdf`, `canvas`, `spreadsheet`, and the other Drive document types); redirects to `/app/drive/<document-type>/<uuid>` |
+| `/app/<document-type>/<uuid>` | Legacy document URL (including `md`, `pdf`, and the other Drive document types); redirects to `/app/drive/<document-type>/<uuid>` |
 | `/app/database/<uuid>` | A database with table and board views (requires the Databases flag). Links and opens outside Drive stay at this URL; opened from Drive, it shows inline at `/app/drive/database/<uuid>` |
 | `/app/documents`, `/app/files` | Legacy Files views; redirect to `/app/drive` |
 | `/app/chat/<uuid>` | A standalone AI chat |
@@ -182,7 +182,7 @@ Back/Forward restores the period and its event locator from `sN.calendar.*`.
 Home uses the shared channel and file details for channel conversations and
 supported documents, with a **Home** breadcrumb that returns to the list. A
 channel message or thread target stays in its conversation. Document comment
-targets, spreadsheets, unknown items, and other unsupported block types retain
+targets, unknown items, and other unsupported block types retain
 the legacy inline preview so their navigation still works. The URL shape stays
 `/app/home/<block-type>/<uuid>` in either rendering mode.
 
@@ -260,7 +260,7 @@ the Drive root it reads **Create in Drive**. **Folder** opens a **New folder**
 dialog with `Untitled folder` preselected; creating keeps Drive where it is, adds
 the folder to the open folder's list, and shows a toast with **Open**. Every other
 item opens as an inline detail in the open folder or tab once created
-(`/app/drive/folder/<uuid>/spreadsheet/<uuid>`, `/app/drive/database/<uuid>`),
+(`/app/drive/folder/<uuid>/md/<uuid>`, `/app/drive/database/<uuid>`),
 the same as opening an existing file: the Drive sidebar stays mounted and no
 loading pane replaces Drive. Databases and forms opened from Drive's list or
 favorites show inline the same way. **Database** and **Form** are offered only
@@ -538,8 +538,8 @@ closes the command menu and hands focus to the launcher; individual creation
 commands remain searchable in the command menu. The left side is one continuous
 list without section labels or gaps. Up to three recently used choices appear
 first, followed by all choices in this order: **Docs** (Document, Snippet), **Organization**
-(Folder), **Design** (Canvas, Design, Photoshop file, Illustrator file), **Data**
-(Database, Spreadsheet, Form), **Comms** (Email, Message, Channel, Call), **Tasks**
+(Folder), **Data**
+(Database, Form), **Comms** (Email, Message, Channel, Call), **Tasks**
 (Task, Project, Reminder), **AI** (Agent, Routine, Skill), and **Other** (Code and
 any uncategorized entries). Only available entries appear.
 Recent items also remain in their normal positions. With no history, the list
@@ -687,7 +687,7 @@ dismisses the sheet. Desktop keeps click-to-DM on the picture itself, which touc
 drops in favour of the card's DM action.
 
 `Create` button (top-left) opens a menu of: Email E, Routine U, Agent A, Skill K,
-Document D, Task T, Project P, Snippet S, Message M, Channel G, Call C, Canvas N, Folder F, Code O.
+Document D, Task T, Project P, Snippet S, Message M, Channel G, Call C, Folder F, Code O.
 Document navigates straight into a new doc; Task, Project, and Channel open dialogs.
 When calls are enabled, `C C` (Create → Call) opens `/app/meet/new`. The call is
 created only after `Start call`; Escape closes the Create menu.
@@ -716,7 +716,7 @@ Open **Agents → Routines** for your routines. Opening a routine updates the UR
 to `/app/routines/<uuid>` while keeping the Agents workspace. Reloading a detail
 URL restores that routine; browser Back and Forward restore the list or detail.
 Existing `/app/automation/<uuid>` links resolve to the canonical routine URL.
-Saved split layouts and document/channel/spreadsheet mentions using the old
+Saved split layouts and document/channel mentions using the old
 block name also open routines; newly copied links use `/app/routines/<uuid>`.
 On the legacy Agents screen, use the **Routines** button above the list. On touch devices,
 `/app/routines` opens the routines list directly. Routines use
@@ -830,7 +830,7 @@ the top hit. Also exposes commands: `Create`, `Change theme`, `MCP setup`. Keys:
 category, Esc closes. The category strip and footer have transparent backgrounds.
 
 In `Change theme`, Up/Down previews the highlighted palette across the open app,
-including channels and spreadsheets. Moving between rows preserves the original
+including channels. Moving between rows preserves the original
 palette for cancellation without briefly restoring it between previews. Esc
 restores that palette (including unsaved edits); Enter commits the highlighted
 theme. Browser and notification icons change only when a theme is committed.
@@ -989,7 +989,7 @@ toolbar (or its overflow menu). With a live runtime, messages sent in Claude are
 polled into Macro about every two seconds; disconnected runtimes must resume first.
 
 Home does not bind Delete or Backspace to deleting list items. These keys remain
-available to the open editor (for example, clearing a selected spreadsheet range).
+available to the open editor (for example, clearing a selected text range).
 Use the item menu to delete an item from Home.
 
 Home and Agents unsent composer storage follows the current account identity.

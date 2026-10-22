@@ -108,10 +108,6 @@ The Macro MCP server exposes a comprehensive set of tools across multiple domain
 - `ReadMetadata` - Read document metadata (Read-Only)
 - `CreateDocument` - Create new documents (Additive)
 - `EditDocument` - Edit existing documents (Destructive)
-- `ReadSpreadsheet` - Read spreadsheet data (Read-Only)
-- `EditSpreadsheet` - Modify spreadsheet cells (Destructive)
-- `ReadPresentation` - Read presentation content (Read-Only)
-- `WordDocument` - Create/edit Word documents (Additive/Destructive based on operation)
 
 **Channel & Communication** (Open World where applicable):
 - `ReadChannelMessages` - Read messages from channels (Read-Only)

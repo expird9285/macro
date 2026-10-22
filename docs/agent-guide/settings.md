@@ -209,7 +209,7 @@ there instead.
 
 On desktop release builds, **Account → Desktop app update** shows native update
 progress. While preparing to restart, the popover can't be dismissed and its
-action is disabled. Restart waits for pending canvas/PDF saves and
+action is disabled. Restart waits for pending PDF saves and
 local persistence; active calls, uploads, and imports must finish first. A ready
 update also installs on normal app quit. Closing a window only triggers
 installation if it exits the app. Browser, mobile, and development builds do not
