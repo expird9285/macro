@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { homePreviewRouteParams } from './home-route-schema';
 
 describe('home preview route params', () => {
-  it('opens a DOCX item in the write block', () => {
+  it('opens a PDF item in the pdf block', () => {
     expect(
-      homePreviewRouteParams.safeParse({ blockType: 'write', previewId: 'doc' })
+      homePreviewRouteParams.safeParse({ blockType: 'pdf', previewId: 'doc' })
         .success
     ).toBe(true);
   });

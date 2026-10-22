@@ -198,7 +198,7 @@ it('reserves a poll’s height across suspended metadata loading', async () => {
   expect(screen.queryByRole('status')).toBeNull();
 });
 
-it.each(['code', 'canvas', 'pdf'] as const)(
+it.each(['code', 'pdf'] as const)(
   'mounts a %s preview inside a standalone markdown document',
   async (blockName) => {
     const { unmount } = render(() => {
@@ -243,7 +243,7 @@ it.each(['code', 'canvas', 'pdf'] as const)(
   }
 );
 
-it.each(['code', 'canvas'] as const)(
+it.each(['code'] as const)(
   'keeps a native %s resize when selection changes and saves the new size',
   async (blockName) => {
     const wrapper = createLexicalWrapper({

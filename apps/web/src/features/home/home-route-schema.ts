@@ -16,7 +16,6 @@ import { z } from 'zod';
  * The block an inline Home item opens. Aliases such as `task` name markdown
  * subtypes, as Drive's document routes do. `calendar` is not a block here:
  * the `home-calendar` route renders the Calendar view at `calendar/:period`.
- * `write` is the DOCX editor; items only name it while that editor is on.
  */
 export const homePreviewRouteParams = z
   .object({
