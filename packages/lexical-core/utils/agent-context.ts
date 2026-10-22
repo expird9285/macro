@@ -562,11 +562,7 @@ function markChildren(mark: MarkdownCommentAnchor): FxpNode[] {
 function anchorNode(anchor: AgentContextAnchor): FxpNode {
   return match(anchor)
     .with({ type: 'spreadsheet' }, ({ sheetId, sheetName, range }) =>
-      el(
-        'anchor',
-        [note('Use ReadSpreadsheet to read the live cells in this range.')],
-        { type: 'spreadsheet', sheetId, sheetName, range }
-      )
+      el('anchor', [], { type: 'spreadsheet', sheetId, sheetName, range })
     )
     .with({ type: 'pdfPin' }, ({ anchorId }) =>
       el(
@@ -759,11 +755,7 @@ function surfaceDescription(surface: DiscussionSurface): string {
 function commentAnchorNode(anchor: CommentAnchor): FxpNode {
   return match(anchor)
     .with({ type: 'spreadsheet' }, ({ sheet_id, sheet_name, range }) =>
-      el(
-        'anchor',
-        [note('Use ReadSpreadsheet to read the live cells in this range.')],
-        { type: 'spreadsheet', sheet_id, sheet_name, range }
-      )
+      el('anchor', [], { type: 'spreadsheet', sheet_id, sheet_name, range })
     )
     .with({ type: 'pdf_pin' }, ({ anchor_id }) =>
       el(

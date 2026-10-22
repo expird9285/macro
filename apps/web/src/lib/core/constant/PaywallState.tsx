@@ -8,7 +8,6 @@ export enum PaywallKey {
   IMAGE_LIMIT = 'IMAGE_LIMIT',
   CHAT_LIMIT = 'CHAT_LIMIT',
   O1_LIMIT = 'O1_LIMIT',
-  CANVAS_CLIKED = 'CANVAS_CLIKED',
   SAVED_PROMPT = 'SAVED_PROMPT',
   REMOVE_SIGNATURE = 'REMOVE_SIGNATURE',
   MULTI_INBOX = 'MULTI_INBOX',
@@ -52,13 +51,6 @@ export const PaywallMessages: Record<PaywallKey, PaywallMessageMetadata> = {
     description: 'Upgrade to use Macro’s most capable AI models.',
     learnMoreUrl: 'https://docs.macro.com/product/agents',
     learnMoreSubject: 'agents',
-  },
-  [PaywallKey.CANVAS_CLIKED]: {
-    title: 'AI canvases require Pro or Max',
-    description:
-      'Upgrade to generate diagrams, whiteboards, and visual drafts with AI.',
-    learnMoreUrl: 'https://docs.macro.com/product/canvas',
-    learnMoreSubject: 'canvases',
   },
   [PaywallKey.SAVED_PROMPT]: {
     title: 'Saved prompts require Pro or Max',

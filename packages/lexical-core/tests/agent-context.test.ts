@@ -619,7 +619,7 @@ describe('composeAgentContextPrompt', () => {
     );
   });
 
-  it('names spreadsheet ranges and directs the agent to live cells', () => {
+  it('names spreadsheet ranges', () => {
     const context = composedContext({
       promptMarkdown: 'check these totals',
       anchor: {
@@ -631,9 +631,6 @@ describe('composeAgentContextPrompt', () => {
     });
     expect(context).toContain(
       '<anchor type="spreadsheet" sheetId="sheet-1" sheetName="Budget &amp; Forecast" range="B4:C9">'
-    );
-    expect(context).toContain(
-      'Use ReadSpreadsheet to read the live cells in this range.'
     );
   });
 

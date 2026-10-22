@@ -212,8 +212,7 @@ downloadable files (Word documents can preview as PDF when DOCX-to-PDF is enable
 While a legacy file uploaded in the last 10 minutes is converting, its view shows
 **Converting … to a PowerPoint presentation…** (or Word document / Excel
 workbook) with **Download** still available for the original. When the
-conversion lands, the split reopens in the right block (workbooks switch in
-place). If conversion fails or takes over 3 minutes, the view falls back to
+conversion lands, the split reopens in the right block. If conversion fails or takes over 3 minutes, the view falls back to
 **No preview available**, and the original stays downloadable. Legacy files
 uploaded before conversion existed are not converted.
 

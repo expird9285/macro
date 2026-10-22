@@ -30,7 +30,6 @@ Macro is organized into "blocks":
 - **Channels** — Slack-like messaging channels; the default way people communicate.
 - **Tasks** — task and project tracking.
 - **Docs** — collaborative documents.
-- **Canvas** — a freeform visual canvas.
 - **Calls** — calls and call records.
 - **CRM** — customer relationship management.
 - **Folders** — file storage.
@@ -70,7 +69,7 @@ channels.
 
 - Get started: https://docs.macro.com/getting-started.md
 - Products (https://docs.macro.com/product/<name>.md): email, channels, tasks,
-  docs, canvas, calls, crm, folders, agents, inbox, search, snippets,
+  docs, calls, crm, folders, agents, inbox, search, snippets,
   unified-memory
 - Concepts (https://docs.macro.com/concepts/<name>.md): blocks, mentions,
   properties

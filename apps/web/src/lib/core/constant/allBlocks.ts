@@ -32,8 +32,7 @@ if (duplicateDefinitionNames.length > 0) {
   );
 }
 
-// Every block needs a module. `write` (DOCX) is the collaborative DOCX editor
-// when it is enabled; otherwise `verifyBlockName` resolves it to `pdf`.
+// Every block needs a module.
 const missingBlockDefinitions = BlockRegistry.filter(
   (name) => !definitionNames.includes(name)
 );
@@ -161,7 +160,7 @@ export function resolveBlockAlias(name: BlockName | BlockAlias): BlockName {
  * Get the name of a block from a its own name or a file type. Built using the
  * types registered in block definitions.
  * @example
- * getBlockName('docx') // 'write'
+ * getBlockName('docx') // 'pdf' when DOCX-to-PDF is enabled, else 'unknown'
  * getBlockName('svg') // 'image'
  * getBlockName('chat') // 'chat'
  * getBlockName('task') // 'task'
