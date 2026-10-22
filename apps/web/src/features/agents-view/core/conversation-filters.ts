@@ -3,26 +3,21 @@ import {
   type ConversationState,
   conversationState,
 } from './conversation-state';
-import { type AgentsMode, agentsModeLabel } from './mode';
+import type { AgentsMode } from './mode';
 import type { AgentConversationEntity } from './recent-conversations';
 
 export type StatusFilter = 'waiting' | 'working' | 'unread' | 'idle';
-export type PullRequestFilter = 'open' | 'draft' | 'merged' | 'closed' | 'none';
-export type ConversationGrouping = 'none' | 'status' | 'type';
+export type ConversationGrouping = 'none' | 'status';
 
 /** Values are ORed inside a category and categories are ANDed. */
 export type ConversationFilters = {
-  type: AgentsMode[];
   status: StatusFilter[];
-  pullRequest: PullRequestFilter[];
 };
 
 export type ConversationFilterCategory = keyof ConversationFilters;
 
 export const EMPTY_CONVERSATION_FILTERS: ConversationFilters = {
-  type: [],
   status: [],
-  pullRequest: [],
 };
 
 /** What the sidebar knows about a row, independent of its entity shape. */
@@ -30,7 +25,6 @@ export type ConversationFacts = {
   mode: AgentsMode;
   state: ConversationState;
   unread: boolean;
-  pullRequest: Exclude<PullRequestFilter, 'none'> | null;
 };
 
 export function conversationFacts(
@@ -39,12 +33,11 @@ export function conversationFacts(
   unread: boolean
 ): ConversationFacts {
   if (conversation.type !== 'agent_session')
-    return { mode, state: 'dormant', unread, pullRequest: null };
+    return { mode, state: 'dormant', unread };
   return {
     mode,
     state: conversationState(conversation.status, conversation.turnState),
     unread,
-    pullRequest: conversation.pullRequestState ?? null,
   };
 }
 
@@ -60,16 +53,6 @@ function hasStatus(facts: ConversationFacts, status: StatusFilter): boolean {
     .exhaustive();
 }
 
-function hasPullRequest(
-  facts: ConversationFacts,
-  pullRequest: PullRequestFilter
-): boolean {
-  // Chats never open pull requests, so "none" means a code session without one.
-  if (pullRequest === 'none')
-    return facts.mode === 'code' && facts.pullRequest === null;
-  return facts.pullRequest === pullRequest;
-}
-
 function matchesCategory<Value>(
   selected: readonly Value[],
   test: (value: Value) => boolean
@@ -81,19 +64,11 @@ export function conversationMatchesFilters(
   facts: ConversationFacts,
   filters: ConversationFilters
 ): boolean {
-  return (
-    matchesCategory(filters.type, (mode) => facts.mode === mode) &&
-    matchesCategory(filters.status, (status) => hasStatus(facts, status)) &&
-    matchesCategory(filters.pullRequest, (pullRequest) =>
-      hasPullRequest(facts, pullRequest)
-    )
-  );
+  return matchesCategory(filters.status, (status) => hasStatus(facts, status));
 }
 
 export function activeFilterCount(filters: ConversationFilters): number {
-  return (
-    filters.type.length + filters.status.length + filters.pullRequest.length
-  );
+  return filters.status.length;
 }
 
 export type ConversationGroup<Item> = {
@@ -128,14 +103,6 @@ const STATUS_GROUPS: GroupDefinition[] = [
   },
 ];
 
-const TYPE_GROUPS: GroupDefinition[] = (['chat', 'code'] as const).map(
-  (mode) => ({
-    id: mode,
-    label: agentsModeLabel(mode),
-    contains: (facts) => facts.mode === mode,
-  })
-);
-
 /** Splits an ordered list into headed sections, dropping empty ones. */
 export function groupConversations<Item>(
   items: readonly Item[],
@@ -144,7 +111,7 @@ export function groupConversations<Item>(
 ): ConversationGroup<Item>[] {
   if (grouping === 'none')
     return [{ id: 'all', label: undefined, items: [...items] }];
-  const definitions = grouping === 'status' ? STATUS_GROUPS : TYPE_GROUPS;
+  const definitions = STATUS_GROUPS;
   return definitions
     .map((definition) => ({
       id: definition.id,

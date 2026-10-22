@@ -1,4 +1,3 @@
-import { CURSOR_BOT_PRINCIPAL_ID } from '@core/constant/cursorAgent';
 import { MACRO_AGENT_PRINCIPAL_ID } from '@core/constant/macroAgent';
 import { MACRO_NEW_PRINCIPAL_ID } from '@core/constant/macroNew';
 import type { MessageData } from '@core/messages/types';
@@ -44,7 +43,6 @@ describe('SenderIcon', () => {
     for (const id of [
       MACRO_AGENT_PRINCIPAL_ID,
       MACRO_NEW_PRINCIPAL_ID,
-      CURSOR_BOT_PRINCIPAL_ID,
     ]) {
       const { getByTestId, queryByTestId } = renderSender(message(id));
       expect(getByTestId('user-icon').textContent).toBe(id);

@@ -33,7 +33,6 @@ export const bootstrapResponses = new Map<
   ['POST /auth/user/profile_pictures', { body: { pictures: [] } }],
   ['GET /auth/team', { body: {}, status: 404 }],
   ['GET /auth/team/user/invites', { body: { invites: [] } }],
-  ['GET /auth/cursor-api-key', { body: { registered: false } }],
   [
     'GET /auth/link/github/status',
     { body: { reauthentication_required: false } },
@@ -45,7 +44,6 @@ export const bootstrapResponses = new Map<
   ['GET /dss/channels/activity', { body: [] }],
   ['GET /dss/bots', { body: [] }],
   ['GET /dss/agents', { body: [] }],
-  ['GET /dss/harnesses', { body: [] }],
   ['GET /dss/databases', { body: [] }],
   ['POST /dss/databases/starter', { body: {}, status: 403 }],
   ['GET /dss/documents/system_skills', { body: { skills: [] } }],

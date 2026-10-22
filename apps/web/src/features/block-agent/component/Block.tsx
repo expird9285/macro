@@ -1,9 +1,3 @@
-import { AgentChangesProvider } from '@app/features/changes/agent-session-changes';
-import {
-  ChangesHandoff,
-  ChangesSplit,
-  ReviewNotesDock,
-} from '@app/features/changes/changes';
 import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
 import { FloatRegionOrInline } from '@components/app/mobile/float-regions/FloatRegion';
 import { SidePanel } from '@components/app/side-panel';
@@ -34,7 +28,6 @@ import { parseAgentMessageTarget } from '../core/search-location';
 import { createAgentRouteTarget } from '../primitives/create-agent-route-target';
 import { AgentComposer } from './AgentComposer';
 import { AgentConnections } from './AgentConnections';
-import { AgentPreviewBanner } from './AgentPreviewBanner';
 import { AgentSessionReadMarker } from './AgentSessionReadMarker';
 import { AgentSplitHeader } from './AgentSplitHeader';
 import { ArchivedSessionFooter } from './ArchivedSessionFooter';
@@ -155,44 +148,37 @@ function AgentBlockContent(props: {
               session={session()}
               title={metadata()?.title ?? undefined}
             />
-            <AgentPreviewBanner />
-            {/* The Changes pane opens beside the transcript; closed, the
-                transcript keeps the whole width. */}
-            <ChangesSplit>
-              <AgentConnections>
-                <Transcript searchTarget={searchTarget()} />
-              </AgentConnections>
-              {/* Full-frame mobile: composer + queue float in the bottom
-                  accessory region above the dock; desktop stays inline. */}
-              <AgentComposerRegion>
-                {/* Home/chat: re-enable pointer events on the accessory
-                    contribution — the float host is pointer-transparent. */}
-                {/* pb matches ChannelInputContainer so the composer sits at
-                    the same height as the channel input. */}
-                <div class="flex w-full justify-center shrink-0 px-4 pb-2.5 pointer-events-auto touch:px-(--mobile-chrome-gutter) touch:pb-0">
-                  <div class="macro-message-width mx-auto flex flex-col gap-2">
-                    <Show
-                      when={!session()?.isArchived}
-                      fallback={
-                        <Show when={sessionId()}>
-                          {(id) => <ArchivedSessionFooter sessionId={id()} />}
-                        </Show>
+            <AgentConnections>
+              <Transcript searchTarget={searchTarget()} />
+            </AgentConnections>
+            {/* Full-frame mobile: composer + queue float in the bottom
+                accessory region above the dock; desktop stays inline. */}
+            <AgentComposerRegion>
+              {/* Home/chat: re-enable pointer events on the accessory
+                  contribution — the float host is pointer-transparent. */}
+              {/* pb matches ChannelInputContainer so the composer sits at
+                  the same height as the channel input. */}
+              <div class="flex w-full justify-center shrink-0 px-4 pb-2.5 pointer-events-auto touch:px-(--mobile-chrome-gutter) touch:pb-0">
+                <div class="macro-message-width mx-auto flex flex-col gap-2">
+                  <Show
+                    when={!session()?.isArchived}
+                    fallback={
+                      <Show when={sessionId()}>
+                        {(id) => <ArchivedSessionFooter sessionId={id()} />}
+                      </Show>
+                    }
+                  >
+                    <AgentComposer
+                      autofocus={
+                        canAutofocusSplitContent &&
+                        !navigatedFromJK() &&
+                        !searchTarget()
                       }
-                    >
-                      <ChangesHandoff />
-                      <ReviewNotesDock />
-                      <AgentComposer
-                        autofocus={
-                          canAutofocusSplitContent &&
-                          !navigatedFromJK() &&
-                          !searchTarget()
-                        }
-                      />
-                    </Show>
-                  </div>
+                    />
+                  </Show>
                 </div>
-              </AgentComposerRegion>
-            </ChangesSplit>
+              </div>
+            </AgentComposerRegion>
           </SidePanel.Layout>
         </div>
       </StaticMarkdownContext>
@@ -219,12 +205,10 @@ export default function BlockAgent() {
     <Show when={blockId}>
       {(id) => (
         <AgentSessionProvider blockId={id()} onSessionId={adoptSessionId}>
-          <AgentChangesProvider>
-            <AgentBlockContent
-              active={split?.isPanelActive() ?? false}
-              notificationSource={notificationSource}
-            />
-          </AgentChangesProvider>
+          <AgentBlockContent
+            active={split?.isPanelActive() ?? false}
+            notificationSource={notificationSource}
+          />
         </AgentSessionProvider>
       )}
     </Show>

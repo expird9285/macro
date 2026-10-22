@@ -18,7 +18,6 @@ const mocks = vi.hoisted(() => ({
   removeQueued: vi.fn(),
   steerQueued: vi.fn(),
   upload: vi.fn(),
-  consumeNotes: vi.fn(),
   metadata: () =>
     undefined as { model: string; configOptions: { id: string }[] } | undefined,
   input: undefined as AgentInputProps | undefined,
@@ -26,9 +25,6 @@ const mocks = vi.hoisted(() => ({
   queued: undefined as QueuedPromptsProps | undefined,
 }));
 
-vi.mock('@app/features/changes/context/changes-controller', () => ({
-  useOptionalChanges: () => ({ consumeSendableNotes: mocks.consumeNotes }),
-}));
 vi.mock('@channel/Input', () => ({
   createInputAttachmentTracker: () => ({
     attachments: () => [],
@@ -125,7 +121,6 @@ describe('view-only session controls', () => {
     expect(mocks.selectModel).not.toHaveBeenCalled();
     expect(mocks.sendNext).not.toHaveBeenCalled();
     expect(mocks.upload).not.toHaveBeenCalled();
-    expect(mocks.consumeNotes).not.toHaveBeenCalled();
     mocks.queued?.onSteer?.('queued-1');
     expect(mocks.editQueued).not.toHaveBeenCalled();
     expect(mocks.removeQueued).not.toHaveBeenCalled();
@@ -211,7 +206,6 @@ it('retains an unsent draft when speed configuration is rejected', async () => {
   mocks.input?.onSend('Keep this draft', []);
   await vi.waitFor(() => expect(mocks.input?.draft).toBe('Keep this draft'));
   expect(mocks.issue).not.toHaveBeenCalled();
-  expect(mocks.consumeNotes).not.toHaveBeenCalled();
 });
 
 it('leaves external agent speed settings alone', () => {
@@ -251,5 +245,4 @@ it('retains the draft if editing access is revoked while applying speed', async 
     expect(mocks.input?.draft).toBe('Keep after permission change')
   );
   expect(mocks.issue).not.toHaveBeenCalled();
-  expect(mocks.consumeNotes).not.toHaveBeenCalled();
 });

@@ -374,11 +374,6 @@ vi.mock('@queries/messages/typing', () => ({
 
 import { MACRO_AGENT_PRINCIPAL_ID } from '@core/constant/macroAgent';
 import { MACRO_NEW_PRINCIPAL_ID } from '@core/constant/macroNew';
-import {
-  claudeMentionUser,
-  codexMentionUser,
-  cursorMentionUser,
-} from '../../macroAi';
 import { ThreadReplyChannelInput } from '../../Thread/ThreadReplyChannelInput';
 import { createInputAttachmentTracker } from '../attachment-tracker';
 import { ChannelInput } from '../ChannelInput';
@@ -554,21 +549,6 @@ describe('Input slots', () => {
         email: 'Macro',
       },
     ]);
-  });
-
-  it('hides Cursor, Claude, and Codex outside their rollouts, including supplied bot entries', () => {
-    const builtIns = () => [
-      cursorMentionUser(),
-      claudeMentionUser(),
-      codexMentionUser(),
-    ];
-    render(() => (
-      <ChannelInput input={baseInput} participants={builtIns} bots={builtIns} />
-    ));
-    const names = editorMocks.mentionUsers?.().map((user) => user.name);
-    expect(names).not.toContain('Cursor');
-    expect(names).not.toContain('Claude');
-    expect(names).not.toContain('Codex');
   });
 
   it('does not start typing when the editor hydrates an empty composer', async () => {

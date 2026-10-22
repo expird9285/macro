@@ -93,17 +93,6 @@ const SETTINGS: Setting[] = [
     keywords: 'personal ai assistant configure',
   },
   {
-    tab: 'Harness',
-    title: 'Agent runtimes and credentials',
-    keywords: 'cursor harness runtime api key provider pairing daemon',
-  },
-  {
-    tab: 'Harness',
-    title: 'Run agents on this computer',
-    keywords:
-      'local runtime macrod this computer machine claude code codex desktop daemon',
-  },
-  {
     tab: 'Account',
     title: 'Profile picture',
     target: 'Profile',

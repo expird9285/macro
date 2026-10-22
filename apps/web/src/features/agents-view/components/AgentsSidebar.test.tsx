@@ -148,9 +148,7 @@ describe('mixed Agents sidebar', () => {
         activePage="new"
         onOpenPage={openPage}
         {...partitionArchived(conversations)}
-        modeForConversation={(conversation) =>
-          conversation.type === 'chat' ? 'chat' : 'code'
-        }
+        modeForConversation={() => 'chat'}
         activeConversationId="chat"
         search=""
         loading={false}
@@ -181,17 +179,6 @@ describe('mixed Agents sidebar', () => {
     fireEvent.click(chat);
     expect(open).toHaveBeenLastCalledWith(conversations[1], expect.anything());
 
-    setFilters({ ...EMPTY_CONVERSATION_FILTERS, type: ['code'] });
-    const code = await screen.findByRole('button', { name: /Fix build/ });
-    expect(code.closest('[data-kind]')?.getAttribute('data-kind')).toBe('code');
-    expect(screen.queryByRole('button', { name: /Plan launch/ })).toBeNull();
-    expect(screen.getByRole('button', { name: /Old spike/ })).toBeTruthy();
-    fireEvent.click(code, { shiftKey: true });
-    expect(open).toHaveBeenLastCalledWith(
-      conversations[0],
-      expect.objectContaining({ shiftKey: true })
-    );
-
     setFilters({ ...EMPTY_CONVERSATION_FILTERS, status: ['waiting'] });
     expect(screen.getByRole('button', { name: /Fix build/ })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Plan launch/ })).toBeNull();
@@ -207,7 +194,7 @@ describe('mixed Agents sidebar', () => {
     const clear = vi.fn();
     render(() => (
       <AgentsSidebar
-        filters={{ ...EMPTY_CONVERSATION_FILTERS, type: ['code'] }}
+        filters={{ ...EMPTY_CONVERSATION_FILTERS, status: ['waiting'] }}
         grouping="none"
         onFilterChange={vi.fn()}
         onClearFilters={clear}
@@ -372,65 +359,6 @@ describe.each(['home', 'sidebar'] as const)('%s agent rows', (surface) => {
     return { open, view, setEntity };
   }
 
-  it('shows saved working branch and reactive PR state without taking over session navigation', () => {
-    const { open, view, setEntity } = setup();
-    const session = screen.getByRole('button', { name: 'Fix build' });
-    expect(screen.getByText('macro-inc/macro · fix/build')).toBeTruthy();
-    expect(screen.queryByText('main')).toBeNull();
-    expect(screen.queryByRole('link')).toBeNull();
-    setEntity({
-      ...conversation,
-      pullRequestUrl: 'https://github.com/macro-inc/macro/pull/42',
-      pullRequestState: 'open',
-    });
-    const pr = screen.getByRole('link', {
-      name: 'Open pull request #42, Open on GitHub',
-    });
-    expect(pr.getAttribute('href')).toBe(
-      'https://github.com/macro-inc/macro/pull/42'
-    );
-    expect(pr.closest('button')).toBeNull();
-    expect(view.container.querySelector('[data-kind="code"]')).toBeTruthy();
-    expect(screen.getByText('#42')).toBeTruthy();
-    expect(screen.queryByText('Open')).toBeNull();
-    fireEvent.mouseDown(pr, { button: 0, detail: 1 });
-    fireEvent.click(pr);
-    expect(open).not.toHaveBeenCalled();
-    fireEvent.click(session, { shiftKey: true });
-    expect(open).toHaveBeenCalledOnce();
-    const event = open.mock.calls[0][surface === 'home' ? 0 : 1];
-    expect(event.shiftKey).toBe(true);
-    setEntity({
-      ...conversation,
-      pullRequestUrl: 'https://github.com/macro-inc/macro/pull/42',
-      pullRequestState: 'merged',
-    });
-    expect(
-      screen.getByRole('link', {
-        name: 'Open pull request #42, Merged on GitHub',
-      })
-    ).toBeTruthy();
-    expect(screen.getByText('#42')).toBeTruthy();
-    expect(screen.queryByText('Merged')).toBeNull();
-    expect(screen.queryByText('Open')).toBeNull();
-  });
-
-  it('keeps non-coding agents to one line even if unrelated coding metadata exists', () => {
-    const { open, view, setEntity } = setup();
-    setEntity({
-      ...conversation,
-      harness: 'in-memory',
-      pullRequestUrl: 'https://github.com/macro-inc/macro/pull/42',
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Fix build' }));
-    expect(open).toHaveBeenCalledOnce();
-    expect(view.container.querySelector('[data-kind="chat"]')).toBeTruthy();
-    expect(
-      view.container.querySelector('[data-agent-code-details]')
-    ).toBeNull();
-    expect(screen.queryByRole('link')).toBeNull();
-  });
-
   it('keeps Home sparkles stable while Agents reflects persisted activity', () => {
     const { view, setEntity } = setup();
     const icon = () =>
@@ -542,23 +470,5 @@ describe.each(['home', 'sidebar'] as const)('%s agent rows', (surface) => {
     expect(
       view.container.querySelector('[data-agent-status-indicator]')
     ).toBeNull();
-  });
-
-  it('opens a synced PR in Macro without activating its session', () => {
-    const { setEntity, open } = setup();
-    setEntity({
-      ...conversation,
-      pullRequestUrl: 'https://github.com/macro-inc/macro/pull/42',
-      pullRequestId: 'pr-entity',
-      pullRequestState: 'merged',
-    });
-    fireEvent.click(
-      screen.getByRole('link', { name: 'Open pull request #42, Merged' })
-    );
-    expect(open).not.toHaveBeenCalled();
-    expect(openWithSplit).toHaveBeenLastCalledWith(
-      { type: 'pr', id: 'pr-entity' },
-      { preferNewSplit: true }
-    );
   });
 });

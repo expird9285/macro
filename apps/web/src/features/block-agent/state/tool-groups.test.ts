@@ -379,7 +379,7 @@ describe('rendersOwnView', () => {
   });
 });
 
-describe.each(['GenerateImage', 'DispatchCodingAgent'])(
+describe.each(['GenerateImage'])(
   '%s grouping',
   (name) => {
     it.each(['native', 'mcp'] as const)(

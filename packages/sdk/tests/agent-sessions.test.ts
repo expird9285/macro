@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import type { FoldedMessage } from '../generated/agent-fold';
 import type {
-  AgentSessionChangesResponse,
   AgentSessionResponse,
   ExecutionRecord,
 } from '../generated/agent-harness/types.gen';
@@ -30,54 +29,6 @@ afterEach(() => {
 });
 
 describe('AgentSession', () => {
-  test('reads fresh changes and patch data and requests asynchronous capture', async () => {
-    const requests: Request[] = [];
-    const snapshot: AgentSessionChangesResponse = {
-      capturing: false,
-      changeset: null,
-      attempt: null,
-    };
-    const patch = 'diff --git a/file.txt b/file.txt\n';
-    globalThis.fetch = (async (input) => {
-      const request = input instanceof Request ? input : new Request(input);
-      requests.push(request);
-      if (request.url.endsWith('/patch')) {
-        return Response.json({ patch });
-      }
-      if (request.url.endsWith('/refresh')) {
-        snapshot.capturing = true;
-        return Response.json(snapshot, { status: 202 });
-      }
-      return Response.json(snapshot);
-    }) as typeof fetch;
-    const macro = new Macro({
-      token: 'user-token',
-      hosts: { 'agent-harness': 'https://agent.example.test' },
-    });
-    const agent = macro.agentSessions.byId(sessionId);
-
-    await expect(agent.changes()).resolves.toEqual(snapshot);
-    await expect(agent.changesPatch()).resolves.toBe(patch);
-    await expect(agent.refreshChanges()).resolves.toMatchObject({
-      capturing: true,
-    });
-    await expect(agent.changes()).resolves.toMatchObject({ capturing: true });
-
-    const base = `https://agent.example.test/agent-sessions/${sessionId}/changes`;
-    expect(requests.map((request) => [request.method, request.url])).toEqual([
-      ['GET', base],
-      ['GET', `${base}/patch`],
-      ['POST', `${base}/refresh`],
-      ['GET', base],
-    ]);
-    expect(
-      requests.every(
-        (request) =>
-          request.headers.get('authorization') === 'Bearer user-token',
-      ),
-    ).toBe(true);
-  });
-
   test('reads saved code results with both session and execution scope', async () => {
     const executionId = '0198a4cc-e138-7670-a308-a6b766602702';
     const record: ExecutionRecord = {
@@ -158,9 +109,6 @@ describe('AgentSession', () => {
     const agent = macro.agentSessions.byId(sessionId);
 
     for (const read of [
-      () => agent.changes(),
-      () => agent.changesPatch(),
-      () => agent.refreshChanges(),
       () =>
         agent.codeExecutions
           .byId('0198a4cc-e138-7670-a308-a6b766602702')
@@ -302,30 +250,6 @@ describe('AgentSession', () => {
       createTasks: true,
       openPullRequests: false,
     });
-  });
-
-  test('lists one repository branches through the agent-harness service', async () => {
-    let request: Request | undefined;
-    globalThis.fetch = (async (input) => {
-      request = input instanceof Request ? input : new Request(input);
-      return Response.json({ branches: ['main', 'develop'] }, { status: 200 });
-    }) as typeof fetch;
-    const macro = new Macro({
-      token: 'user-token',
-      hosts: { 'agent-harness': 'https://agent.example.test' },
-    });
-
-    await expect(
-      macro.agentSessions.repositoryBranches(
-        'https://github.com/macro-inc/macro',
-      ),
-    ).resolves.toEqual(['main', 'develop']);
-
-    expect(request?.method).toBe('GET');
-    expect(request?.url).toBe(
-      'https://agent.example.test/agent-repositories/branches?repoUrl=https%3A%2F%2Fgithub.com%2Fmacro-inc%2Fmacro',
-    );
-    expect(request?.headers.get('authorization')).toBe('Bearer user-token');
   });
 
   test('wraps managed creation, control, logs, and deletion', async () => {

@@ -26,11 +26,6 @@ export function composerModelTarget(
     (value) => value === requested
   );
   if (!harness) return;
-  if (harness === 'macrod') {
-    return agent.harnessId
-      ? { harness, harnessId: agent.harnessId }
-      : undefined;
-  }
   return { harness };
 }
 

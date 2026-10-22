@@ -17,7 +17,6 @@ import { FavoritesNamespace } from './entities/favorites/namespace';
 import { ForeignEntityNamespace } from './entities/foreign/namespace';
 import { FormNamespace } from './entities/forms/namespace';
 import { GithubPullRequestNamespace } from './entities/github-pull-requests/namespace';
-import { HarnessNamespace } from './entities/harnesses/namespace';
 import { InitiativeNamespace } from './entities/initiatives/namespace';
 import { MeetingNamespace } from './entities/meetings/namespace';
 import { NotificationNamespace } from './entities/notifications/namespace';
@@ -103,9 +102,6 @@ export class Macro<T extends MacroOpts = MacroOpts> {
   /** apiKeys resources and operations. */
   readonly apiKeys: ApiKeyNamespace;
 
-  /** harnesses resources and operations. */
-  readonly harnesses: HarnessNamespace;
-
   /** meetings resources and operations. */
   readonly meetings: MeetingNamespace;
 
@@ -182,7 +178,6 @@ export class Macro<T extends MacroOpts = MacroOpts> {
     this.agents = new AgentNamespace(client);
     this.initiatives = new InitiativeNamespace(client);
     this.apiKeys = new ApiKeyNamespace(client);
-    this.harnesses = new HarnessNamespace(client);
     this.meetings = new MeetingNamespace(client);
     this.githubPullRequests = new GithubPullRequestNamespace(client);
     this.entityMentions = new EntityMentionNamespace(client);
@@ -274,8 +269,6 @@ export {
   GithubPullRequest,
   PullRequestChangeset,
 } from './entities/github-pull-requests/pull-request';
-export { Harness } from './entities/harnesses/harness';
-export { DevicePairing, HarnessPairing } from './entities/harnesses/pairing';
 export {
   Initiative,
   type InitiativeOptions,

@@ -307,26 +307,17 @@ export const settingsRoute = defineRoute({
       .default(settingsTabToSlug('Account')),
   }),
   claim: () => ({ namespace: 'component', id: 'settings' }),
-  externalSearch: ['pair', 'createAgent'],
+  externalSearch: ['createAgent'],
 });
 
 export const agentsRoute = defineRoute({
   id: 'agents',
   path: 'agents/:id',
+  aliases: ['coders/:id'],
   params: z.object({ id: z.string() }),
   remountKey: ({ id }) => id,
   claim: ({ id }) => ({ namespace: 'agent', id }),
-  search: [changesSearch.namespace, agentDetailSearch.namespace],
-  toReference: ({ id }) => uuidRouteReference(id, 'agent'),
-});
-
-export const codersRoute = defineRoute({
-  id: 'coders',
-  path: 'coders/:id',
-  params: z.object({ id: z.string() }),
-  remountKey: ({ id }) => id,
-  claim: ({ id }) => ({ namespace: 'agent', id }),
-  search: [changesSearch.namespace, agentDetailSearch.namespace],
+  search: [agentDetailSearch.namespace],
   toReference: ({ id }) => uuidRouteReference(id, 'agent'),
 });
 
@@ -337,7 +328,6 @@ export const agentChatsRoute = defineRoute({
   params: z.object({ id: z.string() }),
   remountKey: ({ id }) => id,
   claim: ({ id }) => ({ namespace: 'chat', id }),
-  search: [changesSearch.namespace],
   toReference: ({ id }) => uuidRouteReference(id, 'chat'),
 });
 
@@ -716,7 +706,6 @@ const debugComponentIds = [
         'dynamic-ui',
         'agent-ui',
         'agent-replay',
-        'agent-changes-ui',
         'diff-view-ui',
       ]
     : []),

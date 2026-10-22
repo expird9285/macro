@@ -2,14 +2,12 @@ import { type Accessor, createContext, useContext } from 'solid-js';
 import type { AgentsMode } from '../core/mode';
 
 /**
- * The design's `data-mode` vocabulary: `macro` is Chat, `work` is Code. The
- * stylesheet keys its per-mode rules on it, and dialogs rendered through a
- * portal read it here so they can carry the same attribute.
+ * The design's `data-mode` vocabulary: `macro` is Chat.
  */
-export type DataMode = 'macro' | 'work';
+export type DataMode = 'macro';
 
-export function dataModeFor(mode: AgentsMode): DataMode {
-  return mode === 'code' ? 'work' : 'macro';
+export function dataModeFor(_mode?: AgentsMode): DataMode {
+  return 'macro';
 }
 
 const defaultMode: Accessor<DataMode> = () => 'macro';

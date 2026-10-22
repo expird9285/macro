@@ -13,7 +13,6 @@ import { Button } from '@ui';
  * combined model-and-effort change waits for runtime confirmation.
  */
 
-import { useOptionalChanges } from '@app/features/changes/context/changes-controller';
 import {
   type InputAttachmentData,
   uploadInputAttachments,
@@ -89,7 +88,6 @@ export function AgentComposer(props: {
     sessionId,
     () => initialInput
   );
-  const changes = useOptionalChanges();
   const readOnly = () => session()?.canEdit === false;
 
   // The fold speculates the action the moment it is issued, so success is
@@ -199,13 +197,7 @@ export function AgentComposer(props: {
       persistedDraft.setDraft(markdown);
       return;
     }
-    // Queued review notes ride this send: taking them here marks them sent
-    // before the prompt is issued, so a second Enter cannot post them again
-    // as their own queued prompt (which would then stop-and-flush).
-    const notes = changes?.consumeSendableNotes() ?? '';
-    const prompt = [markdown, notes]
-      .filter((part) => part.length > 0)
-      .join('\n\n');
+    const prompt = markdown;
     fireAndForget(
       act(promptActionOf(prompt, attachments), 'The message could not be sent'),
       'agent-composer'

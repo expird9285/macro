@@ -95,9 +95,6 @@ vi.mock('@core/component/EntityLoadGate', () => ({
   LoadErrorPanel: () => <div>Unable to load</div>,
 }));
 vi.mock('@core/component/EntityIcon', () => ({ EntityIcon: () => null }));
-// Chrome, and query-backed: both hosts render it, and this file mounts them
-// without a QueryClientProvider.
-vi.mock('./AgentPreviewBanner', () => ({ AgentPreviewBanner: () => null }));
 vi.mock('@core/component/AI/component/ProviderIcon', () => ({
   modelProvider: () => undefined,
   ProviderIcon: () => null,
@@ -111,15 +108,6 @@ vi.mock('@core/component/TopBar/shareModal', () => ({
 }));
 vi.mock('@components/app/mobile/float-regions/FloatRegion', () => ({
   FloatRegionOrInline: (props: { children: JSX.Element }) => props.children,
-}));
-vi.mock('@app/features/changes/agent-session-changes', () => ({
-  AgentChangesProvider: (props: { children: JSX.Element }) => props.children,
-}));
-vi.mock('@app/features/changes/changes', () => ({
-  ChangesSplit: (props: { children: JSX.Element }) => props.children,
-  ChangesHandoff: () => null,
-  ChangesToggle: () => null,
-  ReviewNotesDock: () => null,
 }));
 vi.mock('@components/app/side-panel', () => ({
   SidePanel: {

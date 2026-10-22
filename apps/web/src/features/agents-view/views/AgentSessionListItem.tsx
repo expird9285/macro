@@ -1,24 +1,14 @@
-import { parseGithubPrUrl, prHtmlUrl } from '@app/features/block-pr/util/prKey';
-import { useSplitLayout } from '@components/app/split-layout/layout';
-import { openInNewSplitForMention } from '@core/util/openInNewSplit';
 import type { AgentSessionEntity } from '@entity';
 import SparkleIcon from '@phosphor/sparkle.svg';
-import FilledSparkleIcon from '@phosphor-icons/core/fill/sparkle-fill.svg?component-solid';
 import { Show } from 'solid-js';
-import { AgentSessionCodeDetails } from '../components/AgentSessionCodeDetails';
 import {
   AgentSessionRow,
   AgentSessionStatusIndicator,
 } from '../components/AgentSessionRow';
-import { kindForHarness, modeForKind, systemBotKind } from '../core/agent-kind';
 import { conversationState } from '../core/conversation-state';
 import { compactAge } from '../core/format-age';
 import type { AgentsMode } from '../core/mode';
 import { conversationTimestamp } from '../core/recent-conversations';
-import {
-  repositoryLabel,
-  type SessionCodeDetails,
-} from '../core/session-code-details';
 
 type Props = {
   entity: AgentSessionEntity;
@@ -31,42 +21,12 @@ type Props = {
 
 /** Persisted list metadata stays fresh through the session update events. */
 export function AgentSessionListItem(props: Props) {
-  const { openWithSplit } = useSplitLayout();
-  const mode = () =>
-    props.entity.harness
-      ? modeForKind(kindForHarness(props.entity.harness))
-      : (props.mode ??
-        modeForKind(systemBotKind(props.entity.botId) ?? 'agent'));
   const state = () =>
     conversationState(props.entity.status, props.entity.turnState);
-  const details = (): SessionCodeDetails | undefined => {
-    if (mode() !== 'code') return undefined;
-    const pr = parseGithubPrUrl(props.entity.pullRequestUrl ?? '');
-    const repository =
-      repositoryLabel(props.entity.repoUrl) ??
-      (pr ? `${pr.owner}/${pr.repo}` : undefined);
-    const branch = props.entity.workingBranch ?? undefined;
-    if (!repository && !branch && !pr) return undefined;
-    return {
-      repository,
-      branch,
-      pullRequest: pr
-        ? {
-            number: pr.number,
-            url: prHtmlUrl(pr),
-            status: props.entity.pullRequestState ?? undefined,
-          }
-        : undefined,
-    };
-  };
 
   const hideLeading = () => props.surface === 'agents';
-  const codeStatusIndicator = () =>
-    props.surface === 'agents' && mode() === 'code' ? (
-      <AgentSessionStatusIndicator state={state()} unread={props.unread} />
-    ) : undefined;
   const workStatusIndicator = () =>
-    props.surface === 'agents' && mode() !== 'code' ? (
+    props.surface === 'agents' ? (
       <AgentSessionStatusIndicator state={state()} unread={props.unread} />
     ) : undefined;
 
@@ -74,7 +34,7 @@ export function AgentSessionListItem(props: Props) {
     <AgentSessionRow
       id={props.entity.id}
       title={props.entity.name || 'Untitled conversation'}
-      kind={mode()}
+      kind="chat"
       state={state()}
       active={props.active}
       unread={props.unread}
@@ -91,9 +51,7 @@ export function AgentSessionListItem(props: Props) {
             />
           }
         >
-          <Show when={mode() === 'code'} fallback={<SparkleIcon />}>
-            <FilledSparkleIcon />
-          </Show>
+          <SparkleIcon />
         </Show>
       }
       trailing={
@@ -107,32 +65,6 @@ export function AgentSessionListItem(props: Props) {
           {workStatusIndicator()}
         </>
       }
-    >
-      <Show when={details()}>
-        {(details) => (
-          <AgentSessionCodeDetails
-            details={details()}
-            statusIndicator={codeStatusIndicator()}
-            onOpenPullRequest={
-              props.entity.pullRequestId
-                ? (event) => {
-                    const id = props.entity.pullRequestId;
-                    if (!id) return;
-                    openWithSplit(
-                      { type: 'pr', id },
-                      {
-                        preferNewSplit: openInNewSplitForMention(
-                          event.shiftKey,
-                          true
-                        ),
-                      }
-                    );
-                  }
-                : undefined
-            }
-          />
-        )}
-      </Show>
-    </AgentSessionRow>
+    />
   );
 }

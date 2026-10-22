@@ -1,6 +1,5 @@
 import { AgentSessionProvider } from '@app/features/block-agent/agent-session-provider';
 import { AgentComposer } from '@app/features/block-agent/component/AgentComposer';
-import { AgentPreviewBanner } from '@app/features/block-agent/component/AgentPreviewBanner';
 import { AgentPullRequestChip } from '@app/features/block-agent/component/AgentPullRequestChip';
 import { AgentSessionReadMarker } from '@app/features/block-agent/component/AgentSessionReadMarker';
 import {
@@ -13,13 +12,6 @@ import { AgentSidePanelSections } from '@app/features/block-agent/component/side
 import { Transcript } from '@app/features/block-agent/component/Transcript';
 import { useAgentSession } from '@app/features/block-agent/context/AgentSessionContext';
 import { createAgentRouteTarget } from '@app/features/block-agent/primitives/create-agent-route-target';
-import { AgentChangesProvider } from '@app/features/changes/agent-session-changes';
-import {
-  ChangesHandoff,
-  ChangesSplit,
-  ChangesToggle,
-  ReviewNotesDock,
-} from '@app/features/changes/changes';
 import { useBlockEntityCommands } from '@app/features/next-soup/actions';
 import { SidePanel } from '@components/app/side-panel';
 import { SplitFileMenu } from '@components/app/split-layout/components/SplitFileMenu';
@@ -225,7 +217,6 @@ function SessionContent(props: {
               />
             )}
           </Show>
-          <ChangesToggle />
           <SidePanel.Toggle />
         </Topbar>
         <div class="relative min-h-0 min-w-0 flex-1">
@@ -269,7 +260,6 @@ function SessionContent(props: {
                   </Show>
                 }
               >
-                <AgentPreviewBanner />
                 <div class="transcript-host">
                   <Transcript searchTarget={searchTarget()} />
                 </div>
@@ -283,8 +273,6 @@ function SessionContent(props: {
                         </Show>
                       }
                     >
-                      <ChangesHandoff />
-                      <ReviewNotesDock />
                       <AgentComposer
                         autofocus={!searchTarget()}
                         input={ChatSessionInput}
@@ -311,14 +299,10 @@ export function AgentSessionPane(props: {
 }) {
   return (
     <AgentSessionProvider blockId={props.id} onSessionId={props.onSessionId}>
-      <AgentChangesProvider>
-        <ChangesSplit>
-          <SessionContent
-            onDeleted={props.onDeleted}
-            notificationSource={props.notificationSource}
-          />
-        </ChangesSplit>
-      </AgentChangesProvider>
+      <SessionContent
+        onDeleted={props.onDeleted}
+        notificationSource={props.notificationSource}
+      />
     </AgentSessionProvider>
   );
 }

@@ -18,7 +18,7 @@ const DEFAULT_VIEW: ConversationListViewState = {
   grouping: 'status',
 };
 
-const GROUPINGS: readonly ConversationGrouping[] = ['none', 'status', 'type'];
+const GROUPINGS: readonly ConversationGrouping[] = ['none', 'status'];
 
 function stringsOf<Value extends string>(
   value: unknown,
@@ -45,19 +45,11 @@ function parseView(raw: string | null): ConversationListViewState | undefined {
   return {
     grouping: grouping ?? DEFAULT_VIEW.grouping,
     filters: {
-      type: stringsOf(view.filters?.type, ['chat', 'code'] as const),
       status: stringsOf(view.filters?.status, [
         'waiting',
         'working',
         'unread',
         'idle',
-      ] as const),
-      pullRequest: stringsOf(view.filters?.pullRequest, [
-        'open',
-        'draft',
-        'merged',
-        'closed',
-        'none',
       ] as const),
     },
   };

@@ -22,17 +22,10 @@ describe('composer model discovery', () => {
     expect(composerModelTarget({ harness: 'macro-inmem' })).toEqual({
       harness: 'in-memory',
     });
-    expect(composerModelTarget({ harness: 'cursor' })).toEqual({
-      harness: 'cursor',
+    expect(composerModelTarget({ harness: 'in-memory' })).toEqual({
+      harness: 'in-memory',
     });
-    expect(
-      composerModelTarget({ harness: 'macrod', harnessId: 'paired-runtime' })
-    ).toEqual({ harness: 'macrod', harnessId: 'paired-runtime' });
-    expect(composerModelTarget({ harness: 'macrod' })).toBeUndefined();
     expect(composerModelTarget({ harness: 'sandbox' })).toBeUndefined();
-    expect(composerModelTarget({ harness: 'claude-cloud' })).toEqual({
-      harness: 'claude-cloud',
-    });
   });
 
   it('switches discovery targets with the selected agent and skips disconnected runtimes', () => {
@@ -41,21 +34,14 @@ describe('composer model discovery', () => {
         id: 'bot-one',
         name: 'One',
         handle: 'one',
-        kind: 'coder',
+        kind: 'agent',
         share: 'private',
-        harness: 'cursor',
-        runtime: { label: 'Cursor', connected: true },
+        harness: 'in-memory',
+        runtime: { label: 'Macro Agent', connected: true },
       });
       createComposerModels(agent);
       expect(discovery.enabled?.()).toBe(true);
-      expect(discovery.target?.()).toEqual({ harness: 'cursor' });
-      setAgent({ ...agent(), harness: 'claude-cloud' });
-      expect(discovery.target?.()).toEqual({ harness: 'claude-cloud' });
-      setAgent({ ...agent(), harness: 'macrod', harnessId: 'paired-runtime' });
-      expect(discovery.target?.()).toEqual({
-        harness: 'macrod',
-        harnessId: 'paired-runtime',
-      });
+      expect(discovery.target?.()).toEqual({ harness: 'in-memory' });
       setAgent({ ...agent(), runtime: { label: 'Offline', connected: false } });
       expect(discovery.enabled?.()).toBe(false);
       expect(discovery.target?.()).toEqual({
@@ -93,10 +79,10 @@ describe('composer model discovery', () => {
         id: 'bot',
         name: 'Agent',
         handle: 'agent',
-        kind: 'coder',
+        kind: 'agent',
         share: 'private',
-        harness: 'cursor',
-        runtime: { label: 'Cursor', connected: true },
+        harness: 'in-memory',
+        runtime: { label: 'Macro Agent', connected: true },
       }));
       expect(source.models()).toEqual([]);
       expect(source.message()).toBe('Loading models…');

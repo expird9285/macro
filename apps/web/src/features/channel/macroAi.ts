@@ -1,16 +1,4 @@
 import {
-  CLAUDE_BOT_NAME,
-  CLAUDE_BOT_PRINCIPAL_ID,
-} from '@core/constant/claudeAgent';
-import {
-  CODEX_BOT_NAME,
-  CODEX_BOT_PRINCIPAL_ID,
-} from '@core/constant/codexAgent';
-import {
-  CURSOR_BOT_NAME,
-  CURSOR_BOT_PRINCIPAL_ID,
-} from '@core/constant/cursorAgent';
-import {
   MACRO_AGENT_NAME,
   MACRO_AGENT_PRINCIPAL_ID,
 } from '@core/constant/macroAgent';
@@ -25,7 +13,6 @@ export {
   MACRO_AGENT_NAME as MACRO_AI_NAME,
   MACRO_AGENT_PRINCIPAL_ID as MACRO_AI_PRINCIPAL_ID,
 } from '@core/constant/macroAgent';
-export { isMacroCoderId } from '@core/constant/macroCoder';
 export { isMacroNewId } from '@core/constant/macroNew';
 
 /**
@@ -45,36 +32,5 @@ export function macroMentionUser(agentSessions: boolean): IUser {
     id: agentSessions ? MACRO_NEW_PRINCIPAL_ID : MACRO_AGENT_PRINCIPAL_ID,
     name: MACRO_AGENT_NAME,
     email: MACRO_AGENT_NAME,
-  };
-}
-
-/**
- * The Cursor bot as a synthetic mention user, exactly like
- * [`macroMentionUser`]. Mentioning it opens an agent session served by
- * a Cursor cloud agent.
- */
-export function cursorMentionUser(): IUser {
-  return {
-    id: CURSOR_BOT_PRINCIPAL_ID,
-    name: CURSOR_BOT_NAME,
-    email: CURSOR_BOT_NAME,
-  };
-}
-
-/** Codex as a bot mention, using the canonical principal identifier. */
-export function codexMentionUser(): IUser {
-  return {
-    id: CODEX_BOT_PRINCIPAL_ID,
-    name: CODEX_BOT_NAME,
-    email: CODEX_BOT_NAME,
-  };
-}
-
-/** Claude as a bot mention, using the canonical principal identifier. */
-export function claudeMentionUser(): IUser {
-  return {
-    id: CLAUDE_BOT_PRINCIPAL_ID,
-    name: CLAUDE_BOT_NAME,
-    email: CLAUDE_BOT_NAME,
   };
 }

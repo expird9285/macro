@@ -69,10 +69,6 @@ import {
   shareWithChannelHandler,
 } from './ChannelMutations';
 import { describeCodeToolsHandler, executeCodeHandler } from './CodeMode';
-import {
-  dispatchCodingAgentHandler,
-  listCodingAgentsHandler,
-} from './CodingAgents';
 import { decideHandler, generateObjectHandler } from './Cognition';
 import {
   commentHandler,
@@ -182,8 +178,6 @@ const toolHandlers: ToolHandlerMap<RenderContext> = {
   ...initiativeToolHandlers,
   ExecuteCode: executeCodeHandler,
   DescribeCodeTools: describeCodeToolsHandler,
-  DispatchCodingAgent: dispatchCodingAgentHandler,
-  ListCodingAgents: listCodingAgentsHandler,
   ConfigureAgent: configureAgentHandler,
   ListAgents: listAgentsHandler,
   ConfigureBot: configureBotHandler,

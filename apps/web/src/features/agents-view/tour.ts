@@ -4,12 +4,10 @@ import { defineViewTour } from '@app/features/tours/core/view-tour';
 import { defineTourTargets } from '@ui/components/Tour';
 
 export const AGENTS_TOUR = defineTourTargets('agents', [
-  'modeSwitch',
   'rosterNav',
   'picker',
   'composer',
   'agentList',
-  'agentSetup',
 ]);
 
 const openRoster = {
@@ -22,20 +20,12 @@ export const agentsTour = defineViewTour({
   title: 'Agents',
   steps: [
     {
-      target: AGENTS_TOUR.modeSwitch,
-      entry: APP_TOUR.createMenu,
-      entryLabel: 'Choose Create → Agent to start a conversation',
-      title: 'Choose Chat or Code',
-      description:
-        'Chat starts a conversation with an agent that works with your documents and apps. Code starts a coding agent on a repository. Filter the sidebar to find either kind.',
-    },
-    {
       target: AGENTS_TOUR.picker,
       entry: APP_TOUR.createMenu,
       entryLabel: 'Choose Create → Agent to start a conversation',
       title: 'Choose your agent and model',
       description:
-        'Open this picker to choose an agent for the current mode. In Chat, Macro’s models are listed here too; each agent’s submenu lets you choose a model for that conversation.',
+        'Open this picker to choose an agent. Macro’s models are listed here; each agent’s submenu lets you choose a model for that conversation.',
     },
     {
       target: AGENTS_TOUR.agentList,
@@ -43,13 +33,6 @@ export const agentsTour = defineViewTour({
       title: 'Chat agents work with your context',
       description:
         'Chat agents use instructions and connected tools to research, write, and work with your documents and conversations. Your team and private agents live here.',
-    },
-    {
-      target: AGENTS_TOUR.agentSetup,
-      ...openRoster,
-      title: 'Coding agents work on code',
-      description:
-        'Coding agents run in Cursor or on a machine you pair with macrod. Connect them here, then choose where each agent runs when you create it.',
     },
     {
       target: AGENTS_TOUR.agentList,

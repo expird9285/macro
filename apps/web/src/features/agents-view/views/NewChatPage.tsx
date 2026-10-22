@@ -13,16 +13,12 @@ import {
 } from '@core/component/AI/constant/speed';
 import { fastModeEnabled } from '@core/component/AI/signal/speed';
 import { ComposerGreeting } from '@core/component/ComposerGreeting';
-import { useSettingsState } from '@core/constant/SettingsState';
 import { useUserId } from '@core/context/user';
 import { fireAndForget } from '@core/util/fireAndForget';
 import { uploadFile } from '@core/util/upload';
-import ChatIcon from '@phosphor/chat-circle.svg';
-import CodeIcon from '@phosphor/code.svg';
 import { useAgentCapabilitiesQuery } from '@queries/agents/capabilities';
 import { useAiBillingSummaryQuery } from '@queries/auth/ai-billing';
 import type { PromptAttachment } from '@service-agent-harness/generated/schemas';
-import { Tabs } from '@ui';
 import { tourTarget } from '@ui/components/Tour';
 import { createMemo, createSignal, Show } from 'solid-js';
 import { EffortSelector } from '../../block-agent/component/EffortSelector';
@@ -32,23 +28,17 @@ import {
   effortLabel,
 } from '../../block-agent/state/session-config';
 import { ChatComposer } from '../components/ChatComposer';
-import { type AgentKind, kindForMode } from '../core/agent-kind';
-import { type AgentsMode, agentsModeLabel } from '../core/mode';
-import { defaultBranchFor } from '../core/repository';
+import type { AgentKind } from '../core/agent-kind';
+import type { AgentsMode } from '../core/mode';
 import { MACRO_PERSONA_ID, type RosterAgent } from '../core/roster';
 import {
   createPersistedComposerDraft,
   NEW_CONVERSATION_ATTACHMENTS_KEY,
 } from '../primitives/composer-draft';
 import { createPreferredInmemModel } from '../primitives/preferred-inmem-model';
-import { createRecentRepositories } from '../primitives/recent-repositories';
-import { createWorkspaceMode } from '../primitives/workspace-mode';
 import { createComposerModels } from '../queries/composer-models';
-import { createReachableRepositories } from '../queries/reachable-repositories';
-import { createRepositoryBranches } from '../queries/repository-branches';
 import { AGENTS_TOUR } from '../tour';
 import { AgentPicker } from './AgentPicker';
-import { RepositoryPicker } from './RepositoryPicker';
 
 /** What the composer hands the workspace to start a session with. */
 export type StartConversation = {
@@ -67,7 +57,7 @@ export type StartConversation = {
   onFailure?: () => void;
 };
 
-/** One agent choice determines the session kind, default model, and repository context. */
+/** One agent choice determines the default model and configuration. */
 export function NewChatPage(props: {
   compact?: boolean;
   active?: boolean;
@@ -77,46 +67,29 @@ export function NewChatPage(props: {
   autoFocus?: boolean;
   registerFocus?: (focus: () => void) => void;
   roster: RosterAgent[];
-  /**
-   * Chat or Code, which also limits the agents offered. Uncontrolled callers
-   * get the signed-in user's last choice.
-   */
   mode?: AgentsMode;
   onModeChange?: (mode: AgentsMode) => void;
   rosterLoading: boolean;
-  /** Agents are listed but whether they can start is still unknown. */
   availabilityLoading?: boolean;
   onStart: (start: StartConversation) => void;
-  /** Opens the roster page on the given kind's tab. */
+  /** Opens the roster page. */
   onOpenRoster: (kind: AgentKind) => void;
 }) {
   const userId = useUserId();
   const billing = useAiBillingSummaryQuery();
-  const { openSettings } = useSettingsState();
   const recentAgents = createRecentAgentSelections(userId());
-  const repositories = createRecentRepositories(userId());
   const preferredInmem = createPreferredInmemModel(userId());
-  const ownMode = createWorkspaceMode(userId());
-  const mode = () => props.mode ?? ownMode.mode();
-  const options = () =>
-    props.roster.filter((agent) => agent.kind === kindForMode(mode()));
+  const options = () => props.roster;
   const [agentId, setAgentId] = createSignal<string>();
-  /** One-shot model from a coding agent's submenu; Macro uses {@link preferredInmem}. */
   const [modelOverride, setModelOverride] = createSignal<string>();
   const [effortPickerOpen, setEffortPickerOpen] = createSignal(false);
-  const [repositoryPickerOpen, setRepositoryPickerOpen] = createSignal(false);
-  // A new conversation starts on Automatic until the caller picks a repository.
-  const [repoUrl, setRepoUrl] = createSignal<string | undefined>();
   const persistedDraft = createPersistedComposerDraft(undefined, userId);
   const draft = () => props.draft ?? persistedDraft.draft();
   const setDraft = (text: string) =>
     props.onDraftChange
       ? props.onDraftChange(text)
       : persistedDraft.setDraft(text);
-  const [branchOverride, setBranchOverride] = createSignal<string>();
   const recentAgentId = () => {
-    // Falling back to Macro before availability is known would open the
-    // compact composer, then swap to the last agent's layout once it settles.
     const settling = props.rosterLoading || props.availabilityLoading;
     return recentAgents
       .ids()
@@ -152,12 +125,10 @@ export function NewChatPage(props: {
     const agent = selected();
     const harness =
       agent?.harness === 'macro-inmem' ? 'in-memory' : agent?.harness;
-    if (harness !== 'in-memory' && harness !== 'cursor') return undefined;
+    if (harness !== 'in-memory') return undefined;
     return {
       harness,
-      model:
-        composerModelOverride() ??
-        (harness === 'in-memory' ? undefined : agent?.defaultModel),
+      model: composerModelOverride(),
     } as const;
   };
   const capabilities = useAgentCapabilitiesQuery(capabilityTarget);
@@ -177,8 +148,6 @@ export function NewChatPage(props: {
       ? selection
       : undefined;
   };
-  // The submenu already validated this choice. Retain it while the selected
-  // model's discovery refreshes; startup revalidates against the runtime.
   const effortOverride = () => {
     const config = effort();
     const minimum =
@@ -195,45 +164,14 @@ export function NewChatPage(props: {
       ? { configId: selection.configId, value: selection.value }
       : undefined;
   };
-  const coding = () => mode() === 'code';
-  const localRuntime = () => selected()?.harness === 'macrod';
-  const canSelectRepository = () =>
-    selected()?.harness === 'cursor' || localRuntime();
   const blocked = () => {
     const agent = selected();
     return agent ? agent.unavailableReason : 'Choose an agent to start';
-  };
-  // Listed only while the drawer can show them: chat agents never ask.
-  const reachable = createReachableRepositories(coding);
-  // Listed only while a repository is chosen: listing costs a GitHub call.
-  const reachableBranches = createRepositoryBranches(() =>
-    coding() && !localRuntime() ? repoUrl() : undefined
-  );
-  // A chosen branch, or where the selected repository's own clones start.
-  const repoBranch = () =>
-    localRuntime()
-      ? 'main'
-      : (branchOverride() ??
-        defaultBranchFor(reachable.repositories(), repoUrl()));
-  const selectRepository = (url: string | undefined) => {
-    // Another repository starts on its own default branch, not the last one's.
-    if (url !== repoUrl()) setBranchOverride(undefined);
-    setRepoUrl(url);
-    if (url) repositories.remember(url);
-  };
-
-  const connect = (agent: RosterAgent) => {
-    // Both land on Settings → Runtimes: Cursor to save an API key, macrod to
-    // restart the local runtime (one click on desktop) or re-pair it.
-    if (agent.harness === 'cursor' || agent.harness === 'macrod') {
-      openSettings('Harness');
-    }
   };
 
   const attachmentTracker = createMemo(() => {
     const identity = userId();
     return createInputAttachmentTracker({
-      // Home owns its attachments; unknown identities never read shared storage.
       persistenceKey:
         !props.onDraftChange && identity
           ? `${NEW_CONVERSATION_ATTACHMENTS_KEY}:${encodeURIComponent(identity)}`
@@ -261,8 +199,6 @@ export function NewChatPage(props: {
     )
       return;
     recentAgents.remember(persona.id);
-    const repo = canSelectRepository() ? repoUrl() : undefined;
-    if (repo) repositories.remember(repo);
     const model = composerModelOverride();
     const inMemory =
       persona.harness === 'macro-inmem' || persona.harness === 'in-memory';
@@ -288,8 +224,6 @@ export function NewChatPage(props: {
           }
         : {}),
       botId: persona.botId,
-      repoUrl: repo,
-      ...(repo ? { repoBranch: repoBranch() } : {}),
       ...(model ? { modelOverride: model } : {}),
       ...(inMemory && !model && selectedCatalog.pending()
         ? { modelFallback: true }
@@ -304,7 +238,6 @@ export function NewChatPage(props: {
           }
         : {}),
     });
-    // Macro's preferred model stays; coding-agent submenu picks are one-shot.
     setModelOverride(undefined);
     setEffortSelection(undefined);
   };
@@ -317,8 +250,6 @@ export function NewChatPage(props: {
     setAgentId(agent.id);
     if (agent.id === MACRO_PERSONA_ID) {
       if (model) preferredInmem.remember(model);
-      // Still set the override so the trigger updates when Macro was
-      // already selected (agent id unchanged would otherwise skip a render).
       setModelOverride(model);
     } else {
       setModelOverride(model);
@@ -348,64 +279,7 @@ export function NewChatPage(props: {
       onCloseAutoFocus={restoreInputFocus}
       onSelect={selectAgent}
       onSelectEffort={selectAgent}
-      onConnect={connect}
-      onCreate={() => props.onOpenRoster(coding() ? 'coder' : 'agent')}
-    />
-  );
-
-  const setMode = (next: AgentsMode) => {
-    // A model or effort picked for the other mode's agent does not carry over.
-    setModelOverride(undefined);
-    setEffortSelection(undefined);
-    if (props.onModeChange) props.onModeChange(next);
-    else ownMode.setMode(next);
-  };
-
-  const modeSwitch = () => (
-    <div ref={tourTarget(AGENTS_TOUR.modeSwitch)} class="shrink-0">
-      <Tabs
-        aria-label="Conversation mode"
-        fullWidth
-        list={(['chat', 'code'] as const).map((mode) => ({
-          value: mode,
-          label: () => (
-            <span class="flex items-center gap-1.5">
-              {mode === 'code' ? (
-                <CodeIcon class="size-3.5" />
-              ) : (
-                <ChatIcon class="size-3.5" />
-              )}
-              {/* Phones keep the icons; the name stays for assistive tech. */}
-              <span class="touch:sr-only">{agentsModeLabel(mode)}</span>
-            </span>
-          ),
-        }))}
-        value={mode()}
-        onChange={(value) => setMode(value === 'code' ? 'code' : 'chat')}
-        class="h-9 w-56 touch:w-24 rounded-full bg-ink/3 light-mode:bg-[rgb(246_246_246)] dark-mode:bg-[rgb(24_24_24)] shadow-none [&>[role=presentation]]:shadow-none [&>[role=presentation]]:duration-250 [&>[role=presentation]]:ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:[&>[role=presentation]]:duration-0 [&>[role=presentation]]:border-0 [&>[role=presentation]]:bg-panel dark-mode:[&>[role=presentation]]:bg-[rgb(32_32_32)] [&>[role=presentation]]:bg-[linear-gradient(to_bottom,color-mix(in_srgb,var(--color-ink)_2%,transparent),transparent)] light-mode:[&>[role=presentation]]:border light-mode:[&>[role=presentation]]:border-ink/7 light-mode:[&>[role=presentation]]:[background-image:none] light-mode:[&>[role=presentation]]:shadow-[0_1px_6px_0_color-mix(in_srgb,var(--color-ink)_5%,transparent)] light-mode:[&>[role=presentation]]:bg-[rgb(250_250_250)]"
-        labelClass="h-9 px-4 text-sm touch:px-2.5"
-      />
-    </div>
-  );
-
-  const repositoryPicker = () => (
-    <RepositoryPicker
-      onOpenChange={setRepositoryPickerOpen}
-      repoUrl={repoUrl()}
-      branch={repoBranch()}
-      branchLocked={localRuntime()}
-      repositories={reachable.repositories()}
-      repositoriesLoading={reachable.loading()}
-      repositoriesError={reachable.error()}
-      recentRepositories={repositories.urls()}
-      onRetryRepositories={reachable.retry}
-      branches={reachableBranches.branches()}
-      branchesLoading={reachableBranches.loading()}
-      branchesError={reachableBranches.error()}
-      onRetryBranches={reachableBranches.retry}
-      onConnectGitHub={() => openSettings('Connected')}
-      onSelectRepository={selectRepository}
-      onSelectBranch={setBranchOverride}
+      onCreate={() => props.onOpenRoster('agent')}
     />
   );
 
@@ -413,7 +287,7 @@ export function NewChatPage(props: {
     <ChatComposer
       autoFocus={props.autoFocus}
       collapseOnBlur={props.compact}
-      controlsOpen={repositoryPickerOpen() || effortPickerOpen()}
+      controlsOpen={effortPickerOpen()}
       registerFocus={(focus) => {
         focusInput = focus;
         props.registerFocus?.(focus);
@@ -446,18 +320,6 @@ export function NewChatPage(props: {
           </Show>
         </div>
       }
-      drawer={
-        <div class="flex w-full min-w-0 items-center gap-2">
-          {modeSwitch()}
-          <Show when={coding()}>
-            <div class="min-w-0 flex-1 touch:[&>div]:justify-end">
-              {repositoryPicker()}
-            </div>
-          </Show>
-        </div>
-      }
-      drawerOpen
-      placeholder={coding() ? 'Describe what you want to build' : undefined}
       onSend={send}
       supportsImages={
         selectedCatalog
@@ -477,16 +339,8 @@ export function NewChatPage(props: {
       <section class="page newchat" data-active aria-label="New conversation">
         <div ref={tourTarget(AGENTS_TOUR.composer)} class="col">
           <div class="greeting">
-            <ComposerGreeting wireframe={coding()}>
-              <Show when={mode()} keyed>
-                {(currentMode) => (
-                  <span class="greeting-text">
-                    {currentMode === 'code'
-                      ? 'What should we build?'
-                      : 'What should we work on?'}
-                  </span>
-                )}
-              </Show>
+            <ComposerGreeting>
+              <span class="greeting-text">What should we work on?</span>
             </ComposerGreeting>
           </div>
           <FloatRegionOrInline

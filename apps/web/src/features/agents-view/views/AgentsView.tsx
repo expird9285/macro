@@ -57,7 +57,6 @@ import {
 import { kindForBot } from '../core/roster';
 import { type AgentsRoute, agentsRouteId } from '../core/route';
 import { createConversationListView } from '../primitives/conversation-list-view';
-import { createWorkspaceMode } from '../primitives/workspace-mode';
 import { createAgentRosterSource } from '../queries/agent-roster-source';
 import { agentsTour } from '../tour';
 import { NewChatPage, type StartConversation } from './NewChatPage';
@@ -85,9 +84,7 @@ function AgentsWorkspace(props: { initialRoute?: AgentsRoute }) {
   const userId = useUserId();
   useWarmAgentSessionQuery(userId);
   const notifications = useGlobalNotificationSource();
-  const mode = (): AgentsMode => props.initialRoute?.mode ?? 'chat';
-  // The composer's Chat/Code choice; an open conversation keeps its own mode.
-  const workspace = createWorkspaceMode(userId());
+  const mode = (): AgentsMode => 'chat';
   const listView = createConversationListView(userId());
   const [localPage, setPage] = createSignal<AgentsPage>('new');
   const isRoutinesPage = () => {
@@ -105,7 +102,7 @@ function AgentsWorkspace(props: { initialRoute?: AgentsRoute }) {
         }
       : undefined
   );
-  const dataMode = () => dataModeFor(selected() ? mode() : workspace.mode());
+  const dataMode = () => dataModeFor(mode());
   const [mobileList, setMobileList] = createSignal(!isRoutinesPage());
   const [draft, setDraft] = createSignal('');
   const [search, setSearch] = createSignal('');
@@ -392,8 +389,7 @@ function AgentsWorkspace(props: { initialRoute?: AgentsRoute }) {
                               classList={{ hidden: page() !== 'new' }}
                             >
                               <NewChatPage
-                                mode={workspace.mode()}
-                                onModeChange={workspace.setMode}
+                                mode="chat"
                                 active={
                                   !isTouchDevice() ||
                                   (!mobileList() && page() === 'new')

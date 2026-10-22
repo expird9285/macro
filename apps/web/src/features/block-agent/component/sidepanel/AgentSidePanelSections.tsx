@@ -1,45 +1,26 @@
 /**
- * The agent block's side-panel sections, in the repo's
- * `component/sidepanel/<X>SidePanelSections.tsx` convention (the PR block's
- * `PrSidePanelSections` is the template): a fragment of
- * `<SidePanel.Section>` elements that self-register into the enclosing
- * `<SidePanel.Layout>`.
- *
- * Session details and activity use the live fold; changed files and totals
- * use the shared PR changes controller.
+ * The agent block's side-panel sections: session details, plan, activity, and references.
  */
 
-import { DiffCounts } from '@app/components/diff-view';
-import { useOptionalChanges } from '@app/features/changes/context/changes-controller';
 import { SidePanel } from '@components/app/side-panel';
 import { EntityMetadata } from '@components/app/side-panel/EntityMetadata';
 import { ModelIcon } from '@core/component/AI/component/ProviderIcon';
 import { References } from '@core/component/References';
-import { openExternalUrl } from '@core/util/url';
-import GitBranch from '@phosphor/git-branch.svg';
 import { useAttachmentReferencesQuery } from '@queries/storage/attachment-references';
-import { createMemo, For, Show, Suspense } from 'solid-js';
+import { createMemo, Show, Suspense } from 'solid-js';
 import { useAgentSession } from '../../context/AgentSessionContext';
 import { sessionStatus } from '../../state/session-status';
 import { activityCounts, latestPlan } from '../../state/session-summary';
 import { CountSummary, SessionStatusPill, TodoList } from '../../ui';
 import { AgentPullRequestChip } from '../AgentPullRequestChip';
 import { AgentTaskChip } from '../AgentTaskChip';
-import {
-  modelDisplayName,
-  sessionHarnessTitle,
-  sessionRepositoryUrl,
-  showsSessionHarness,
-} from '../compose-agent-session-options';
+import { modelDisplayName } from '../compose-agent-session-options';
 
 export function AgentSidePanelSections() {
   const { sessionId, session, bot, metadata, messages } = useAgentSession();
 
   const plan = createMemo(() => latestPlan(messages()));
-  const changes = useOptionalChanges();
-  const files = () => changes?.model.files() ?? [];
   const activity = createMemo(() => activityCounts(messages()));
-  const totals = () => changes?.changeCounts();
 
   return (
     <>
@@ -64,15 +45,6 @@ export function AgentSidePanelSections() {
               </SidePanel.Row>
             )}
           </Show>
-          <Show when={showsSessionHarness(session() ?? {})}>
-            <SidePanel.Row label="Runtime">
-              <SidePanel.Pill>
-                <span class="truncate">
-                  {sessionHarnessTitle(session() ?? {})}
-                </span>
-              </SidePanel.Pill>
-            </SidePanel.Row>
-          </Show>
           <Show when={metadata()?.model ?? session()?.model}>
             {(model) => (
               <SidePanel.Row label="Model">
@@ -85,20 +57,6 @@ export function AgentSidePanelSections() {
                     )}
                   </span>
                 </SidePanel.Pill>
-              </SidePanel.Row>
-            )}
-          </Show>
-          <Show when={sessionRepositoryUrl(session())}>
-            {(url) => (
-              <SidePanel.Row label="Repository">
-                <button
-                  type="button"
-                  class={`${SidePanel.pillClass} hover:bg-hover`}
-                  onClick={() => openExternalUrl(url())}
-                >
-                  <GitBranch class="size-3 shrink-0" />
-                  <span class="truncate">{repoName(url())}</span>
-                </button>
               </SidePanel.Row>
             )}
           </Show>
@@ -130,44 +88,6 @@ export function AgentSidePanelSections() {
             />
           </SidePanel.Section>
         )}
-      </Show>
-
-      <Show when={files().length > 0}>
-        <SidePanel.Section
-          id="files"
-          title={
-            <SidePanel.CountTitle
-              label="Changed files"
-              count={files().length}
-            />
-          }
-          defaultOpen
-          order={20}
-          actions={
-            <Show when={totals()}>
-              {(counts) => <DiffCounts {...counts()} />}
-            </Show>
-          }
-        >
-          <div class="flex flex-col gap-1">
-            <For each={files()}>
-              {(file) => (
-                <div class="flex items-center gap-2 text-xs">
-                  <span
-                    class="min-w-0 flex-1 truncate text-ink"
-                    title={file.path}
-                  >
-                    {file.path}
-                  </span>
-                  <DiffCounts
-                    additions={file.additions}
-                    deletions={file.deletions}
-                  />
-                </div>
-              )}
-            </For>
-          </div>
-        </SidePanel.Section>
       </Show>
 
       <Show when={activity().some((item) => item.count > 0)}>
@@ -215,15 +135,4 @@ function ReferencesSectionConditional(props: { sessionId?: string }) {
       )}
     </Show>
   );
-}
-
-/** `https://github.com/org/repo.git` → `org/repo` for a compact pill. */
-function repoName(url: string): string {
-  const path = url
-    .replace(/\.git$/, '')
-    .split('/')
-    .filter(Boolean);
-  const repo = path.at(-1);
-  const org = path.at(-2);
-  return org && repo && !org.includes(':') ? `${org}/${repo}` : (repo ?? url);
 }

@@ -1,8 +1,8 @@
 # Shared Changes viewer
 
-`changes.tsx` is the shared entry for PRs, agent sessions, and previews. A host
+`changes.tsx` is the shared entry for PRs and previews. A host
 supplies a `ChangesSource` and `ChangesHost`; `ChangesProvider` owns controller,
-view-state, and dismissal setup. Shared UI never reads agent-session context.
+view-state, and dismissal setup.
 
 ```tsx
 <ChangesProvider context={{ source, host }}>
@@ -13,19 +13,16 @@ view-state, and dismissal setup. Shared UI never reads agent-session context.
 </ChangesProvider>
 ```
 
-`AgentChangesProvider` in `agent-session-changes.tsx` supplies the harness source,
-linked PR metadata, and prompt-based note sending. `block-pr/component/PrChanges.tsx`
-supplies the storage-service PR source and existing PR metadata without an agent
-capability, so the same viewer stays read-only. Neither adapter duplicates the
-shared controller setup or owns the other adapter's queries. `browser-host.ts`
-provides clipboard, external navigation, and notifications explicitly at these
-production boundaries; the generic provider has no implicit browser actions.
+`block-pr/component/PrChanges.tsx` supplies the storage-service PR source and
+existing PR metadata without an agent capability, so the viewer stays read-only.
+`browser-host.ts` provides clipboard, external navigation, and notifications
+explicitly at production boundaries; the generic provider has no implicit browser
+actions.
 
 Give each host a stable `scopeKey` (for example, `pr:<foreign-entity-id>`) to isolate
 persisted layout, collapse state, and notes. The optional `agent` capability enables
 inline note creation and sending. The optional `canHaveChanges` accessor hides all
-controls and the pane while false. The session adapter also gates its source, so
-chat-only sessions and coding sessions without a linked PR make no changes requests.
+controls and the pane while false.
 
 `views/ChangesPane.tsx` composes the generic `FileTree`
 (`@ui/components/FileTree`) and `DiffView` (`src/components/diff-view`) from the
@@ -129,5 +126,4 @@ such as a preview, they are local signals.
   survives exit. Do not retain the dialog just to retain the tree or its animation.
 
 The `changes` route namespace, existing `agent-changes:*` storage prefixes, and
-query-cache namespace remain unchanged after the feature rename. The debug gallery
-also keeps its existing `agent-changes-ui` route ID.
+query-cache namespace remain unchanged after the feature rename.

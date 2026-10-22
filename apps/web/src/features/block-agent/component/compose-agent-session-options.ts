@@ -1,21 +1,14 @@
-import { isCoderHarness } from '@app/features/agents-view/core/agent-kind';
 import { modelLabel } from '@core/component/AI/constant/model-label';
-import { isClaudeBotId } from '@core/constant/claudeAgent';
-import { isCodexBotId } from '@core/constant/codexAgent';
-import { isCursorBotId } from '@core/constant/cursorAgent';
 import { MACRO_HARNESS_NAME } from '@core/constant/macroAgent';
 
 /**
  * The repository a session works in, for the header menu and side panel.
- * The service stamps the deployment's default repository on every session,
- * including chat-only ones that never touch it, so only a coding harness
- * gets to show one.
+ * With coding agents removed, sessions do not work in repositories.
  */
 export function sessionRepositoryUrl(
-  session: { harness: string; repoUrl?: string | null } | undefined
+  _session: { harness?: string; repoUrl?: string | null } | undefined
 ): string | undefined {
-  if (!session || !isCoderHarness(session.harness)) return undefined;
-  return session.repoUrl ?? undefined;
+  return undefined;
 }
 
 /** Title-case a harness slug when nothing names it (`claude-code` → `Claude Code`). */
@@ -44,18 +37,12 @@ export function harnessTitle(harness: string | undefined): string {
 }
 
 /**
- * The harness slug a session should be labeled with. First-party cloud bots
- * own a fixed slug (Cursor / Codex / Claude Cloud), even when an older row
- * was stamped with the sandboxed-coder default (`opencode`).
+ * The harness slug a session should be labeled with.
  */
 export function sessionHarnessSlug(session: {
   harness?: string;
   botId?: string;
 }): string | undefined {
-  const botId = session.botId;
-  if (botId && isCursorBotId(botId)) return 'cursor';
-  if (botId && isCodexBotId(botId)) return 'codex-cloud';
-  if (botId && isClaudeBotId(botId)) return 'claude-cloud';
   return session.harness;
 }
 
@@ -77,12 +64,6 @@ export function harnessDisplayName(harness: string): string {
     case 'macro-inmem':
     case 'sandbox':
       return MACRO_HARNESS_NAME;
-    case 'cursor':
-      return 'Cursor';
-    case 'codex-cloud':
-      return 'Codex';
-    case 'claude-cloud':
-      return 'Claude Cloud';
     default:
       return harness;
   }
@@ -90,15 +71,13 @@ export function harnessDisplayName(harness: string): string {
 
 /**
  * Session Details lists a harness only for coding runtimes. In-memory chat
- * agents have no user-facing harness, so the row stays off. Uses the same
- * slug as `sessionHarnessTitle` so a first-party coding bot still shows even
- * when an older row was stamped `opencode`.
+ * agents have no user-facing harness, so the row stays off.
  */
-export function showsSessionHarness(session: {
+export function showsSessionHarness(_session: {
   harness?: string;
   botId?: string;
 }): boolean {
-  return isCoderHarness(sessionHarnessSlug(session));
+  return false;
 }
 
 /**

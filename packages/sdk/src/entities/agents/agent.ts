@@ -6,7 +6,6 @@ import { MacroNotFoundError, unwrap } from '../../utils';
 import type { MacroClient } from '../../utils/client';
 import { Channel } from '../channels/channel';
 import { MacroEntity } from '../entity';
-import { Harness } from '../harnesses/harness';
 import type { Team } from '../teams/team';
 
 /** Agent creation and replacement settings. */
@@ -25,8 +24,6 @@ export type AgentOptions = Omit<
   channels?: Channel[];
   /** Owning team. */
   team?: Team;
-  /** Host running the agent. */
-  host?: Harness;
   /** Whether tool permissions are automatically accepted. */
   autoAcceptPermissions?: boolean;
   /** Avatar URL. */
@@ -74,11 +71,6 @@ export class Agent extends MacroEntity<AgentRecord> {
     ids.map((id) => Channel.byId(this.client, id)),
   );
 
-  /** Host running this agent. */
-  readonly host = this.mappedField('harness_id', (id) =>
-    id ? Harness.byId(this.client, id) : undefined,
-  );
-
   /** Replace agent settings. */
   async update(options: AgentOptions): Promise<void> {
     await this.mutate((c) =>
@@ -95,7 +87,6 @@ export function agentBody(options: AgentOptions): CreateAgentRequest {
   const {
     channels,
     team,
-    host,
     autoAcceptPermissions,
     avatarUrl,
     channelScope,
@@ -107,7 +98,6 @@ export function agentBody(options: AgentOptions): CreateAgentRequest {
     ...rest,
     channel_ids: channels?.map((c) => c.id),
     team_id: team?.id,
-    harness_id: host?.id,
     auto_accept_permissions: autoAcceptPermissions,
     avatar_url: avatarUrl,
     channel_scope: channelScope,

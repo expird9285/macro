@@ -1,13 +1,10 @@
 import { useOpenAgentDm } from '@app/features/agent-dms/open-agent-dm';
-import { isCoderHarness } from '@app/features/agents-view/core/agent-kind';
 import { AGENTS_TOUR } from '@app/features/agents-view/tour';
-import { useFeatureFlag } from '@app/lib/analytics/posthog';
-import AnthropicIcon from '@core/component/AI/assets/anthropic.svg';
 import { ModelCatalogPicker } from '@core/component/AI/component/input/ModelCatalogPicker';
 import { isLargeModelCatalog } from '@core/component/AI/component/input/modelCatalog';
 import { MODEL_PRETTYNAME, Model } from '@core/component/AI/constant/model';
 import { toast } from '@core/component/Toast/Toast';
-import { claudeCloud, ENABLE_AGENT_DMS } from '@core/constant/featureFlags';
+import { ENABLE_AGENT_DMS } from '@core/constant/featureFlags';
 import {
   MACRO_AGENT_BOT_ID,
   MACRO_HARNESS_NAME,
@@ -18,13 +15,11 @@ import { useUserId } from '@core/context/user';
 import { usePipedreamMcpFlag } from '@core/pipedream/flag';
 import { fireAndForget } from '@core/util/fireAndForget';
 import MacroLogo from '@icon/macro-logo.svg';
-import CursorIcon from '@icon/wide-cursor-ide.svg';
 import ArrowLeftIcon from '@phosphor/arrow-left.svg';
 import ChatIcon from '@phosphor/chat-circle.svg';
 import PencilIcon from '@phosphor/pencil-simple.svg';
 import PlusIcon from '@phosphor/plus.svg';
 import AgentIcon from '@phosphor/sparkle.svg';
-import TerminalIcon from '@phosphor/terminal-window.svg';
 import TrashIcon from '@phosphor/trash.svg';
 import UploadIcon from '@phosphor/upload-simple.svg';
 import {
@@ -38,11 +33,8 @@ import {
 import { useUploadAgentAvatarMutation } from '@queries/agents/avatar';
 import {
   type AgentModelTarget,
-  buildAgentModelTargets,
   useAgentModelsQueries,
 } from '@queries/agents/models';
-import { useCursorApiKeyStatusQuery } from '@queries/auth/cursor-api-key';
-import { useHarnessesQuery } from '@queries/harnesses/harnesses';
 import { usePipedreamConnectedSlugs } from '@queries/pipedream-connectors';
 import { useCurrentTeamQuery, useIsTeamOwner } from '@queries/team/teams';
 import type { AgentMcpServer } from '@service-storage/generated/schemas/agentMcpServer';
@@ -62,9 +54,6 @@ import {
 import { botAssignableChannelOptions } from '../channel/Bots/botChannelOptions';
 import { canDeleteBot, canManageAgent } from '../channel/Bots/botPermissions';
 import { ChannelMultiSelect } from '../channel/Bots/ChannelMultiSelect';
-import { CursorConnectPage } from './CursorConnectPage';
-import { AgentSetupStrips } from './components/agent-setup-strips';
-import { CodingPreferencesSetting } from './components/coding-preferences-setting';
 import { AgentInstructionsEditor } from './components/instructions-editor';
 import { SettingsSelect } from './components/settings-select';
 import { WhereItRunsOption } from './components/where-it-runs-option';
@@ -76,7 +65,6 @@ import {
   SettingsSection,
   SettingsSurface,
 } from './primitives';
-import { RuntimePairingPage } from './RuntimePairingPage';
 
 type AgentShare = 'Private' | 'Team';
 type ChannelMode = 'all' | 'selected';
@@ -99,7 +87,7 @@ type AgentSummary = {
 type ConnectedHarness = {
   id: string;
   name: string;
-  kind: 'builtin' | 'macrod';
+  kind: 'builtin';
   allowPermissionBypass: boolean;
   target: AgentModelTarget;
   connected?: boolean;
@@ -136,7 +124,6 @@ export function Agents(props: {
   const messageAgent = (id: string) =>
     agentDm?.open(id === MACRO_AGENT_BOT_ID ? MACRO_NEW_BOT_ID : id);
   const agentList = tourTarget(AGENTS_TOUR.agentList);
-  const claudeCloudFlag = useFeatureFlag(claudeCloud);
   const [creating, setCreating] = createSignal(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const creatingFromLink = () => searchParams.createAgent === 'true';
@@ -156,53 +143,7 @@ export function Agents(props: {
   const updateAgentMutation = useUpdateAgentMutation();
   const currentTeamQuery = useCurrentTeamQuery();
   const isTeamOwner = useIsTeamOwner();
-  const cursorStatus = useCursorApiKeyStatusQuery();
-  const cursorConnected = () =>
-    cursorStatus.isSuccess ? cursorStatus.data.registered : false;
-  const harnessesQuery = useHarnessesQuery();
-  const connectedHarnesses = (): readonly ConnectedHarness[] => {
-    const harnesses = harnessesQuery.isSuccess ? harnessesQuery.data : [];
-    return buildAgentModelTargets(
-      cursorConnected(),
-      harnesses,
-      claudeCloudFlag().enabled
-    ).map((target) => {
-      if (target.harness === 'in-memory') return IN_MEMORY_HARNESS;
-      if (target.harness === 'claude-cloud') {
-        return {
-          id: 'claude-cloud',
-          name: 'Claude Cloud',
-          kind: 'builtin',
-          allowPermissionBypass: true,
-          target,
-        };
-      }
-      if (target.harness === 'cursor') {
-        return {
-          id: 'cursor',
-          name: 'Cursor',
-          kind: 'builtin',
-          allowPermissionBypass: true,
-          target,
-        };
-      }
-
-      const harness = harnesses.find(
-        (candidate) => candidate.id === target.harnessId
-      );
-      return {
-        id: target.harnessId ?? '',
-        name:
-          harness?.owner.type === 'team'
-            ? `${harness.name} · Team`
-            : (harness?.name ?? 'macrod'),
-        kind: 'macrod',
-        allowPermissionBypass: harness?.allow_permission_bypass ?? false,
-        target,
-        connected: harness?.connected,
-      };
-    });
-  };
+  const connectedHarnesses = (): readonly ConnectedHarness[] => [IN_MEMORY_HARNESS];
   const channelOptions = createMemo(() =>
     botAssignableChannelOptions(channelsContext.channels())
   );
@@ -286,11 +227,6 @@ export function Agents(props: {
           title="Agents"
           description="Custom assistants with their own name, instructions, model, and place to run."
         >
-          <AgentSetupStrips
-            onCursor={props.onCursor}
-            onSetUpRuntime={props.onSetUpRuntime}
-            onManageRuntimes={props.onManageRuntimes}
-          />
           <section ref={agentList} aria-label="Your agents">
             <SettingsSurface class="flex flex-col gap-2 p-5 touch:p-4">
               <div class="flex flex-wrap items-start justify-between gap-3">
@@ -351,8 +287,6 @@ export function Agents(props: {
               </SettingsCard>
             </SettingsSurface>
           </section>
-
-          <CodingPreferencesSetting />
         </SettingsPage>
       </Show>
 
@@ -430,11 +364,7 @@ function summarizeAgent(
 
 function whereItRunsLabel(id: string, harness?: ConnectedHarness): string {
   if (id === 'in-memory') return 'In Macro';
-  if (id === 'cursor') return 'In Cursor';
-  if (id === 'claude-cloud') return 'In Claude Code';
-  // Any other id is a registered macrod harness uuid; if it is not in the
-  // connected list any more, the harness has been removed.
-  return harness ? `In your harness · ${harness.name}` : 'Disconnected runtime';
+  return harness ? `In your harness · ${harness.name}` : 'In Macro';
 }
 
 function AgentRow(props: {
@@ -728,42 +658,14 @@ function AgentEditorPage(props: {
     (allowPermissionBypass() && autoAcceptChoice());
   // The saved choice, or none: an agent that never chose follows its
   // harness, so a fresh form and a re-picked runtime both start from there.
-  const [codingChoice, setCodingChoice] = createSignal<boolean | undefined>(
-    props.agent?.is_coding ?? undefined
-  );
-  const harnessCodes = () => {
-    const harness = selectedHarness();
-    return isCoderHarness(harness?.kind === 'macrod' ? 'macrod' : harness?.id);
-  };
-  const isCoding = () => codingChoice() ?? harnessCodes();
+  const isCoding = () => false;
   let avatarInputRef: HTMLInputElement | undefined;
   let pageContentRef: HTMLDivElement | undefined;
 
-  const [setup, setSetup] = createSignal<'cursor' | 'pairing'>();
   const [advancedOpen, setAdvancedOpen] = createSignal(false);
-  const cursorHarness = () =>
-    props.connectedHarnesses.find((harness) => harness.id === 'cursor');
-  const macrodHarnesses = () =>
-    props.connectedHarnesses.filter((harness) => harness.kind === 'macrod');
-  // Claude Cloud stays behind its flag and only once it can list models.
-  const claudeCloudOption = () =>
-    props.connectedHarnesses.find(
-      (harness) =>
-        harness.id === 'claude-cloud' &&
-        (harness.id === harnessId() ||
-          modelDataForHarness(harness.id)?.status === 'available')
-    );
-  // Back from a setup guide, land on what was just set up.
-  const finishSetup = () => {
-    const finished = setup();
-    setSetup(undefined);
-    const ready =
-      finished === 'cursor' ? cursorHarness() : macrodHarnesses()[0];
-    if (ready) handleHarnessChange(ready.id);
-  };
   const advancedSummary = () =>
     [
-      isCoding() ? 'Coding agent' : 'Chat agent',
+      'Chat agent',
       channelMode() === 'all'
         ? 'All channels'
         : `${selectedChannelIds().length} ${selectedChannelIds().length === 1 ? 'channel' : 'channels'}`,
@@ -927,10 +829,8 @@ function AgentEditorPage(props: {
       channelScope: channelMode(),
       defaultModel: selectedDefaultModelId(),
       handle: slugAgentTag(tag()),
-      // Registered macrod harnesses send the 'macrod' slug plus their uuid;
-      // built-ins keep sending their own slug with no harness id.
-      harness: harness?.kind === 'macrod' ? 'macrod' : (harness?.id ?? ''),
-      harnessId: harness?.kind === 'macrod' ? harness.id : undefined,
+      harness: 'in-memory',
+      harnessId: undefined,
       name: name().trim(),
       instructions: instructions().trim(),
       // Always sent, flag or no flag, so an editor without the Connections
@@ -938,30 +838,22 @@ function AgentEditorPage(props: {
       mcp: mcp(),
       teamId: selectedTeamId(),
       autoAcceptPermissions: autoAcceptPermissions(),
-      isCoding: isCoding(),
+      isCoding: false,
     });
     if (saved) close();
   };
 
   return (
-    <Switch>
-      <Match when={setup() === 'cursor'}>
-        <CursorConnectPage onClose={finishSetup} />
-      </Match>
-      <Match when={setup() === 'pairing'}>
-        <RuntimePairingPage onClose={finishSetup} />
-      </Match>
-      <Match when={!setup()}>
-        <SettingsPage
-          title={props.agent ? 'Edit agent' : 'New agent'}
-          showTitleInSheet
-          description="Name it, tell it what to do, and pick where it runs."
-          actions={
-            <Button variant="ghost" size="sm" onClick={close} disabled={busy()}>
-              <ArrowLeftIcon /> Back
-            </Button>
-          }
-        >
+    <SettingsPage
+      title={props.agent ? 'Edit agent' : 'New agent'}
+      showTitleInSheet
+      description="Name it, tell it what to do, and pick where it runs."
+      actions={
+        <Button variant="ghost" size="sm" onClick={close} disabled={busy()}>
+          <ArrowLeftIcon /> Back
+        </Button>
+      }
+    >
           <section
             aria-label={props.agent ? 'Edit agent' : 'New agent'}
             class="@container"
@@ -1094,92 +986,6 @@ function AgentEditorPage(props: {
                   >
                     {modelField()}
                   </WhereItRunsOption>
-                  <Show when={claudeCloudOption()}>
-                    {(claude) => (
-                      <WhereItRunsOption
-                        value="claude-cloud"
-                        title="In Claude Code"
-                        description="Runs Claude Code in the cloud on your Claude plan."
-                        icon={<AnthropicIcon />}
-                        checked={harnessId() === claude().id}
-                        onSelect={() => handleHarnessChange(claude().id)}
-                      >
-                        {modelField()}
-                      </WhereItRunsOption>
-                    )}
-                  </Show>
-                  <WhereItRunsOption
-                    value="cursor"
-                    title="In Cursor"
-                    description={
-                      cursorHarness()
-                        ? 'Runs as a Cursor Cloud agent on your Cursor plan.'
-                        : 'Connect Cursor first. Runs as a Cursor Cloud agent on your Cursor plan.'
-                    }
-                    icon={<CursorIcon />}
-                    checked={harnessId() === 'cursor'}
-                    disabled={!cursorHarness()}
-                    action={
-                      <Show when={!cursorHarness()}>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          class="text-ink"
-                          aria-label="Connect Cursor"
-                          disabled={busy()}
-                          onClick={() => setSetup('cursor')}
-                        >
-                          Connect
-                        </Button>
-                      </Show>
-                    }
-                    onSelect={() => handleHarnessChange('cursor')}
-                  >
-                    {modelField()}
-                  </WhereItRunsOption>
-                  <WhereItRunsOption
-                    value="harness"
-                    title="In your harness"
-                    description="Your own agent on your own machine. Local Claude Code, Codex, or other harness, via Macrod."
-                    icon={<TerminalIcon />}
-                    checked={selectedHarness()?.kind === 'macrod'}
-                    disabled={macrodHarnesses().length === 0}
-                    action={
-                      <Show when={macrodHarnesses().length === 0}>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          class="text-ink"
-                          aria-label="Set up your own harness"
-                          disabled={busy()}
-                          onClick={() => setSetup('pairing')}
-                        >
-                          Set up
-                        </Button>
-                      </Show>
-                    }
-                    onSelect={() => {
-                      const first = macrodHarnesses()[0];
-                      if (first) handleHarnessChange(first.id);
-                    }}
-                  >
-                    <div class="grid grid-cols-1 gap-3 @min-[440px]:grid-cols-[repeat(2,minmax(0,280px))]">
-                      <div class="flex min-w-0 flex-col gap-1.5">
-                        <span class="text-xs font-medium text-ink-muted">
-                          Harness
-                        </span>
-                        <SettingsSelect
-                          label="Harness"
-                          options={macrodHarnesses()}
-                          value={harnessId()}
-                          onChange={handleHarnessChange}
-                        />
-                      </div>
-                      {modelPicker()}
-                    </div>
-                  </WhereItRunsOption>
                 </fieldset>
               </AgentFormSection>
 
@@ -1242,60 +1048,6 @@ function AgentEditorPage(props: {
               >
                 <Show when={advancedOpen()}>
                   <div id="agent-advanced" class="flex flex-col">
-                    <fieldset class="grid gap-2">
-                      <legend class="text-xs font-medium text-ink">
-                        Answering a mention
-                      </legend>
-                      <ChoiceRow
-                        name="agent-coding"
-                        value="coding"
-                        title="Coding agent"
-                        description="Posts a magic chip you can open into the live session and watch it work in a repository."
-                        checked={isCoding()}
-                        onChange={() => setCodingChoice(true)}
-                      />
-                      <ChoiceRow
-                        name="agent-coding"
-                        value="chat"
-                        title="Chat agent"
-                        description="Replies in the thread the way a person would, like @macro."
-                        checked={!isCoding()}
-                        onChange={() => setCodingChoice(false)}
-                      />
-                    </fieldset>
-                    <Show when={selectedHarness()?.kind === 'macrod'}>
-                      <fieldset class="mt-4 grid gap-2 border-t border-ink/[0.06] pt-4">
-                        <legend class="text-xs font-medium text-ink">
-                          Permission requests
-                        </legend>
-                        <ChoiceRow
-                          name="agent-permission-policy"
-                          value="prompt"
-                          title="Always prompt"
-                          description="Session editors approve or reject each permission request."
-                          checked={!autoAcceptPermissions()}
-                          onChange={() => setAutoAcceptChoice(false)}
-                        />
-                        <Show
-                          when={allowPermissionBypass()}
-                          fallback={
-                            <p class="text-xs text-ink-muted">
-                              This runtime requires permission prompts.
-                            </p>
-                          }
-                        >
-                          <ChoiceRow
-                            name="agent-permission-policy"
-                            value="bypass"
-                            title="Always bypass"
-                            description="Approve tool calls without asking."
-                            checked={autoAcceptPermissions()}
-                            onChange={() => setAutoAcceptChoice(true)}
-                          />
-                        </Show>
-                      </fieldset>
-                    </Show>
-
                     <Show when={pipedreamMcp()}>
                       <AdvancedGroup
                         title="Connections"
@@ -1408,8 +1160,6 @@ function AgentEditorPage(props: {
             </div>
           </section>
         </SettingsPage>
-      </Match>
-    </Switch>
   );
 }
 

@@ -87,18 +87,9 @@ const managed: PersistedAgentLike = {
   harness: 'in-memory',
   default_model: 'chat-model',
 };
-const external: PersistedAgentLike = {
-  bot: { id: externalId, name: 'Local worker', handle: 'worker' },
-  harness: 'macrod',
-  harness_id: 'workstation',
-  default_model: 'local-default',
-};
-function roster(connected = true) {
+function roster() {
   return buildAgentRoster({
-    agents: [managed, external],
-    runtimes: [{ id: 'workstation', name: 'Workstation', connected }],
-    cursorConnected: false,
-    cursorNeedsConnection: true,
+    agents: [managed],
   });
 }
 
@@ -357,29 +348,12 @@ describe('routine execution picker', () => {
     }
   );
 
-  it('uses roster availability and existing setup callbacks without changing the draft', async () => {
-    const { onChange, onConnect, onCreate } = mount(
-      { kind: 'agent', agentId: externalId },
-      { roster: roster(false) }
+  it('uses onCreate callback without changing the draft', async () => {
+    const { onChange, onCreate } = mount(
+      { kind: 'agent', agentId: managedId },
+      { roster: roster() }
     );
-    expect(screen.getByRole('status').textContent).toContain(
-      'Its runtime is disconnected'
-    );
-    let trigger = openPicker();
-    // A disconnected macrod agent stays clickable: selecting it is the
-    // reconnect path (opens Settings → Runtimes) rather than a dead row.
-    const reconnect = screen.getByRole('menuitem', { name: /Local worker/ });
-    expect(reconnect.getAttribute('aria-disabled')).not.toBe('true');
-    expect(reconnect.textContent).toContain('Reconnect runtime');
-    fireEvent.keyDown(reconnect, { key: 'Enter' });
-    expect(onConnect.mock.calls[0][0].harness).toBe('macrod');
-    await expectClosed(trigger);
-    trigger = openPicker();
-    const connect = screen.getByRole('menuitem', { name: /Connect Cursor/ });
-    fireEvent.keyDown(connect, { key: 'Enter' });
-    expect(onConnect.mock.calls[1][0].harness).toBe('cursor');
-    await expectClosed(trigger);
-    trigger = openPicker();
+    const trigger = openPicker();
     fireEvent.keyDown(screen.getByRole('menuitem', { name: 'Create agent' }), {
       key: 'Enter',
     });

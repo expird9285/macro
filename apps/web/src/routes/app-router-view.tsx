@@ -97,7 +97,6 @@ import {
   channelDetailRoute,
   channelInviteRoute,
   channelsSplitRoute,
-  codersRoute,
   companiesRoute,
   crmPipelineRecordRoute,
   crmPipelineRoute,
@@ -300,11 +299,6 @@ export function AppRouterView() {
         />
         <Route
           definition={agentsRoute}
-          component={AgentsRouteView}
-          loading={AgentsViewSkeleton}
-        />
-        <Route
-          definition={codersRoute}
           component={AgentsRouteView}
           loading={AgentsViewSkeleton}
         />

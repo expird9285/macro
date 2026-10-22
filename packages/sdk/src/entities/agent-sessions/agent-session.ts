@@ -1,7 +1,6 @@
 import type { FoldedMessage } from '../../../generated/agent-fold';
 import type {
   AgentAction,
-  AgentSessionChangesResponse,
   AgentSessionLogResponse,
   AgentSessionResponse,
   CodingPreferencesBody,
@@ -50,17 +49,6 @@ export type SessionPullRequest = {
   createdAt: string;
 };
 
-/** A GitHub repository the caller can point a managed session at. */
-export type SelectableRepository = {
-  /** The canonical `https://github.com/owner/name` URL, as `createManaged` takes it. */
-  url: string;
-  /**
-   * The branch its clones check out, and where a session starts unless
-   * `createManaged` names another. Absent for a repository with no commits.
-   */
-  defaultBranch?: string;
-};
-
 /** What a managed session is created with. */
 export type CreateManagedSessionOptions = {
   /** First prompt to deliver once the session is running. */
@@ -73,9 +61,8 @@ export type CreateManagedSessionOptions = {
    */
   model?: string;
   /**
-   * The repository the session works on, as one of the URLs
-   * {@link AgentSession.repositories} lists for the caller. Omitted, the
-   * runtime chooses from the prompt. Honored for Cursor sessions.
+   * The repository the session works on. Omitted, the runtime chooses from
+   * the prompt.
    */
   repoUrl?: string;
   /**
@@ -85,7 +72,7 @@ export type CreateManagedSessionOptions = {
   repoBranch?: string;
 };
 
-/** A managed or externally hosted coding-agent session. */
+/** A managed or externally hosted agent session. */
 export class AgentSession extends MacroEntity<AgentSessionResponse> {
   /** Access requests and direct user grants. */
   readonly access = new EntityAccess(this.client, 'agent_session', this);
@@ -136,42 +123,6 @@ export class AgentSession extends MacroEntity<AgentSessionResponse> {
       }),
     );
     return new AgentSession(client, session.id, session);
-  }
-
-  /**
-   * The GitHub repositories the caller can hand a managed session: every
-   * repository under an installation of Macro's GitHub App they or their
-   * teams made, sorted by `owner/name`. Empty when the App is installed
-   * nowhere they reach.
-   */
-  static async repositories(
-    client: MacroClient,
-  ): Promise<SelectableRepository[]> {
-    const { repositories } = unwrap(
-      await client.agentHarness.listAgentRepositories(),
-    );
-    return repositories.map((repository) => ({
-      url: repository.url,
-      defaultBranch: repository.defaultBranch ?? undefined,
-    }));
-  }
-
-  /**
-   * Branch names on one repository the caller can start a managed session
-   * from, in the order GitHub listed them. Empty when the repository has
-   * no commits yet. `repoUrl` is one of the URLs {@link AgentSession.repositories}
-   * lists.
-   */
-  static async repositoryBranches(
-    client: MacroClient,
-    repoUrl: string,
-  ): Promise<string[]> {
-    const { branches } = unwrap(
-      await client.agentHarness.listAgentRepositoryBranches({
-        query: { repoUrl },
-      }),
-    );
-    return branches;
   }
 
   protected async fetch(): Promise<AgentSessionResponse> {
@@ -402,33 +353,6 @@ export class AgentSession extends MacroEntity<AgentSessionResponse> {
     );
     return entries.map((entry) =>
       QueuedAction.from(this.client, this.id, entry),
-    );
-  }
-
-  /** Read the latest captured GitHub pull request changes and capture status. */
-  async changes(): Promise<AgentSessionChangesResponse> {
-    return unwrap(
-      await this.client.agentHarness.getAgentSessionChanges({
-        path: { session_id: this.id },
-      }),
-    );
-  }
-
-  /** Read the unified diff of the latest captured changeset. */
-  async changesPatch(): Promise<string> {
-    return unwrap(
-      await this.client.agentHarness.getAgentSessionChangesPatch({
-        path: { session_id: this.id },
-      }),
-    ).patch;
-  }
-
-  /** Request a fresh capture and return the current state while it runs. */
-  async refreshChanges(): Promise<AgentSessionChangesResponse> {
-    return this.mutate((client) =>
-      client.agentHarness.refreshAgentSessionChanges({
-        path: { session_id: this.id },
-      }),
     );
   }
 

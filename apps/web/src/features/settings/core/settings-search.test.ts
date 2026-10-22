@@ -54,12 +54,6 @@ describe('individual settings search', () => {
     }));
     expect(searchSettings(groups, 'signature')).toEqual([]);
   });
-  it('keeps runtime credentials separate from Macro API keys', () => {
-    expect(search('cursor')[0].tab).toBe('Harness');
-    expect(search('cursor').some((item) => item.tab === 'API Keys')).toBe(
-      false
-    );
-  });
   it('omits disabled signature controls', () => {
     expect(
       searchSettings(SETTINGS_TAB_GROUPS, 'signature', {

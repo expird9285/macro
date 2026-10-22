@@ -1,8 +1,7 @@
 {
   "include": [
     "./src/**/*",
-    "./src/lib/core/component/Emoji/cldr-tags.json",
-    "../../crates/agent_harness/sandbox_sizes.json"
+    "./src/lib/core/component/Emoji/cldr-tags.json"
   ],
   "exclude": [
     "./tests/**/*",
@@ -44,9 +43,6 @@
       "@types/facebook-pixel"
     ],
     "paths": {
-      "@sandbox-sizes": [
-        "../../crates/agent_harness/sandbox_sizes.json"
-      ],
       "@graphql-cache/*": [
         "./src/lib/graphql-cache/*"
       ],

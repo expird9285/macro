@@ -4,7 +4,7 @@ import type { AgentConversationTarget } from './recent-conversations';
 const PREFIX = 'agents-session~';
 
 export type AgentsRoute = {
-  mode: AgentsMode;
+  mode?: AgentsMode;
   conversation: AgentConversationTarget;
 };
 
@@ -13,9 +13,7 @@ export function agentsRouteId(route: AgentsRoute): string {
   const section =
     route.conversation.type === 'chat'
       ? 'agent-chats'
-      : route.mode === 'code'
-        ? 'coders'
-        : 'agents';
+      : 'agents';
   return `${PREFIX}${section}~${route.conversation.id}`;
 }
 
@@ -26,7 +24,7 @@ export function parseAgentsRoute(id: string): AgentsRoute | undefined {
   if (section !== 'agents' && section !== 'coders' && section !== 'agent-chats')
     return;
   return {
-    mode: section === 'coders' ? 'code' : 'chat',
+    mode: 'chat',
     conversation: {
       type: section === 'agent-chats' ? 'chat' : 'agent_session',
       id: conversationId,
@@ -35,14 +33,17 @@ export function parseAgentsRoute(id: string): AgentsRoute | undefined {
 }
 
 export function agentsRouteSegments(id: string): string[] | undefined {
-  if (!parseAgentsRoute(id)) return;
-  return id.slice(PREFIX.length).split('~');
+  const parsed = parseAgentsRoute(id);
+  if (!parsed) return;
+  const section = parsed.conversation.type === 'chat' ? 'agent-chats' : 'agents';
+  return [section, parsed.conversation.id];
 }
 
 export function agentsRouteFromSegments(
   section: string,
   id: string
 ): string | undefined {
-  const componentId = `${PREFIX}${section}~${id}`;
+  const normalizedSection = section === 'coders' ? 'agents' : section;
+  const componentId = `${PREFIX}${normalizedSection}~${id}`;
   return parseAgentsRoute(componentId) ? componentId : undefined;
 }

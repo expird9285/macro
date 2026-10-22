@@ -1,9 +1,4 @@
 import {
-  CURSOR_BOT_HANDLE,
-  CURSOR_BOT_ID,
-  CURSOR_BOT_NAME,
-} from '@core/constant/cursorAgent';
-import {
   isMacroAgentId,
   MACRO_AGENT_HANDLE,
   MACRO_AGENT_NAME,
@@ -37,16 +32,9 @@ export type PersistedAgentLike = {
   default_model: string;
 };
 
-/** A registered macrod runtime, as far as the roster cares. */
-export type RuntimeLike = {
-  id: string;
-  name: string;
-  connected: boolean;
-};
-
 type RosterShare = 'system' | 'team' | 'private';
 
-/** One agent or coder as the composer, carousel, and roster page show it. */
+/** One agent as the composer, carousel, and roster page show it. */
 export type RosterAgent = {
   /** Persona id: the bot id, or `MACRO_PERSONA_ID` for Macro's default. */
   id: string;
@@ -74,67 +62,25 @@ export type RosterAgent = {
 
 export type RosterInput = {
   agents: readonly PersistedAgentLike[];
-  runtimes: readonly RuntimeLike[];
-  cursorConnected: boolean;
-  /** Cursor's status is known and it is not connected, so offer to connect. */
-  cursorNeedsConnection: boolean;
   macroDefaultModel?: string;
-  cursorDefaultModel?: string;
 };
 
 /** The product name of a runtime, from the harness slug bots are stored with. */
-export function runtimeLabel(
-  harness: string,
-  harnessId: string | undefined,
-  runtimes: readonly RuntimeLike[]
-): string {
+export function runtimeLabel(harness: string): string {
   switch (harness) {
     case 'in-memory':
     case 'macro-inmem':
       return MACRO_HARNESS_NAME;
-    case 'cursor':
-      return 'Cursor';
-    case 'claude-cloud':
-      return 'Claude Cloud';
-    case 'macrod':
-      return (
-        runtimes.find((runtime) => runtime.id === harnessId)?.name ??
-        'Disconnected runtime'
-      );
     default:
       return harness;
   }
 }
 
-function runtimeConnected(
-  harness: string,
-  harnessId: string | undefined,
-  input: Pick<RosterInput, 'runtimes' | 'cursorConnected'>
-): boolean {
-  switch (harness) {
-    case 'in-memory':
-    case 'macro-inmem':
-      return true;
-    case 'cursor':
-      return input.cursorConnected;
-    case 'macrod':
-      return (
-        input.runtimes.find((runtime) => runtime.id === harnessId)?.connected ??
-        false
-      );
-    default:
-      // Cloud runtimes have no paired-machine connection; the service owns
-      // their availability and reports setup errors when they are used.
-      return true;
-  }
-}
-
 function persistedAgent(
   agent: PersistedAgentLike,
-  input: RosterInput
+  _input: RosterInput
 ): RosterAgent {
   const harnessId = agent.harness_id ?? undefined;
-  const connected = runtimeConnected(agent.harness, harnessId, input);
   return {
     id: agent.bot.id,
     botId: agent.bot.id,
@@ -148,25 +94,13 @@ function persistedAgent(
     defaultModel: agent.default_model,
     share: agent.bot.owner?.type === 'team' ? 'team' : 'private',
     runtime: {
-      label: runtimeLabel(agent.harness, harnessId, input.runtimes),
-      connected,
+      label: runtimeLabel(agent.harness),
+      connected: true,
     },
     ownerId:
       agent.bot.owner?.type === 'user'
         ? agent.bot.owner.user_id
         : (agent.bot.created_by ?? undefined),
-    connectLabel:
-      agent.harness === 'cursor' && input.cursorNeedsConnection
-        ? 'Connect Cursor'
-        : agent.harness === 'macrod' && !connected
-          ? 'Reconnect runtime'
-          : undefined,
-    unavailableReason:
-      agent.harness === 'macrod' && !connected
-        ? 'Its runtime is disconnected'
-        : agent.harness === 'cursor' && !connected
-          ? 'Connect Cursor to start it'
-          : undefined,
     persisted: agent,
   };
 }
@@ -187,22 +121,6 @@ export function buildAgentRoster(input: RosterInput): RosterAgent[] {
       defaultModel: input.macroDefaultModel,
       share: 'system',
       runtime: { label: MACRO_HARNESS_NAME, connected: true },
-    },
-    {
-      id: CURSOR_BOT_ID,
-      botId: CURSOR_BOT_ID,
-      kind: 'coder',
-      name: CURSOR_BOT_NAME,
-      handle: CURSOR_BOT_HANDLE,
-      description: 'Cursor cloud agents, run with your Cursor account.',
-      harness: 'cursor',
-      defaultModel: input.cursorDefaultModel,
-      share: 'system',
-      runtime: { label: 'Cursor', connected: input.cursorConnected },
-      unavailableReason: input.cursorConnected
-        ? undefined
-        : 'Connect Cursor to start it',
-      connectLabel: input.cursorNeedsConnection ? 'Connect Cursor' : undefined,
     },
     ...input.agents.map((agent) => persistedAgent(agent, input)),
   ];

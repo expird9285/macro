@@ -1,6 +1,4 @@
-import { CURSOR_BOT_ID } from '@core/constant/cursorAgent';
 import { MACRO_AGENT_BOT_ID } from '@core/constant/macroAgent';
-import { MACRO_CODER_BOT_ID } from '@core/constant/macroCoder';
 import { describe, expect, it } from 'vitest';
 import {
   agentKindNoun,
@@ -12,18 +10,13 @@ import {
 } from './agent-kind';
 
 describe('isCoderHarness', () => {
-  it('treats the in-process harnesses as chat', () => {
+  it('treats all harnesses as non-coder', () => {
     expect(isCoderHarness('in-memory')).toBe(false);
     expect(isCoderHarness('macro-inmem')).toBe(false);
     expect(isCoderHarness(undefined)).toBe(false);
     expect(isCoderHarness('')).toBe(false);
-  });
-
-  it('treats every coding runtime as a coder', () => {
-    expect(isCoderHarness('cursor')).toBe(true);
-    expect(isCoderHarness('macrod')).toBe(true);
-    expect(isCoderHarness('sandbox')).toBe(true);
-    expect(kindForHarness('cursor')).toBe('coder');
+    expect(isCoderHarness('cursor')).toBe(false);
+    expect(isCoderHarness('macrod')).toBe(false);
     expect(kindForHarness('in-memory')).toBe('agent');
   });
 });
@@ -31,8 +24,7 @@ describe('isCoderHarness', () => {
 describe('systemBotKind', () => {
   it('knows the first-party bots in either id form', () => {
     expect(systemBotKind(MACRO_AGENT_BOT_ID)).toBe('agent');
-    expect(systemBotKind(MACRO_CODER_BOT_ID)).toBe('coder');
-    expect(systemBotKind(`bot|${CURSOR_BOT_ID}`)).toBe('coder');
+    expect(systemBotKind(`bot|${MACRO_AGENT_BOT_ID}`)).toBe('agent');
   });
 
   it('has no opinion about other bots', () => {
@@ -44,14 +36,12 @@ describe('systemBotKind', () => {
 });
 
 describe('modes and kinds', () => {
-  it('round-trips', () => {
-    expect(modeForKind(kindForMode('code'))).toBe('code');
+  it('maps to chat and agent', () => {
     expect(modeForKind(kindForMode('chat'))).toBe('chat');
   });
 
   it('names the kind', () => {
-    expect(agentKindNoun('coder')).toBe('coding agent');
-    expect(agentKindNoun('coder', true)).toBe('coding agents');
+    expect(agentKindNoun('agent')).toBe('agent');
     expect(agentKindNoun('agent', true)).toBe('agents');
   });
 });

@@ -1,5 +1,3 @@
-import { isCursorBotId } from '@core/constant/cursorAgent';
-import { useCursorAgentsAccess } from '@core/cursor/flag';
 import type { IUser } from '@core/user/types';
 import { useAgentsQuery } from '@queries/agents/agents';
 import { useChannelBotsQuery } from '@queries/channel/channel-bots';
@@ -21,13 +19,11 @@ function mentionUser(bot: Bot): IUser {
 /**
  * Build mention entries from installed channel bots and virtual global
  * agents. Account setup does not hide a mention: the harness answers with
- * a connection prompt in the thread when setup is needed. The built-in
- * Cursor entry follows the Cursor rollout flag.
+ * a connection prompt in the thread when setup is needed.
  */
 export function availableBotMentionUsers(
   channelBots: readonly Bot[],
   agents: readonly Agent[],
-  cursorEnabled: boolean,
   surface: MessageParent['type'] = 'channel'
 ): IUser[] {
   const globalAgents = agents.filter(
@@ -38,7 +34,6 @@ export function availableBotMentionUsers(
   const seen = new Set<string>();
 
   return [...channelBots, ...globalAgents.map((agent) => agent.bot)]
-    .filter((bot) => cursorEnabled || !isCursorBotId(bot.id))
     .map(mentionUser)
     .filter((user) => {
       if (seen.has(user.id)) return false;
@@ -61,13 +56,11 @@ export function useMessageBotMentionUsers(
     parent().type === 'channel' ? parent().id : ''
   );
   const agents = useAgentsQuery();
-  const canUseCursor = useCursorAgentsAccess();
 
   return createMemo(() =>
     availableBotMentionUsers(
       queryReadyGate(channelBots) ? channelBots.data : [],
       queryReadyGate(agents) ? agents.data : [],
-      canUseCursor(),
       parent().type
     )
   );

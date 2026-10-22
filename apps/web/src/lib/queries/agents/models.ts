@@ -4,48 +4,21 @@ import type {
   LoadAgentModelsRequest,
   LoadAgentModelsResponse,
 } from '@service-agent-harness/generated/schemas';
-import type { Harness } from '@service-storage/client';
 import { useQueries, useQuery } from '@tanstack/solid-query';
 
 export type AgentModelTarget = LoadAgentModelsRequest;
 
 /** Every model provider available to the agent dialog, in display order. */
-export function buildAgentModelTargets(
-  cursorRegistered: boolean,
-  harnesses: readonly Pick<Harness, 'id'>[],
-  claudeCloudEnabled: boolean
-): AgentModelTarget[] {
-  const targets: AgentModelTarget[] = [{ harness: 'in-memory' }];
-  if (claudeCloudEnabled) targets.push({ harness: 'claude-cloud' });
-  if (cursorRegistered) targets.push({ harness: 'cursor' });
-  targets.push(
-    ...harnesses.map(
-      (harness): AgentModelTarget => ({
-        harness: 'macrod',
-        harnessId: harness.id,
-      })
-    )
-  );
-  return targets;
+export function buildAgentModelTargets(): AgentModelTarget[] {
+  return [{ harness: 'in-memory' }];
 }
 
 /** The in-memory catalog depends on current plan permissions. */
 const IN_MEMORY_MODELS_STALE_TIME = 60 * 1000;
 
-/**
- * Cursor and macrod catalogs can change, but not between two mounts of the
- * composer. Refetching on every mount put `agent-models/load` on the same
- * service as the prompt.
- */
-const REMOTE_MODELS_STALE_TIME = 5 * 60 * 1000;
-
 const MODELS_GC_TIME = 30 * 60 * 1000;
 
 export function agentModelsQueryOptions(target: AgentModelTarget) {
-  const staleTime =
-    target.harness === 'in-memory'
-      ? IN_MEMORY_MODELS_STALE_TIME
-      : REMOTE_MODELS_STALE_TIME;
   return {
     queryKey: [
       'agent-models',
@@ -62,7 +35,7 @@ export function agentModelsQueryOptions(target: AgentModelTarget) {
         agentHarnessServiceClient.loadAgentModels(target, signal)
       ),
     gcTime: MODELS_GC_TIME,
-    staleTime,
+    staleTime: IN_MEMORY_MODELS_STALE_TIME,
     retry: false,
   };
 }

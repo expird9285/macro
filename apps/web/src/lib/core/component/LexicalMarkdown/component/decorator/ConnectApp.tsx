@@ -1,15 +1,11 @@
 import { openAgentsPage } from '@app/features/agents-view/primitives/open-page';
 import { useSplitLayout } from '@components/app/split-layout/layout';
-import { HarnessIcon } from '@core/component/HarnessIcon';
-import { useSettingsState } from '@core/constant/SettingsState';
-import { useUserId } from '@core/context/user';
 import { PipedreamConnectorIcon } from '@core/pipedream/ConnectorIcon';
 import { AppConnectionContext } from '@core/pipedream/connection-context';
 import { requestConnectApp } from '@core/pipedream/pendingConnect';
 import { fireAndForget } from '@core/util/fireAndForget';
 import type { ConnectAppDecoratorProps } from '@macro-inc/lexical-core';
 import ArrowUpRightIcon from '@phosphor/arrow-up-right.svg';
-import { useHarnessConnectionStatus } from '@queries/harnesses/connections';
 import { usePipedreamConnectedSlugs } from '@queries/pipedream-connectors';
 import { cn } from '@ui/utils/classname';
 import { type Accessor, type JSX, Show, useContext } from 'solid-js';
@@ -18,7 +14,7 @@ import { LexicalWrapperContext } from '../../context/LexicalWrapperContext';
 
 /**
  * The chip a reply renders when the reader has to connect something before
- * the agent can continue: a Pipedream app or an agent harness account.
+ * the agent can continue: a Pipedream app.
  * Clicking it opens the settings surface
  * that connects it. Once the reader has connected it, the same chip reads as
  * connected rather than nagging.
@@ -26,8 +22,7 @@ import { LexicalWrapperContext } from '../../context/LexicalWrapperContext';
 export function ConnectApp(props: ConnectAppDecoratorProps) {
   return match(props.target)
     .with('connections', () => <ConnectPipedreamApp {...props} />)
-    .with('harness', () => <ConnectHarness {...props} />)
-    .exhaustive();
+    .otherwise(() => null);
 }
 
 function ConnectPipedreamApp(props: ConnectAppDecoratorProps) {
@@ -54,22 +49,6 @@ function ConnectPipedreamApp(props: ConnectAppDecoratorProps) {
         requestConnectApp(props.appSlug);
         openAgentsPage(layout, 'connections');
       }}
-    />
-  );
-}
-
-function ConnectHarness(props: ConnectAppDecoratorProps) {
-  const { openSettings } = useSettingsState();
-  const connected = useHarnessConnectionStatus(
-    () => props.appSlug,
-    useUserId()
-  );
-  return (
-    <ConnectChip
-      {...props}
-      connected={connected}
-      icon={<HarnessIcon harness={props.appSlug} class="size-3.5" />}
-      onConnect={() => openSettings('Harness')}
     />
   );
 }

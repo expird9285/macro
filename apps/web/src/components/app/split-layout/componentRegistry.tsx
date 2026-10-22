@@ -571,11 +571,6 @@ if (LOCAL_ONLY) {
   );
 
   registerComponent(
-    'agent-changes-ui',
-    lazy(() => import('@app/features/changes/debug/Gallery'))
-  );
-
-  registerComponent(
     'diff-view-ui',
     lazy(() => import('@app/components/diff-view/debug/DiffViewGallery'))
   );

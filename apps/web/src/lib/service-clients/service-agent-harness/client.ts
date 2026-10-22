@@ -6,15 +6,10 @@ import {
   readAiUsageLimitError,
 } from '../ai-usage-limit';
 import type {
-  AgentRepositoriesResponse,
-  AgentRepositoryBranchesResponse,
-  AgentSessionChangesPatchResponse,
-  AgentSessionChangesResponse,
   AgentSessionLogResponse,
   AgentSessionQueueResponse,
   AgentSessionResponse,
   AnswerToolApprovalResponse,
-  CodingPreferencesBody,
   ControlRequest,
   ControlResponse,
   CreateAgentSessionRequest,
@@ -27,16 +22,12 @@ import type {
   PreviewAgentSessionsResponse,
   PullRequestSessionsResponse,
   PullRequestsSessionsResponse,
-  SandboxSize,
-  SandboxSizeBody,
   SessionPullRequestsResponse,
   SharePermissionV2,
   ToolApprovalAnswerDto,
   UpdateSharePermissionRequestV2,
   WarmAgentSessionResponse,
 } from './generated/schemas';
-
-export type { CodingPreferencesBody, SandboxSize, SandboxSizeBody };
 
 const agentHarnessHost = SERVER_HOSTS['agent-harness'];
 
@@ -122,30 +113,6 @@ export const agentHarnessServiceClient = {
       body: JSON.stringify(request),
       errorResponseHandler: sessionAiError,
     });
-  },
-
-  /**
-   * The GitHub repositories the caller can select for a coding session, with
-   * the branch each one's sessions start on by default.
-   */
-  listRepositories() {
-    return fetchWithToken<AgentRepositoriesResponse>(
-      `${agentHarnessHost}/agent-repositories`,
-      { method: 'GET' }
-    );
-  },
-
-  /**
-   * The branches on one GitHub repository the caller can start a coding
-   * session from. `repoUrl` is the canonical `https://github.com/owner/name`
-   * form `listRepositories` and create-session share.
-   */
-  listRepositoryBranches(repoUrl: string) {
-    const params = new URLSearchParams({ repoUrl });
-    return fetchWithToken<AgentRepositoryBranchesResponse>(
-      `${agentHarnessHost}/agent-repositories/branches?${params}`,
-      { method: 'GET' }
-    );
   },
 
   get(sessionId: string) {
@@ -278,46 +245,6 @@ export const agentHarnessServiceClient = {
     ).then((result) => result.map(() => undefined));
   },
 
-  getSandboxSize() {
-    return fetchWithToken<SandboxSizeBody>(
-      `${agentHarnessHost}/agent-sandbox-size`,
-      {
-        method: 'GET',
-      }
-    );
-  },
-
-  setSandboxSize(size: SandboxSize) {
-    return fetchWithToken<SandboxSizeBody>(
-      `${agentHarnessHost}/agent-sandbox-size`,
-      {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ size }),
-      }
-    );
-  },
-
-  getCodingPreferences() {
-    return fetchWithToken<CodingPreferencesBody>(
-      `${agentHarnessHost}/agent-coding-preferences`,
-      {
-        method: 'GET',
-      }
-    );
-  },
-
-  setCodingPreferences(preferences: CodingPreferencesBody) {
-    return fetchWithToken<CodingPreferencesBody>(
-      `${agentHarnessHost}/agent-coding-preferences`,
-      {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(preferences),
-      }
-    );
-  },
-
   /**
    * The session's latest captured changes: changed files with statuses and
    * line counts, plus how the latest capture attempt went.
@@ -326,33 +253,6 @@ export const agentHarnessServiceClient = {
     return fetchWithToken<ExecutionRecord>(
       `${agentHarnessHost}/agent-sessions/${sessionId}/code-executions/${executionId}`,
       { method: 'GET', errorResponseHandler: sessionError }
-    );
-  },
-
-  getChanges(sessionId: string) {
-    return fetchWithToken<AgentSessionChangesResponse>(
-      `${agentHarnessHost}/agent-sessions/${sessionId}/changes`,
-      { method: 'GET' }
-    );
-  },
-
-  /** The unified diff behind the session's latest changeset. 404 until one exists. */
-  getChangesPatch(sessionId: string) {
-    return fetchWithToken<AgentSessionChangesPatchResponse>(
-      `${agentHarnessHost}/agent-sessions/${sessionId}/changes/patch`,
-      { method: 'GET' }
-    );
-  },
-
-  /**
-   * Capture the session's changes again now. Answers at once with the state
-   * as it stands; the capture lands through the `agent_session_changes`
-   * realtime event.
-   */
-  refreshChanges(sessionId: string) {
-    return fetchWithToken<AgentSessionChangesResponse>(
-      `${agentHarnessHost}/agent-sessions/${sessionId}/changes/refresh`,
-      { method: 'POST' }
     );
   },
 
@@ -428,17 +328,6 @@ export const agentHarnessServiceClient = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ answer }),
-      }
-    );
-  },
-
-  setSessionSandboxSize(sessionId: string, size: SandboxSize) {
-    return fetchWithToken<SandboxSizeBody>(
-      `${agentHarnessHost}/agent-sessions/${sessionId}/sandbox-size`,
-      {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ size }),
       }
     );
   },

@@ -270,48 +270,6 @@ test('API key metadata serialization excludes creation secrets and deletion erro
   await expect(created.key.delete()).rejects.toBeInstanceOf(MacroApiError);
 });
 
-test('pairing claims distinguish pending responses and expose credentials separately from handles', async () => {
-  let pending = true;
-  const requests: Request[] = [];
-  globalThis.fetch = Object.assign(
-    async (input: RequestInfo | URL) => {
-      const request = input instanceof Request ? input : new Request(input);
-      requests.push(request);
-      if (request.url.endsWith('/claim'))
-        return pending
-          ? Response.json({ status: 'pending' }, { status: 202 })
-          : Response.json({
-              harness: { id: 'host-1', name: 'Laptop' },
-              token: 'host-secret',
-            });
-      return Response.json(
-        {
-          pairing_id: 'pairing-1',
-          code: 'CODE',
-          device_secret: 'device-secret',
-          expires_at: '',
-          poll_interval_seconds: 5,
-        },
-        { status: 201 },
-      );
-    },
-    { preconnect: originalFetch.preconnect },
-  );
-  const macro = new Macro({
-    token: 'token',
-    hosts: { storage: 'https://storage.test' },
-  });
-  const created = await macro.harnesses.createPairing({ name: 'Laptop' });
-  expect(await created.device.claim(created.deviceSecret)).toBeUndefined();
-  pending = false;
-  const claimed = await created.device.claim(created.deviceSecret);
-  expect(claimed?.harness.id).toBe('host-1');
-  expect(claimed?.token).toBe('host-secret');
-  expect(JSON.stringify(created.device)).not.toContain('device-secret');
-  expect(JSON.stringify(claimed?.harness)).not.toContain('host-secret');
-  expect(await requests[1].json()).toEqual({ device_secret: 'device-secret' });
-});
-
 const pipelineRecord: AccessiblePipeline = {
   id: 'pipeline-1',
   name: 'Sales',

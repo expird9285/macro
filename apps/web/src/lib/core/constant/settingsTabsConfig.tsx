@@ -9,7 +9,6 @@ import DesktopIcon from '@phosphor/desktop.svg';
 import DeviceMobileIcon from '@phosphor/device-mobile-speaker.svg';
 import EmailIcon from '@phosphor/envelope-simple.svg';
 import GaugeIcon from '@phosphor/gauge.svg';
-import HardDrivesIcon from '@phosphor/hard-drives.svg';
 import KeyIcon from '@phosphor/key.svg';
 import KeyboardIcon from '@phosphor/keyboard.svg';
 import PlugIcon from '@phosphor/plug.svg';
@@ -215,12 +214,6 @@ export const SETTINGS_TAB_GROUPS: SettingsTabGroup[] = [
     label: 'Developer',
     items: [
       {
-        tab: 'Harness',
-        label: 'Runtimes',
-        icon: HardDrivesIcon,
-        keywords: ['cursor', 'harness', 'runtime', 'credential', 'api key'],
-      },
-      {
         tab: 'Agent',
         label: 'MCP server',
         icon: PlugIcon,
@@ -269,7 +262,6 @@ const SETTINGS_TAB_SLUGS: Record<SettingsTab, string> = {
   'Desktop App': 'desktop-app',
   Agent: 'mcp-server',
   Agents: 'agents',
-  Harness: 'runtimes',
   Bots: 'bots',
   Team: 'team',
   'Team Members': 'team-members',
@@ -290,7 +282,6 @@ const SETTINGS_SLUG_TO_TAB = new Map<string, SettingsTab>(
 );
 
 // Preserve daemon pairing links and bookmarks from before the rename.
-SETTINGS_SLUG_TO_TAB.set('harness', 'Harness');
 SETTINGS_SLUG_TO_TAB.set('connections', 'Connected');
 SETTINGS_SLUG_TO_TAB.set('agent-connections', 'Connected');
 
@@ -360,7 +351,6 @@ export const useSettingsTabAvailable = () => {
       // Configurable agents are still rolling out; keep both tabs behind the
       // same enable-chat-v3-agents gate as the channel mention surfaces, so
       // settings never advertises agents to a user who cannot mention one.
-      case 'Harness':
       case 'Agents':
         return chatV3AgentsFlag().enabled;
       case 'Bots':
