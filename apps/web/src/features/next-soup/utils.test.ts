@@ -1444,14 +1444,7 @@ describe('Hosted details and Drive document routing', () => {
       expect.any(Object)
     );
   });
-  it.each([
-    'md',
-    'pdf',
-    'code',
-    'image',
-    'video',
-    'unknown',
-  ] as const)(
+  it.each(['md', 'pdf', 'code', 'image', 'video', 'unknown'] as const)(
     'opens %s documents as legacy blocks on touch',
     async (fileType) => {
       vi.mocked(isTouchDevice).mockReturnValue(true);

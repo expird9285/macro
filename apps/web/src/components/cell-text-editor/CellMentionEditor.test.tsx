@@ -1,4 +1,3 @@
-import { encodeCellMention } from './cell-mentions';
 import {
   cleanup,
   fireEvent,
@@ -10,6 +9,7 @@ import { createSignal } from 'solid-js';
 import { afterEach, expect, it, vi } from 'vitest';
 import { CellMentionEditor } from './CellMentionEditor';
 import { setCellTextCursor } from './cell-mention-dom';
+import { encodeCellMention } from './cell-mentions';
 
 afterEach(cleanup);
 

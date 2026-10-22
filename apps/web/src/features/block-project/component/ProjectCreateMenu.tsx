@@ -4,14 +4,13 @@ import { useSplitLayout } from '@components/app/split-layout/layout';
 import type { BlockAlias, BlockName } from '@core/block';
 import { EntityIcon } from '@core/component/EntityIcon';
 import { toast } from '@core/component/Toast/Toast';
-import { enableChatV3Agents, isFeatureEnabled } from '@core/constant/featureFlags';
+import {
+  enableChatV3Agents,
+  isFeatureEnabled,
+} from '@core/constant/featureFlags';
 import { pressedKeys } from '@core/hotkey/state';
 import { type HotkeyToken, TOKENS } from '@core/hotkey/tokens';
-import {
-  createChat,
-  createMarkdownFile,
-  createTask,
-} from '@core/util/create';
+import { createChat, createMarkdownFile, createTask } from '@core/util/create';
 import { fireAndForget } from '@core/util/fireAndForget';
 import type { ObjectLike } from '@core/util/result';
 import CaretDown from '@phosphor/caret-down.svg';

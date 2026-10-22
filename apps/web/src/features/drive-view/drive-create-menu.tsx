@@ -58,14 +58,9 @@ export function DriveCreateMenu(props: {
   const options = () =>
     CREATABLE_BLOCKS.filter(
       (block) =>
-        [
-          'md',
-          'snippet',
-          'code',
-          'project',
-          'database',
-          'form',
-        ].includes(block.blockName) &&
+        ['md', 'snippet', 'code', 'project', 'database', 'form'].includes(
+          block.blockName
+        ) &&
         isEnabled(block.blockName) &&
         // Databases and forms have no folder membership.
         ((block.blockName !== 'database' && block.blockName !== 'form') ||

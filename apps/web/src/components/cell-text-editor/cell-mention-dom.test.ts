@@ -1,4 +1,3 @@
-import { encodeCellMention } from './cell-mentions';
 import { expect, it } from 'vitest';
 import {
   cellTextSelection,
@@ -6,6 +5,7 @@ import {
   setCellTextCursor,
   writeCellText,
 } from './cell-mention-dom';
+import { encodeCellMention } from './cell-mentions';
 
 it('edits mention tokens atomically and maps selection offsets to the canonical cell input', () => {
   const root = document.createElement('div');

@@ -1,5 +1,4 @@
 import { createMenuOperations } from '@core/component/LexicalMarkdown/shared/inlineMenu';
-import { cellMentionQuery } from './cell-mentions';
 import {
   createEffect,
   createSignal,
@@ -15,6 +14,7 @@ import {
   setCellTextCursor,
   writeCellText,
 } from './cell-mention-dom';
+import { cellMentionQuery } from './cell-mentions';
 import type { CellTextEditorProps } from './types';
 
 export function CellMentionEditor(

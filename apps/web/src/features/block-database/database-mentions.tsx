@@ -1,4 +1,5 @@
 import { CellMentionEditor } from '@app/components/cell-text-editor/CellMentionEditor';
+import { encodeCellMention } from '@app/components/cell-text-editor/cell-mentions';
 import { StaticMarkdown } from '@core/component/LexicalMarkdown/component/core/StaticMarkdown';
 import { MentionsMenu } from '@core/component/LexicalMarkdown/component/menu/MentionsMenu/MentionsMenu';
 import { getBlockNameFromEntity } from '@core/component/LexicalMarkdown/component/menu/MentionsMenu/utils/entityUtils';
@@ -9,7 +10,6 @@ import {
 import type { MentionItem } from '@core/component/LexicalMarkdown/utils/mentionsUtils';
 import { toast } from '@core/component/Toast/Toast';
 import { UserIcon } from '@core/component/UserIcon';
-import { encodeCellMention } from '@app/components/cell-text-editor/cell-mentions';
 import { usePropertyEntityDisplay } from '@property/hooks/usePropertyEntityDisplay';
 import { ErrorBoundary, Show, Suspense } from 'solid-js';
 import { match } from 'ts-pattern';

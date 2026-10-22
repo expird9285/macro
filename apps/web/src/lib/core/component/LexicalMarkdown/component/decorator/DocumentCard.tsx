@@ -40,11 +40,7 @@ import { blockNameToItemType } from '@service-storage/client';
 import { createCallback } from '@solid-primitives/rootless';
 import { debounce } from '@solid-primitives/scheduled';
 import { Card, cn, Dropdown, Item } from '@ui';
-import {
-  $createNodeSelection,
-  $getNodeByKey,
-  $setSelection,
-} from 'lexical';
+import { $createNodeSelection, $getNodeByKey, $setSelection } from 'lexical';
 import type { JSX } from 'solid-js';
 import {
   createEffect,

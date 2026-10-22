@@ -36,17 +36,7 @@ export const FILE_TYPES = [
   'doc-skill',
   'file-other',
 ];
-const fileTypes = [
-  'md',
-  'ts',
-  'png',
-  'pdf',
-  'docx',
-  'mp4',
-  'md',
-  'md',
-  'bin',
-];
+const fileTypes = ['md', 'ts', 'png', 'pdf', 'docx', 'mp4', 'md', 'md', 'bin'];
 export const TIMESTAMP = '2025-01-04T00:00:00Z';
 
 export type FixtureRow = {
