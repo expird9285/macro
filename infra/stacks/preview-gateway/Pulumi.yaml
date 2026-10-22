@@ -1,3 +1,0 @@
-name: preview-gateway
-runtime: nodejs
-description: Entity-authorized HTTP/WebSocket previews over reverse SSH

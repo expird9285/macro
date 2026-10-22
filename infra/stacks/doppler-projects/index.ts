@@ -17,7 +17,6 @@ const SERVICE_NAMES = [
   'email-service',
   'document-cognition',
   'agent-harness-service',
-  'preview-gateway',
   'slack-import-worker',
   'lexical-service',
 ];

@@ -127,7 +127,6 @@ successfully rather than hashing the empty JavaScript placeholder.
 | `/app/component/new-project` | Alias for the project composer; existing links remain valid |
 | `/app/component/initiative-view~<uuid>~overview` | Compatibility link that opens the project in Tasks |
 | `/app/agents/<uuid>` | Chat agent session with the Agents sidebar |
-| `/app/coders/<uuid>` | Code session with the Agents sidebar |
 | `/app/agents/chat/<uuid>` | Legacy AI chat opened in the Agents workspace (`/app/agent-chats/<uuid>` remains a compatibility alias) |
 | `/app/calls` | Calls list |
 | `/app/companies` | Customers (CRM; needs a team). The selected list is `sN.crm.tab` |

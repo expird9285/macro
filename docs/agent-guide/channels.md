@@ -472,7 +472,7 @@ prompted) reads `Waiting for approval`; only the owner approves it, in the sessi
 Coding agents use `macro_internal.set_pull_request` to register an existing or
 new GitHub PR with their session. Macro Internal MCP is hosted by the harness
 service at `/mcp/internal` on its egress listener, separately from workspace MCP.
-Cursor, sandbox, and macrod sessions receive session-scoped credentials; the
+Sandbox sessions receive session-scoped credentials; the
 model supplies only the URL. The tool records the link, not the GitHub PR itself.
 The shared Macro system instructions ask agents to register PRs when
 `macro_internal.set_pull_request` is available, to open them ready for review

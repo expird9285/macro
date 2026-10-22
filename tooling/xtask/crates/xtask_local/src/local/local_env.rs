@@ -31,9 +31,6 @@ pub struct Tunnels<'a> {
     /// Origin replacing the in-network egress address in the MCP servers the
     /// harness hands that agent.
     pub egress: Option<&'a str>,
-    /// Quick-tunnel hostname fronting the preview gateway's SSH listener, so a
-    /// shared dev server can be tunnelled in from off-machine.
-    pub preview_ssh: Option<&'a str>,
 }
 
 /// The full local environment for one instance.
@@ -44,10 +41,6 @@ pub struct LocalEnv {
     /// browser redirects and points at the HTTPS proxy in both serving modes.
     frontend_port: u16,
     external_egress_url: String,
-    preview_ssh_proxy_host: Option<String>,
-    preview_ssh_port: u16,
-    preview_https_port: u16,
-    preview_control_hosts: String,
     /// Browser-facing origin for post-login redirects and Pipedream CORS.
     /// Both attached and headless frontends are exposed through HTTPS.
     frontend_origin: String,
@@ -77,10 +70,9 @@ impl LocalEnv {
     ///
     /// `tunnels` carries the run's public hostnames, when `--with-cf-tunnel`
     /// opened them: the egress one replaces the in-network egress address so
-    /// the MCP servers the harness hands a Cursor cloud agent are reachable
-    /// from outside the compose network, and the preview one lets that same
-    /// agent reach this stack's SSH listener. Absent tunnels keep the
-    /// in-network address and leave previews reachable on this machine only.
+    /// the MCP servers the harness hands a cloud agent are reachable
+    /// from outside the compose network. Absent tunnels keep the
+    /// in-network address.
     pub fn for_instance(
         mode: Mode,
         instance: &Instance,
@@ -107,19 +99,12 @@ impl LocalEnv {
             mcp_public_url: format!("{frontend_origin}/cognition"),
             static_file_public_url: format!("{frontend_origin}/static-file"),
             frontend_origin,
-            preview_control_hosts: format!(
-                "localhost,127.0.0.1,preview-gateway,{}",
-                super::tls::hostname()?
-            ),
             external_egress_url: tunnels.egress.map(str::to_owned).unwrap_or_else(|| {
                 format!(
                     "http://localhost:{}",
                     instance.port(Port::AgentHarnessEgress)
                 )
             }),
-            preview_ssh_proxy_host: tunnels.preview_ssh.map(str::to_owned),
-            preview_ssh_port: instance.port(Port::PreviewSsh),
-            preview_https_port: instance.port(Port::PreviewHttps),
             infra,
             storage: StorageEnv::local(),
             queues: QueueEnv::local(),
@@ -160,33 +145,8 @@ impl LocalEnv {
         // its calendar index created and backfilled.
         env.insert("CALENDAR_SEARCH_ENABLED".into(), "true".into());
         env.insert(
-            "OVERRIDE_PREVIEW_GATEWAY_URL".into(),
-            "http://preview-gateway:8080".into(),
-        );
-        env.insert(
             "EXTERNAL_EGRESS_BASE_URL".into(),
             self.external_egress_url.clone(),
-        );
-        env.insert("PREVIEW_DOMAIN".into(), "preview.localhost".into());
-        env.insert("PREVIEW_SSH_HOST".into(), "localhost".into());
-        // Empty rather than absent: the gateway treats both as "no public ingress",
-        // and a key that vanishes between runs would be read from a stale layer.
-        env.insert(
-            "PREVIEW_SSH_PROXY_HOST".into(),
-            self.preview_ssh_proxy_host.clone().unwrap_or_default(),
-        );
-        env.insert(
-            "PREVIEW_SSH_PUBLIC_PORT".into(),
-            self.preview_ssh_port.to_string(),
-        );
-        env.insert(
-            "PREVIEW_HTTPS_PORT".into(),
-            self.preview_https_port.to_string(),
-        );
-        env.insert("PREVIEW_APP_ORIGIN".into(), self.frontend_origin.clone());
-        env.insert(
-            "PREVIEW_CONTROL_HOSTS".into(),
-            self.preview_control_hosts.clone(),
         );
         self.infra.write(&mut env);
         self.storage.write(&mut env);

@@ -111,12 +111,6 @@ pub fn generate(
                 instance.port(Port::AgentHarnessEgress)
             ));
         }
-        if mode.spec().runs_local_infra && svc.compose_name == "preview_gateway" {
-            if instance.is_default() {
-                ports.push(format!("{}:8080", instance.port(Port::PreviewControl)));
-            }
-            ports.push(format!("{}:2222", instance.port(Port::PreviewSsh)));
-        }
         if !ports.is_empty() {
             s.ports = dct::Ports::Short(ports);
         }
@@ -130,7 +124,6 @@ pub fn generate(
         &mut services,
         instance,
         static_frontend,
-        mode.spec().runs_local_infra,
     );
     add_localstack_service(&mut services, instance);
     // The rest of the local infra (FusionAuth, Mailpit, per-instance Postgres/
@@ -293,7 +286,6 @@ fn add_proxy_service(
     services: &mut IndexMap<String, Option<dct::Service>>,
     instance: &Instance,
     static_frontend: bool,
-    previews: bool,
 ) {
     let proxy_port = instance.port(Port::Proxy);
     let mut volumes = vec![
@@ -312,14 +304,7 @@ fn add_proxy_service(
             super::frontend::static_dir(instance).display()
         )));
     }
-    let mut ports = vec![format!("{proxy_port}:{proxy_port}")];
-    if previews {
-        ports.push(format!("{}:8443", instance.port(Port::PreviewHttps)));
-        volumes.push(dct::Volumes::Simple(format!(
-            "{}:/data",
-            instance.artifact_dir().join("preview-caddy-data").display()
-        )));
-    }
+    let ports = vec![format!("{proxy_port}:{proxy_port}")];
     services.insert(
         "proxy".to_string(),
         Some(dct::Service {

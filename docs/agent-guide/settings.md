@@ -546,14 +546,13 @@ custom servers also offer Rename. Disabled grants show Enable. Unauthenticated
 custom servers show Connect and Remove. Disconnect/Remove require confirmation.
 Adding a custom MCP saves its name and URL; Connect on its row starts OAuth.
 The Add MCP Server dialog uses the same 24px padding above its title as on its sides.
-Enabled custom servers are offered to the owner's agent sessions (Cursor, Claude,
-Codex, macrod, in-memory) alongside connected apps, through the same session
-egress path: the sandbox sees the server under its name and a URL key, never the
-server's address or token. A disabled server is not offered. If a server's
-connection has expired, its tool calls return a message telling the agent to
-have the owner use Reconnect under Custom MCP; there is no `Connect` chip for
-custom servers. Agents configured with a fixed app selection do not receive the
-owner's custom servers.
+Enabled custom servers are offered to the owner's agent sessions alongside
+connected apps, through the same session egress path: the sandbox sees the server
+under its name and a URL key, never the server's address or token. A disabled server
+is not offered. If a server's connection has expired, its tool calls return a message
+telling the agent to have the owner use Reconnect under Custom MCP; there is no
+`Connect` chip for custom servers. Agents configured with a fixed app selection do
+not receive the owner's custom servers.
 An agent reply's `Connect <app>` chip still starts that app's connection flow.
 Cursor stays in Agents → Runtimes with its API key and default model controls; it is not
 featured or offered in the Connections catalog. Personal Gmail and GitHub account
@@ -568,24 +567,10 @@ mention picker; select text to open the formatting menu. Saved instructions
 retain mention identities using the shared editor's Markdown format and reopen
 with their formatting intact. Enter adds a new paragraph; use `Create agent` or
 `Save changes` to submit. The form also includes runtime selectors.
-Under the runtime, `Answering a mention` chooses between `Coding agent` (a
-channel mention is answered with a magic chip that opens into the live session)
-and `Chat agent` (the agent replies in the thread, like `@macro`). It is the
-agent's own setting and always saved: a new form starts from the selected runtime
-- Macro's in-memory runtime as chat, every other runtime as coding - and picking a
-different runtime resets it to that default, but only the saved choice counts.
-The model list is loaded live and independently for Macro Agent, connected Cursor, and every
-registered macrod harness. The selected harness stays selected when the list refreshes.
-A paired macrod connects on startup, so models can load before any agents are bound.
-A harness can show `Loading models…`, an unsupported message, or
-a retryable error without hiding the other harnesses. Editing preserves a saved model that
-is no longer offered and labels it `saved, unavailable`. A macrod with no responding runtime
-can remain loading until the 10-second discovery timeout; use Retry after reconnecting it.
-New macrod sessions use the agent's saved model before sending the first prompt.
-Changing that default applies to new sessions; existing sessions keep their selected model.
-If the runtime rejects the saved model, the prompt fails instead of using a different model.
+The model list is loaded live for Macro Agent. Editing preserves a saved model that
+is no longer offered and labels it `saved, unavailable`.
 
-The `Runtimes` section shows built-in Macro, Cursor, Claude, and Codex configuration, followed by paired macrod runtimes. Claude's card appears only with the `claude-cloud` flag, and Codex's only within the agents and Codex rollouts. On the desktop app only, a “This computer” card appears above the built-in runtimes: the bundled macrod daemon is set up from here with one click. `Set up` scans the machine for installed agents (Claude Code, Codex, OpenCode, OpenClaw), offers a workspace folder and a Full access checkbox, and `Start running agents here` configures, pairs, and starts the daemon — the pairing is approved automatically, no code is typed. While running the card shows the agent and workspace with a `Stop` action; a set-up-but-stopped runtime offers `Start`. The web app never shows this card. The “Bring your own agent” card sits above the Agents / Runtimes navigation and is visible on both sections. It rotates Claude Code, OpenCode, OpenClaw, and Hermes; reduced motion keeps a static name. Its `New runtime` action opens the full-page pairing flow from either section: enter the code, look up the request, review the machine, name, sharing and permission consent, then Approve and Done. Back/Cancel returns to the runtime list. Destructive removal still requires confirmation. `/settings/runtimes` opens this section; legacy `/settings/harness?pair=…` links remain supported.
+The `Runtimes` section shows built-in Macro configuration. `/settings/runtimes` opens this section.
 Connection chips in agent replies open this page, including before any account is connected. Cursor's default-model picker uses
 the same live model discovery and retains its existing save action.
 

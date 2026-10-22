@@ -102,11 +102,6 @@ fn caddyfile(mode: Mode, static_frontend: bool) -> String {
     } else {
         FRONTEND_VITE.replace("BACKEND_PREFIXES", &frontend_path_prefixes().join(" "))
     };
-    let preview_block = if mode.spec().runs_local_infra {
-        "\nhttps://*.preview.localhost:8443 {\n    tls internal\n    reverse_proxy preview_gateway:8111\n}\n"
-    } else {
-        ""
-    };
     // Wildcard CORS is a local-stack overlay: `run_local` / `stack up` stamp
     // it on Caddy so HTTPS and `*.localhost` origins work without touching
     // every service allowlist. `run_dev` still fans out to the shared-dev
@@ -122,7 +117,7 @@ fn caddyfile(mode: Mode, static_frontend: bool) -> String {
     };
     let special_routes = SPECIAL_ROUTES.replace("SYNC_ORIGIN_HEADER", sync_origin);
     format!(
-        "{CADDY_HEAD}{cors_block}{routes}{special_routes}{mailpit_block}{static_block}{frontend_block}{CADDY_TAIL}{preview_block}",
+        "{CADDY_HEAD}{cors_block}{routes}{special_routes}{mailpit_block}{static_block}{frontend_block}{CADDY_TAIL}",
         routes = service_routes(mode)
     )
 }

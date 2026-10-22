@@ -511,7 +511,6 @@ fn frontend_origin_tracks_how_the_app_is_served() {
             for key in [
                 "FRONTEND_ORIGIN",
                 "PIPEDREAM_ALLOWED_ORIGINS",
-                "PREVIEW_APP_ORIGIN",
             ] {
                 assert_eq!(env[key], origin, "{key}");
             }
@@ -519,11 +518,6 @@ fn frontend_origin_tracks_how_the_app_is_served() {
             assert_eq!(
                 env["OVERRIDE_STATIC_FILE_PUBLIC_URL"],
                 format!("{origin}/static-file")
-            );
-            assert!(
-                env["PREVIEW_CONTROL_HOSTS"]
-                    .split(',')
-                    .any(|host| host == super::super::tls::hostname().unwrap())
             );
         }
     }
@@ -638,30 +632,3 @@ fn external_runtime_egress_respects_instance_host_ports_and_public_tunnels() {
     );
 }
 
-#[test]
-fn the_preview_ssh_proxy_host_is_empty_without_a_published_tunnel() {
-    let instance = Instance::derive(Some("preview"), None).unwrap();
-    let env = LocalEnv::for_instance(Mode::Local, &instance, false, Tunnels::default())
-        .unwrap()
-        .to_env();
-    assert_eq!(env["PREVIEW_SSH_HOST"], "localhost");
-    assert_eq!(env["PREVIEW_SSH_PROXY_HOST"], "");
-
-    let env = LocalEnv::for_instance(
-        Mode::Local,
-        &instance,
-        false,
-        Tunnels {
-            preview_ssh: Some("odds-and-ends.trycloudflare.com"),
-            ..Tunnels::default()
-        },
-    )
-    .unwrap()
-    .to_env();
-    assert_eq!(
-        env["PREVIEW_SSH_PROXY_HOST"],
-        "odds-and-ends.trycloudflare.com"
-    );
-    // The on-machine endpoint stays first; the tunnel is a fallback, not a swap.
-    assert_eq!(env["PREVIEW_SSH_HOST"], "localhost");
-}

@@ -215,9 +215,7 @@ fn vite_connection_limit_is_scoped_to_frontend() {
 fn local_proxy_uses_tls_and_wildcard_cors() {
     let local = caddyfile(Mode::Local, false);
     assert!(local.contains("tls /etc/caddy/certs/server.pem /etc/caddy/certs/server-key.pem"));
-    // Keep main's internal certificates for the separate preview listener.
     assert!(local.contains("auto_https disable_redirects"));
-    assert!(local.contains("https://*.preview.localhost:8443"));
     assert!(local.contains("@cors header Origin *"));
     assert!(local.contains("@cors_preflight"));
     assert!(local.contains("Access-Control-Allow-Origin \"{http.request.header.Origin}\""));

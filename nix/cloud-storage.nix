@@ -357,11 +357,6 @@
 
       deployServiceBinaryDefinitions = [
         {
-          serviceName = "preview-gateway";
-          packageName = "preview_gateway";
-          binaries = [ "preview_gateway" ];
-        }
-        {
           serviceName = "agent-harness-service";
           packageName = "agent_harness_service";
           binaries = [ "agent_harness_service" ];
@@ -569,7 +564,6 @@
       );
 
       localStackDeployServiceNames = [
-        "preview-gateway"
         "agent-harness-service"
         "agent-schedule-service"
         "calendar-service"
@@ -1156,8 +1150,7 @@
           );
 
         # Keep release builds independent of optional developer tools in the
-        # default shell. In particular, adding Hermes there must not make
-        # macrod releases fetch or realize Hermes and its Python/npm closure.
+        # default shell.
         agent-daemon = pkgs.mkShell {
           packages = [
             rustToolchain

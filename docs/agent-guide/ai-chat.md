@@ -262,22 +262,6 @@ in the composer as an unsent draft. Channel-message actions retain the reference
 Add a question and press Send to submit that context. These actions do not create
 legacy cognition chats, regardless of the Agents workspace feature flag.
 
-## Dispatching coding agents from chat
-
-Ask a chat agent to delegate a coding task, including the repository and branch
-when relevant. The agent uses `ListCodingAgents` to discover your available coding
-agents, chooses one using its description and runtime defaults, and calls
-`DispatchCodingAgent` with that agent's ID and a self-contained task prompt.
-The available-agents tool row expands to show the returned names and descriptions.
-
-A successful dispatch starts a separate coding session and displays its live
-Magic Chip directly in the reply, outside collapsed tool groups. The chip follows
-the dispatched turn, including progress, output, permission requests, and a linked
-pull request. **Open session** opens the coding conversation in another split so
-you can follow up there. Reloading the chat restores the same session card.
-Failed dispatches do not show a successful session card. If no coding agents are
-available, configure one in Agents before retrying.
-
 ## Where chats live
 
 The Agents conversation list shows row skeletons after a short delay on first
@@ -392,7 +376,7 @@ the shimmer.
   over 200ms, with reduced-motion preferences respected. **Agent** and **Send**
   sit inside the input on the right.
   Desktop model selectors always show the selected model name alongside the icon.
-  Saved and coding agents show their own icon and name plus the model name on desktop, without a
+  Saved agents show their own icon and name plus the model name on desktop, without a
   second model icon; phones use an icon-only picker. Routine configuration
   keeps the saved model name visible in its picker, including unavailable models.
 - The agent dropdown includes saved agents of the selected mode regardless of
@@ -427,9 +411,7 @@ the shimmer.
   Unavailable paired agents stay visible with a reason.
   If Macro is unavailable, its catalog stays visible but
   model choices are disabled in every list. Model discovery uses the
-  selected runtime, including Claude Cloud. Every coding agent shows repository
-  controls; chat agents hide those controls but keep the mode bar. Repository/branch overrides are currently applied
-  only to Cursor sessions by the create-session API.
+  selected runtime, including Claude Cloud.
   The most recently used supported,
   available agent is selected initially; otherwise Macro is selected.
   Hover an agent (or use the right arrow key) to open its model submenu, with
@@ -442,9 +424,7 @@ the shimmer.
   A checkmark identifies the selected model,
   including when it is the agent’s configured default; there is no separate default row.
   Disconnected Cursor offers **Connect Cursor**, opening Settings → Agents → Runtimes.
-  The built-in sandbox and paired macrod runtimes are not offered here.
-- Selecting an agent changes the heading: **What should we work on?** for chat
-  agents and **What should we build?** for coding agents. The draft stays intact
+- Selecting an agent sets the heading: **What should we work on?**. The draft stays intact
   when changing agents. Unsent New conversation text and attachments also come
   back after opening a session and returning, the same way channel replies persist
   when switching channels. Home's agent input also restores unsent text, under a
@@ -489,15 +469,7 @@ the shimmer.
   **Retry**. Picking a different repository resets the branch to that
   repository's default. Omitting the branch on the create-session API
   likewise starts on the repository's default branch.
-  Both controls open above the footer without clipping. The selections survive
-  agent changes and are sent only to coding agents. Cursor honors the explicit
-  repository and branch instead of choosing a repository from the prompt;
-  the owner must have access through the connected GitHub App.
-  Paired macrod agents also receive the repository choice. With native Herdr,
-  macrod finds an existing clone or clones it using local Git credentials, then
-  creates a managed worktree from a fresh `origin/main`. **Branch** shows `main`
-  and cannot be changed for local sessions. The native Claude/Codex TUI remains
-  interactive in Herdr, and local turns appear in the Macro transcript.
+  Both controls open above the footer without clipping.
 - Sending starts a session with the chosen agent's configured default model;
   a model selected from its submenu overrides that default for the next send
   only. Sending or choosing another agent clears the override. This does not
@@ -522,13 +494,13 @@ the shimmer.
 - On desktop, chat agents' empty input shows the static hint **Type @ to mention
   docs, people, or channels, / for skills** immediately, without typing or cycling
   through other hints. Clearing a draft restores the same hint.
-  Coding agents show **Describe what you want to build**; phones keep the short
+  Phones keep the short
   **Message Macro AI** placeholder. Type `@` for
   mentions and `/` for skills.
   Check `/` with the Android software keyboard too: the skills menu should open
   and filter while typing, without sending the draft.
 - Opening a conversation updates the URL based on that conversation's kind:
-  `/app/agents/<id>` for Chat sessions, `/app/coders/<id>` for Code sessions,
+  `/app/agents/<id>` for Chat sessions,
   and `/app/agent-chats/<id>` for legacy chats. Reload and back/forward restore
   its mode and conversation. Newly created sessions replace their temporary
   URL with the real id without remounting the composer or adding a temporary
@@ -557,50 +529,6 @@ the shimmer.
   **Done**. **Manage** on a paired machine opens **Runtimes** (Back returns to
   Agents): built-in providers, **New runtime**, and the **Paired runtimes** list,
   which appears once you have a paired runtime.
-  On the desktop app, **Runtimes** opens with a **This computer** card that sets
-  up the bundled macrod daemon in one click: **Set up** detects installed agents,
-  then **Start running agents here** configures, pairs (auto-approved, no code),
-  and starts it. The manual flow below remains for pairing other machines.
-  **New runtime** shows three steps: install macrod with the shown `curl … |
-  sh` (macOS, Linux) or `irm … | iex` (Windows) command, run `macrod` and
-  configure your agent in Quickstart, then enter your pairing
-  code and click **Look up**. Review the request and click **Approve** to connect.
-  The setup guide contains configuration and pairing screenshots in that order.
-  Enter the code from your own terminal, not the example screenshot.
-  Run inside a herdr pane, macrod's Quickstart also offers **Claude Code in herdr**
-  and **Codex in herdr**: each session of an agent on that runtime opens a herdr
-  tab in the directory macrod started from, running the real Claude Code or Codex
-  TUI. The session page streams its tool calls and replies, and its permission
-  prompts appear as approvals. Other runtimes started inside herdr get a live
-  view tab per session that can prompt and interrupt it; approvals stay in Macro.
-  Native Herdr sessions offer `/compact`, `/init`, and `/fast` in the slash menu;
-  Codex also offers `/ultrafast`. Macro confirms delivery of speed commands;
-  check their result and any confirmation in Herdr. For Claude, use `/fast on`
-  or `/fast off`, or bare `/fast` to open its native controls. Available speed
-  tiers depend on the native agent, model, and account. Claude also offers
-  `/effort` with an optional level, `auto`, or `status`. In Codex sessions,
-  `/effort` shows the current effort and available choices in Macro. Send
-  `/effort high` (or another supported level) to change it and wait for native
-  confirmation; `/effort default` restores the model's default. This preserves
-  the current model. `/model` still opens the picker in Herdr. Macro's model dropdown
-  changes the model of an idle native session after native confirmation and
-  displays the model identified by the session (Codex's live footer, or native
-  transcript metadata). Unexpected native dialogs must be completed in Herdr.
-  For Codex, open the current model's submenu to select **Reasoning effort**.
-  Choices come from the installed Codex catalog; the selected effort is confirmed
-  from the native session and shown beside the model. Local Herdr changes and
-  `/effort` also update this menu. The effort submenu appears once the native
-  session starts on the first prompt, before its first reply; a startup screen
-  that temporarily hides the footer is retried during the turn. The menu does not list
-  installed native skills or session-switching commands such as `/resume`.
-  For a paired runtime configured as a **Chat agent**, mentioning it posts a
-  pending reply in the channel thread. Once the turn completes, that same reply
-  shows the answer (or a stopped/failed result), even if the session view was
-  never opened. Follow-up messages get their own replies. This requires a macrod
-  build that sends source message IDs as control action IDs, together with the
-  backend external-reply journal; older daemons do not supply that correlation.
-  Replies older than 24 hours whose completion callback was lost are recovered
-  hourly, plus any recovery backlog. Normal completion handling remains immediate.
   The agent form retains sharing, name, `@tag`, runtime, default model, connections,
   channels, instructions, and permission policy.
   Runtime and short model lists use styled dropdown buttons: open the field and
@@ -875,10 +803,6 @@ code-mode MCP tools retain the standard toolset. Summary/compaction calls do not
 load flags or advertise tools. Flag changes apply on the next conversational
 turn, without changing an in-flight turn's tools. The flag controls presentation,
 not authorization; SDK requests retain normal user permissions, and issuing the run credential requires execution approval.
-External coding harnesses keep their own tool selection. A runner that fails
-after its tools were advertised still produces an execution failure, not an
-automatic retry through a direct tool.
-
 Ask the agent to discover SDK entities and write a JavaScript module exporting
 `async function main({macro, session, execution})`. These are actual public SDK
 handles; for example, `macro.documents.search(...)` is an async iterator and
@@ -1346,8 +1270,7 @@ using the same full-width view as AI chat. Incomplete arguments stay hidden whil
 streaming; a valid view updates as arguments arrive. Malformed completed views
 show **Couldn't render dashboard**; failed calls show a **Failed** summary row
 without a disclosure. Macro's built-in agents receive the complete view schema
-with the tool definition. External coding agents connected through Macro's MCP
-server do not currently receive this tool.
+with the tool definition.
 
 The development gallery at `/app/component/agent-ui` includes **Replay tool
 calls** and **Replay fast batch**, both using the message renderer. Check that
@@ -1562,30 +1485,6 @@ with `set_pull_request`, then use **Refresh changes**. An unavailable or
 oversized PR is explained in the pane; there is no branch or container fallback.
 Refresh request failures show a retry banner while keeping the last diff visible.
 The pane does not create PRs or generate their descriptions.
-### Live development previews
-
-Coding agents can call the internal **SharePreview** tool with their local HTTP
-server port and execute the returned SSH script in that same environment. Keep
-the server running while editing; ordinary HTTP and WebSocket HMR traffic are
-forwarded. Never paste the script or its credentials into a final chat message.
-
-In an agent session (`/app/coders/<uuid>` for a coding session), the banner
-above the transcript moves from **Agent is
-connecting a preview…** to **Agent is sharing a preview** once HTTP is reachable.
-Click **View preview ↗** to open a new tab. Any viewer of the agent-session entity
-can open it; a copied preview URL alone does not authenticate another browser.
-Allow popups if opening is blocked. The destination is an isolated HTTPS origin
-with normal root paths and no authorization query parameters.
-
-The owner can click **Stop sharing** in the banner; open preview connections
-close. Disconnection and expiry leave a banner asking the agent to share again.
-Leases last up to one hour and expire after 15 minutes without browser requests.
-Continue prompting in the agent session while the preview tab stays open; page
-edits should arrive through the app's own HMR connection. Control requests, SSH,
-and preview navigation can reach different replicas without requiring sticky
-sessions. A rolling restart of the tunnel owner may disconnect its previews;
-the banner becomes offline within 45 seconds. Ask the agent to share again.
-
 ### Transcript navigation
 
 Agent sessions reuse the channel's TanStack `ThreadList`. Opening a session lands
@@ -1702,18 +1601,6 @@ must stay hidden; subsequent live messages must still appear.
   Several permissions may be pending alongside one question; answering one leaves
   the others available. Controls disappear when their turn ends, is stopped, or
   disconnects, and old transcript requests cannot answer a later turn's request.
-- **Runtime bypass consent.** Settings → Agents → Runtimes → New runtime offers
-  `Allow bypassing permission requests`, off by default. Enabling it warns that
-  agents may run commands and edit files on the machine without approval.
-  Macrod Quickstart and Config also offer `Full Access`, off by
-  default. The choice applies at the next pairing: off disables bypass in the
-  pairing page; on preselects bypass with a warning, and the approving user
-  can turn it off. Older daemons leave this choice to the pairing page.
-- **Agent permission policy.** Settings → Agents → Runtime shows `Always prompt`
-  and `Always bypass` only for local macrod harnesses. Macrod defaults to prompts;
-  bypass requires both harness consent and the agent's explicit choice. Built-in
-  Macro, in-memory, Cursor, Codex, and Claude runtimes always bypass and have no
-  permission policy selector. The backend enforces these policies.
 
 Locally sent user messages in both AI implementations enter with a short upward
 slide and fade. On touch devices, messages lift into place with a gentle settle;
@@ -1910,8 +1797,7 @@ and GPT-6.1 Sol (6× token pricing). Its tooltip shows the mode, state, and usag
 multiplier before sending. Claude models, including Opus 5.5, stay on standard
 speed until Anthropic approves fast mode for this account. Other models keep
 standard speed. The preference is saved in browser local storage and shared by
-legacy chat and native Macro agent composers. External coding agents use their
-own speed controls.
+legacy chat and native Macro agent composers.
 
 Preview the controls at `/app/debug/ui?ui=speed-toggle`.
 Click the bolt and verify its brief scale/rotation animation and highlighted state.

@@ -147,7 +147,7 @@ do next?". Different UX, different policy, different defaults.
 ## What Macro does today
 
 Macro is an ACP **Client**. The harness does not care which agent is on the
-other end of the pipe (`docs/architecture/cursor-agent-transport.md`). The pieces that
+other end of the pipe. The pieces that
 matter:
 
 ```text
@@ -217,7 +217,7 @@ request.
 
 ### The other ACP role
 
-`cursor_cloud_agents` is an ACP **Agent** (`AgentCapabilities::default()`).
+Cloud agent integration acts as an ACP **Agent** (`AgentCapabilities::default()`).
 It never sends `session/request_permission` and would not send elicitation
 either. Out of scope for v1. When we want Macro-as-agent to ask Zed / Cursor
 a question, that is a later slice against this same protocol.
@@ -477,7 +477,7 @@ would leave the agent blocked on a request nothing could answer.
 1. **Client first.** The product path is Macro receiving elicitation from
    coding agents. `agent_inmem` also sends it through `AskUser`, both as a
    native harness feature and as the local integration path. Sending from
-   `cursor_cloud_agents` remains a later slice.
+   cloud agents remains a later slice.
 2. **Do not auto-answer.** Permissions stay auto-approved. Elicitation
    waits for the session owner.
 3. **Advertise both modes.** `{ form: {}, url: {} }`.

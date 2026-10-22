@@ -8,7 +8,6 @@
         "crates/agent_session/**",
         "crates/agent_trigger/**",
         "crates/agent_runtime_protocol/**",
-        "crates/agent_preview/**",
         "crates/agent_egress/**"
       ],
       "stack_path": "infra/stacks/agent-harness-service/**",
@@ -325,16 +324,6 @@
         "crates/macro_event_topics/**"
       ],
       "stack_path": "infra/stacks/kafka-cluster/**"
-    },
-    "preview-gateway": {
-      "source_paths": [
-        "services/preview_gateway/**",
-        "crates/agent_preview/**"
-      ],
-      "stack_path": "infra/stacks/preview-gateway/**",
-      "deploy_binaries": [
-        "preview_gateway"
-      ]
     }
   }
 }
