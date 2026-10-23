@@ -2,18 +2,17 @@ use super::*;
 use item_filters::ast::channel::{ChannelLiteral, ChannelThreadLiteral};
 use item_filters::ast::foreign_entity::ForeignEntityLiteral;
 use models_pagination::CursorVal;
+use recursion::CollapsibleExt;
 
 #[derive(Clone, Copy, Debug)]
 enum Leg {
-    Email,
     Channel,
     ChannelThread,
     Call,
     ForeignEntity,
 }
 
-const LEGS: [Leg; 5] = [
-    Leg::Email,
+const LEGS: [Leg; 4] = [
     Leg::Channel,
     Leg::ChannelThread,
     Leg::Call,
@@ -32,7 +31,6 @@ fn map_ids<T>(tree: &Expr<Uuid>, literal: impl Fn(Uuid) -> T) -> Arc<Expr<T>> {
 fn filter_for(leg: Leg, tree: &Expr<Uuid>) -> EntityFilterAst {
     let mut filter = EntityFilterAst::default();
     match leg {
-        Leg::Email => filter.email_filter.tree = Some(map_ids(tree, EmailLiteral::ThreadId)),
         Leg::Channel => filter.channel_filter = Some(map_ids(tree, ChannelLiteral::ChannelId)),
         Leg::ChannelThread => {
             filter.channel_thread_filter = Some(map_ids(tree, ChannelThreadLiteral::ThreadId));
@@ -65,14 +63,11 @@ fn request<T>(filter: T, follow_up: bool) -> SoupRequest<T> {
         cursor: SoupQuery::Simple(SimpleQueryInner(cursor)),
         sort_direction: SoupSortDirection::Desc,
         user: MacroUserIdStr::parse_from_str("macro|user@test.com").unwrap(),
-        email_preview_view: PreviewView::default(),
-        link_ids: vec![id(3)],
     }
 }
 
 fn builds_request(leg: Leg, request: &SoupRequest<Option<EntityFilterAst>>) -> bool {
     match leg {
-        Leg::Email => request.build_email_request(None).is_some(),
         Leg::Channel => request.build_comms_request().is_some(),
         Leg::ChannelThread => request.build_comms_thread_request().is_some(),
         Leg::Call => request.build_call_request().is_some(),
@@ -97,7 +92,6 @@ fn nil_entity_ids_skip_domain_requests_on_initial_and_cursor_pages() {
 fn legacy_rest_exclusions_skip_requests_after_ast_expansion() {
     let nil = Uuid::nil().to_string();
     let filters: EntityFilters = serde_json::from_value(serde_json::json!({
-        "email_filters": { "email_thread_ids": [nil] },
         "channel_filters": { "channel_ids": [nil] },
         "channel_thread_filters": { "thread_ids": [nil] },
         "call_filters": { "call_ids": [nil] },
@@ -153,45 +147,6 @@ fn exclusion_respects_and_or_and_not_without_dropping_possible_matches() {
 }
 
 #[test]
-fn crm_scoped_email_exclusions_preserve_authorization_prechecks() {
-    for scope in [
-        item_filters::ast::CrmScope::Domains(vec!["example.com".to_string()]),
-        item_filters::ast::CrmScope::Addresses(vec!["contact@example.com".to_string()]),
-    ] {
-        let mut filter = filter_for(Leg::Email, &Expr::val(Uuid::nil()));
-        filter.email_filter.crm_scope = Some(scope);
-        for follow_up in [false, true] {
-            let req = request(Some(filter.clone()), follow_up);
-            let email = req
-                .build_email_request(None)
-                .expect("email service must still validate the CRM scope");
-            assert!(email.crm_scope.is_some());
-        }
-    }
-}
-
-#[test]
-fn crm_scoped_email_reaches_viewers_without_a_mailbox() {
-    let mut req = request(Some(EntityFilterAst::default()), false);
-    req.link_ids.clear();
-    assert!(req.build_email_request(None).is_none());
-
-    let mut filter = EntityFilterAst::default();
-    filter.email_filter.crm_scope = Some(item_filters::ast::CrmScope::Domains(vec![
-        "example.com".to_string(),
-    ]));
-    for follow_up in [false, true] {
-        let mut req = request(Some(filter.clone()), follow_up);
-        req.link_ids.clear();
-        let email = req
-            .build_email_request(None)
-            .expect("team-contributed CRM email does not need the viewer's mailbox");
-        assert!(email.link_ids.is_empty());
-        assert!(email.crm_scope.is_some());
-    }
-}
-
-#[test]
 fn exclusion_only_skips_the_targeted_entity_type() {
     for excluded_leg in LEGS {
         let req = request(
@@ -199,18 +154,13 @@ fn exclusion_only_skips_the_targeted_entity_type() {
             false,
         );
         let built = LEGS.map(|leg| builds_request(leg, &req));
-        assert_eq!(built.into_iter().filter(|built| *built).count(), 4);
+        assert_eq!(built.into_iter().filter(|built| *built).count(), 3);
     }
 }
 
 #[test]
 fn notified_hydration_legs_also_skip_excluded_entities() {
-    for leg in [
-        Leg::Email,
-        Leg::Channel,
-        Leg::ChannelThread,
-        Leg::ForeignEntity,
-    ] {
+    for leg in [Leg::Channel, Leg::ChannelThread, Leg::ForeignEntity] {
         for tree in [Expr::val(Uuid::nil()), Expr::val(id(1))] {
             let expected = matches!(&tree, Expr::Literal(id) if !id.is_nil());
             let filter = Some(filter_for(leg, &tree));

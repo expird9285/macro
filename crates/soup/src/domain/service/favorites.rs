@@ -3,7 +3,6 @@ use super::*;
 use ::favorites::domain::{models::FavoriteFilter, ports::FavoritesService};
 use item_filters::ast::{
     agent_session::AgentSessionLiteral,
-    calendar_event::CalendarEventLiteral,
     call::CallLiteral,
     chat::ChatLiteral,
     document::DocumentLiteral,
@@ -79,11 +78,6 @@ pub(super) fn apply(mut ast: EntityFilterAst, entities: &[Entity<'_>]) -> Entity
         ChatLiteral::ChatId,
     );
     constrain(
-        &mut ast.email_filter.tree,
-        ids(entities, EntityType::EmailThread),
-        EmailLiteral::ThreadId,
-    );
-    constrain(
         &mut ast.channel_filter,
         ids(entities, EntityType::Channel),
         ChannelLiteral::ChannelId,
@@ -97,11 +91,6 @@ pub(super) fn apply(mut ast: EntityFilterAst, entities: &[Entity<'_>]) -> Entity
         &mut ast.call_filter,
         ids(entities, EntityType::Call),
         CallLiteral::CallId,
-    );
-    constrain(
-        &mut ast.calendar_event_filter,
-        ids(entities, EntityType::CalendarEvent),
-        CalendarEventLiteral::Id,
     );
     constrain(
         &mut ast.foreign_entity_filter,
@@ -121,23 +110,5 @@ pub(super) fn apply(mut ast: EntityFilterAst, entities: &[Entity<'_>]) -> Entity
             InitiativeLiteral::Id,
         );
     }
-    if ast.crm_contact_filter.is_some() {
-        constrain(
-            &mut ast.crm_contact_filter,
-            ids(entities, EntityType::CrmContact),
-            item_filters::ast::crm_contact::CrmContactLiteral::Id,
-        );
-    }
-    // CRM companies expose an ID-list service contract instead of arbitrary
-    // AST evaluation. Intersect those lists separately, never OR them together.
     ast
-}
-
-pub(super) fn intersect(requested: &mut Vec<Uuid>, favorites: Vec<Uuid>) -> bool {
-    if requested.is_empty() {
-        *requested = favorites;
-    } else {
-        requested.retain(|id| favorites.contains(id));
-    }
-    !requested.is_empty()
 }

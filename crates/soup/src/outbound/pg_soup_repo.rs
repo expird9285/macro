@@ -1,10 +1,10 @@
 use crate::{
     domain::{
         models::{
-            AdvancedSortParams, CrmPropertyEdge, GroupedSortRequest, NotifiedEntity,
-            NotifiedSoupRequest, SimpleSortQuery, SimpleSortRequest, SoupProjectionHydration,
-            SoupPropertiesField, TouchedEntity, TouchedSoupRequest, WorkFeedCandidate,
-            WorkFeedCandidateRequest, grouping::ItemGroupingInfo,
+            AdvancedSortParams, GroupedSortRequest, NotifiedEntity, NotifiedSoupRequest,
+            SimpleSortQuery, SimpleSortRequest, SoupProjectionHydration, SoupPropertiesField,
+            TouchedEntity, TouchedSoupRequest, WorkFeedCandidate, WorkFeedCandidateRequest,
+            grouping::ItemGroupingInfo,
         },
         ports::SoupRepo,
     },
@@ -21,9 +21,7 @@ use readonly_pool::ReadOnlyPool;
 use system_properties::SystemPropertyKey;
 
 mod agent_session;
-mod calendar_event;
 mod candidate_gates;
-mod crm_association;
 mod database_row;
 mod expanded;
 pub mod grouping;
@@ -129,15 +127,6 @@ impl SoupRepo for PgSoupRepo {
             }
         };
         items.extend(
-            calendar_event::cursor_soup(&self.pool.0, cursor_request.clone())
-                .await?
-                .into_iter()
-                .map(|item| SoupProjectionHydration {
-                    item,
-                    document_server_facts: None,
-                }),
-        );
-        items.extend(
             agent_session::cursor_soup(&self.pool.0, cursor_request)
                 .await?
                 .into_iter()
@@ -187,7 +176,6 @@ impl SoupRepo for PgSoupRepo {
                 .await?
             }
         };
-        items.extend(calendar_event::cursor_soup(&self.pool.0, cursor_request.clone()).await?);
         items.extend(agent_session::cursor_soup(&self.pool.0, cursor_request).await?);
         sort_and_truncate(&mut items, sort, limit);
         Ok(items)
@@ -216,15 +204,6 @@ impl SoupRepo for PgSoupRepo {
             req.entities,
         )
         .await?;
-        items.extend(
-            calendar_event::by_ids(&self.pool.0, by_ids_request.clone())
-                .await?
-                .into_iter()
-                .map(|item| SoupProjectionHydration {
-                    item,
-                    document_server_facts: None,
-                }),
-        );
         items.extend(
             agent_session::by_ids(&self.pool.0, by_ids_request.clone())
                 .await?
@@ -263,7 +242,6 @@ impl SoupRepo for PgSoupRepo {
         let mut items =
             unexpanded::by_ids::unexpanded_soup_by_ids(&self.pool.0, req.user_id, req.entities)
                 .await?;
-        items.extend(calendar_event::by_ids(&self.pool.0, by_ids_request.clone()).await?);
         items.extend(agent_session::by_ids(&self.pool.0, by_ids_request.clone()).await?);
         items.extend(initiative::by_ids(&self.pool.0, by_ids_request.clone()).await?);
         items.extend(database_row::by_ids(&self.pool.0, by_ids_request).await?);
@@ -305,14 +283,6 @@ impl SoupRepo for PgSoupRepo {
             },
         )
         .await
-    }
-
-    async fn crm_property_edges<'a>(
-        &self,
-        company_ids: &'a [uuid::Uuid],
-        contact_ids: &'a [uuid::Uuid],
-    ) -> Result<Vec<CrmPropertyEdge>, Self::Err> {
-        crm_association::property_edges(&self.pool.0, company_ids, contact_ids).await
     }
 
     async fn touched_soup_page<'a>(
@@ -385,8 +355,7 @@ fn type_err<E: std::fmt::Display>(e: E) -> sqlx::Error {
 ///
 /// This helper collects entity references from items that support properties
 /// and performs one bulk lookup. System properties are always included, plus
-/// the caller's own and team tag properties and the team's CRM stage
-/// definition. Tasks use `EntityType::Task` while regular documents use
+/// the caller's own and team tag properties. Tasks use `EntityType::Task` while regular documents use
 /// `EntityType::Document`.
 #[tracing::instrument(err, skip(db, items))]
 pub(crate) async fn populate_properties(
@@ -438,12 +407,8 @@ pub(crate) async fn populate_properties(
                 SoupItem::Document(x) => properties_map.get(&x.id.to_string()),
                 SoupItem::Project(x) => properties_map.get(&x.id.to_string()),
                 SoupItem::Initiative(x) => properties_map.get(&x.id.to_string()),
-                SoupItem::EmailThread(x) => properties_map.get(&x.thread.id.to_string()),
                 SoupItem::Chat(x) => properties_map.get(&x.id.to_string()),
-                SoupItem::CrmCompany(x) => properties_map.get(&x.id.to_string()),
-                SoupItem::CrmContact(_) => None,
                 SoupItem::Call(x) => properties_map.get(&x.call_id.to_string()),
-                SoupItem::CalendarEvent(x) => properties_map.get(&x.id.to_string()),
                 SoupItem::Channel(_)
                 | SoupItem::ChannelThread(_)
                 | SoupItem::ForeignEntity(_)
@@ -560,7 +525,9 @@ macro_rules! map_soup_projection_hydration {
         |r| {
             let document_server_facts = match r.item_type.as_ref() {
                 "document" => Some($crate::domain::models::SoupDocumentServerFacts {
-                    is_email_attachment: r.is_email_attachment,
+                    // Email attachments no longer exist; the column is still
+                    // selected until the query cache is regenerated.
+                    is_email_attachment: false,
                     is_important: r.is_important,
                     status_option_ids: r.status_option_ids.clone(),
                 }),

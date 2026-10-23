@@ -6,7 +6,6 @@ use crate::domain::models::{
 fn work_feed_request(limit: u16) -> WorkFeedSoupRequest {
     WorkFeedSoupRequest {
         user: MacroUserIdStr::parse_from_str("macro|test@example.com").unwrap(),
-        link_ids: vec![],
         limit,
         mode: WorkFeedSoupMode::Work,
         types: vec![EntityType::Document],
@@ -34,19 +33,15 @@ fn service(
 ) -> SoupImpl<
     MockSoupRepo,
     FrecencyQueryServiceImpl<MockFrecencyStorage>,
-    NoopEmailPreviewService,
     RecordingCommsService,
     NoopCallRecordQueryService,
-    NoOpCrmService,
     NoopPullRequestListing,
 > {
     SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         RecordingCommsService::new(vec![]),
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
 }
@@ -196,43 +191,4 @@ async fn work_feed_full_page_continues_from_the_last_candidate() {
             entity_id: second.to_string(),
         })
     );
-}
-
-#[tokio::test]
-async fn work_feed_rejects_calendar_filters_it_cannot_fold() {
-    let mut soup_mock = MockSoupRepo::new();
-    soup_mock.expect_work_feed_soup_page().times(0);
-    let mut request = work_feed_request(2);
-    request.filter.calendar_event_filter = Some(Arc::new(Expr::val(
-        item_filters::ast::calendar_event::CalendarEventLiteral::Status("confirmed".into()),
-    )));
-
-    let error = service(soup_mock)
-        .get_work_feed_page(request, None)
-        .await
-        .unwrap_err();
-    assert_matches!(error, SoupErr::NotifiedUnsupportedFilter("calendar_event"));
-}
-
-/// The work feed cannot resolve CRM associations, so a scoped request fails
-/// before reading candidates rather than returning an unscoped feed.
-#[tokio::test]
-async fn work_feed_rejects_crm_associations() {
-    use item_filters::ast::{crm_association::CrmAssociation, document::DocumentLiteral};
-    let company = CrmAssociation::Company(Uuid::from_u128(0xc0));
-    let mut scoped = work_feed_request(2);
-    scoped.filter.crm_association = Some(company);
-    let mut literal = work_feed_request(2);
-    literal.filter.document_filter =
-        Some(Arc::new(Expr::val(DocumentLiteral::CrmAssociated(company))));
-
-    for request in [scoped, literal] {
-        let mut soup_mock = MockSoupRepo::new();
-        soup_mock.expect_work_feed_soup_page().times(0);
-        let error = service(soup_mock)
-            .get_work_feed_page(request, None)
-            .await
-            .unwrap_err();
-        assert_matches!(error, SoupErr::AstErr(_));
-    }
 }

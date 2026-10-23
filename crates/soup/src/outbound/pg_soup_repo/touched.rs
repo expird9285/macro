@@ -13,9 +13,8 @@ use std::str::FromStr;
 
 use crate::domain::models::{TouchedEntity, TouchedSoupRequest};
 use crate::outbound::pg_soup_repo::candidate_gates::{
-    channel_gate, chat_gate, document_gate, email_gate, includes_channels, includes_chats,
-    includes_documents, includes_email_threads, includes_initiatives, includes_projects,
-    initiative_gate, project_gate,
+    channel_gate, chat_gate, document_gate, includes_channels, includes_chats, includes_documents,
+    includes_initiatives, includes_projects, initiative_gate, project_gate,
 };
 use crate::outbound::pg_soup_repo::type_err;
 
@@ -34,7 +33,7 @@ pub(super) fn view_tags_sql() -> String {
 
 /// Which entity types this request can include. A type drops when its own
 /// filter can never match or when an active properties filter can never
-/// match it. Channel and email filter trees never reach here — the domain
+/// match it. Channel filter trees never reach here — the domain
 /// service rejects them up front ([`SoupErr::TouchedUnsupportedFilter`])
 /// because their folds live in other domain crates' query builders.
 ///
@@ -55,9 +54,6 @@ fn included_types(req: &TouchedSoupRequest<'_>) -> Vec<&'static str> {
     }
     if includes_channels(req.filter) {
         types.push(EntityType::Channel.into());
-    }
-    if includes_email_threads(req.filter, req.link_ids) {
-        types.push(EntityType::EmailThread.into());
     }
     types
 }
@@ -110,18 +106,16 @@ pub(super) async fn touched_soup_page(
             WHEN 'project' THEN {project_gate}
             WHEN 'initiative' THEN {initiative_gate}
             WHEN 'channel' THEN {channel_gate}
-            WHEN 'email_thread' THEN {email_gate}
             ELSE FALSE
         END
         ORDER BY ae.occurred_at DESC, ae.entity_id DESC
-        LIMIT $6
+        LIMIT $5
         "#,
         document_gate = document_gate(ID_SQL, req.filter),
         chat_gate = chat_gate(ID_SQL, req.filter),
         project_gate = project_gate(ID_SQL, req.filter),
         initiative_gate = initiative_gate(ID_SQL, req.filter),
         channel_gate = channel_gate(ID_SQL, req.filter),
-        email_gate = email_gate(ID_SQL, req.filter),
     );
 
     let after_ts = req.after.as_ref().map(|a| a.occurred_at);
@@ -133,7 +127,6 @@ pub(super) async fn touched_soup_page(
         .bind(&types)
         .bind(after_ts)
         .bind(after_id)
-        .bind(req.link_ids)
         .bind(req.limit as i64)
         // Unnamed statement, same reasoning as the expanded dynamic query:
         // the SQL text varies per filter shape, so a cached prepared

@@ -3,18 +3,14 @@ use axum::{
     http::{Method, Request, StatusCode, header},
 };
 use chrono::{Duration, Utc};
-use email::domain::{
-    models::{EmailErr, PreviewView, PreviewViewStandardLabel, UserProvider},
-    ports::EmailService,
-};
-use entity_access::domain::models::{BotAccessScope, BotId, EntityAccessReceipt, ViewAccessLevel};
+use entity_access::domain::models::{BotAccessScope, BotId};
 use http_body_util::BodyExt;
 use item_filters::EntityFilters;
 use macro_authorization::{
     INTERNAL_API_KEY_HEADER, INTERNAL_MACRO_USER_ID_HEADER, InternalIdentityClaims,
     MacroAuthorizationError, MacroAuthorizationService, MacroAuthorizationState,
 };
-use macro_user_id::{email::EmailStr, user_id::MacroUserIdStr};
+use macro_user_id::user_id::MacroUserIdStr;
 use model_user::UserContext;
 use models_pagination::{
     CursorVal, CursorWithValAndFilter, Frecency, FrecencyValue, Identify, PaginateOn, Query,
@@ -34,8 +30,7 @@ use crate::{
         models::{
             EnrichedSoupItem, FrecencyQueryInner, GroupedSortRequest, IntoSoupReqAst,
             NotifiedQueryInner, SimpleQueryInner, SoupErr, SoupPropertiesField, SoupQuery,
-            SoupRequest, SoupSortDirection, SoupType, TouchedQueryInner,
-            grouping::ItemGroupingInfo,
+            SoupRequest, SoupType, TouchedQueryInner, grouping::ItemGroupingInfo,
         },
         ports::{SoupOutput, SoupService},
     },
@@ -64,8 +59,6 @@ enum MockCursorKind {
 struct MockSoupCall {
     user_id: String,
     soup_type: SoupType,
-    email_preview_view: PreviewView,
-    link_ids: Vec<Uuid>,
     cursor_kind: MockCursorKind,
     filter: serde_json::Value,
     expanded_filter: serde_json::Value,
@@ -177,16 +170,12 @@ impl SoupService for MockSoup {
         };
         let user_id = req.user.to_string();
         let soup_type = req.soup_type;
-        let email_preview_view = req.email_preview_view.clone();
-        let link_ids = req.link_ids.clone();
         let filter = serde_json::to_value(req.cursor.filter()).unwrap();
         let expanded_filter = serde_json::to_value(req.into_ast()?.cursor.filter()).unwrap();
         let mut guard = self.called.lock().unwrap();
         guard.push(MockSoupCall {
             user_id,
             soup_type,
-            email_preview_view,
-            link_ids,
             cursor_kind,
             filter,
             expanded_filter,
@@ -219,213 +208,6 @@ impl SoupService for MockSoup {
         SoupErr,
     >{
         Err(SoupErr::SoupDbErr(anyhow::anyhow!("Not implemented")))
-    }
-}
-
-struct MockEmail;
-
-impl EmailService for MockEmail {
-    async fn resolve_message_operation(
-        &self,
-        _actor: macro_user_id::user_id::MacroUserIdStr<'static>,
-        _request: email::domain::models::mailbox_operation::MessageResolutionRequest,
-    ) -> Result<Uuid, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("unused test capability")))
-    }
-
-    async fn send_message_for_user(
-        &self,
-        _user: MacroUserIdStr<'static>,
-        _link: Option<uuid::Uuid>,
-        _input: email::domain::models::CreateDraftInput,
-    ) -> Result<email::domain::models::CreatedDraft, EmailErr> {
-        Err(EmailErr::SendAsUnavailable)
-    }
-
-    async fn set_thread_archived(
-        &self,
-        _user: MacroUserIdStr<'static>,
-        _id: uuid::Uuid,
-        _archived: bool,
-    ) -> Result<(), EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn mark_thread_unread(
-        &self,
-        _macro_id: MacroUserIdStr<'static>,
-        _thread_id: uuid::Uuid,
-    ) -> Result<(), EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn get_email_thread_previews(
-        &self,
-        _req: email::domain::models::GetEmailsRequest,
-    ) -> Result<
-        models_pagination::PaginatedCursor<
-            email::domain::models::EnrichedEmailThreadPreview,
-            uuid::Uuid,
-            models_pagination::SimpleSortMethod,
-            (),
-        >,
-        email::domain::models::EmailErr,
-    > {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn get_link_by_auth_id_and_macro_id(
-        &self,
-        _auth_id: &str,
-        _macro_id: macro_user_id::user_id::MacroUserIdStr<'_>,
-    ) -> Result<Option<email::domain::models::Link>, email::domain::models::EmailErr> {
-        Ok(Some(email::domain::models::Link {
-            id: Uuid::new_v4(),
-            macro_id: MacroUserIdStr::parse_from_str("macro|example@test.com").unwrap(),
-            fusionauth_user_id: String::new(),
-            email_address: EmailStr::try_from("example@test.com".to_string()).unwrap(),
-            provider: UserProvider::Gmail,
-            is_sync_active: true,
-            is_primary: true,
-            created_at: Default::default(),
-            updated_at: Default::default(),
-        }))
-    }
-
-    async fn resolve_sending_inbox(
-        &self,
-        _macro_id: macro_user_id::user_id::MacroUserIdStr<'_>,
-        _request: email::domain::models::SendingInboxRequest<'_>,
-    ) -> Result<email::domain::models::ResolvedSendingInbox, email::domain::models::EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn get_inboxes_for_macro_id(
-        &self,
-        _macro_id: macro_user_id::user_id::MacroUserIdStr<'_>,
-    ) -> Result<Vec<email::domain::models::Link>, email::domain::models::EmailErr> {
-        Ok(Vec::new())
-    }
-
-    async fn get_owned_link_for_thread(
-        &self,
-        _macro_id: macro_user_id::user_id::MacroUserIdStr<'_>,
-        _thread_id: uuid::Uuid,
-    ) -> Result<Option<email::domain::models::Link>, email::domain::models::EmailErr> {
-        Ok(None)
-    }
-
-    async fn get_thread_with_messages(
-        &self,
-        _receipt: EntityAccessReceipt<ViewAccessLevel>,
-        _offset: i64,
-        _limit: i64,
-    ) -> Result<Option<email::domain::models::Thread>, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn get_thread_parsed(
-        &self,
-        _receipt: EntityAccessReceipt<ViewAccessLevel>,
-        _offset: i64,
-        _limit: i64,
-    ) -> Result<Option<email::domain::models::ParsedThread>, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn create_draft(
-        &self,
-        _link: &email::domain::models::Link,
-        _accessible_inboxes: &[email::domain::models::Link],
-        _input: email::domain::models::CreateDraftInput,
-    ) -> Result<email::domain::models::CreatedDraft, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn save_draft_for_user(
-        &self,
-        _macro_id: macro_user_id::user_id::MacroUserIdStr<'_>,
-        _link_id: Option<uuid::Uuid>,
-        _input: email::domain::models::CreateDraftInput,
-    ) -> Result<email::domain::models::SavedUserDraft, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn delete_draft_for_user(
-        &self,
-        _macro_id: macro_user_id::user_id::MacroUserIdStr<'_>,
-        _draft_id: uuid::Uuid,
-    ) -> Result<email::domain::models::DeletedUserDraft, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn send_message(
-        &self,
-        _link: &email::domain::models::Link,
-        _accessible_inboxes: &[email::domain::models::Link],
-        _input: email::domain::models::CreateDraftInput,
-    ) -> Result<email::domain::models::CreatedDraft, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn list_labels(
-        &self,
-        _link: &email::domain::models::Link,
-    ) -> Result<Vec<email::domain::models::LinkLabel>, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn update_thread_labels(
-        &self,
-        _link: &email::domain::models::Link,
-        _thread_id: uuid::Uuid,
-        _label_id: uuid::Uuid,
-        _add: bool,
-    ) -> Result<email::domain::models::UpdateThreadLabelsResult, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn update_thread_project(
-        &self,
-        _thread_receipt: EntityAccessReceipt<entity_access::domain::models::EditAccessLevel>,
-        _project_receipt: Option<
-            EntityAccessReceipt<entity_access::domain::models::EditAccessLevel>,
-        >,
-    ) -> Result<Option<String>, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn upsert_email_filter(
-        &self,
-        _link: &email::domain::models::Link,
-        _input: email::domain::models::UpsertEmailFilterInput,
-    ) -> Result<email::domain::models::EmailFilter, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn set_sender_policy(
-        &self,
-        _actor: &macro_user_id::user_id::MacroUserIdStr<'_>,
-        _link: &email::domain::models::Link,
-        _sender_email: &str,
-        _policy: email::domain::models::SenderPolicy,
-    ) -> Result<(), EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn delete_email_filter(
-        &self,
-        _link: &email::domain::models::Link,
-        _filter_id: Uuid,
-    ) -> Result<bool, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn list_email_filters(
-        &self,
-        _link: &email::domain::models::Link,
-    ) -> Result<Vec<email::domain::models::EmailFilter>, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
     }
 }
 
@@ -610,31 +392,28 @@ fn user_context(user_id: &str) -> UserContext {
     }
 }
 
-type MockRouterState<T, U> = SoupRouterState<T, U, MockEntityAccess, FakeAuthorizationService>;
+type MockRouterState<T> = SoupRouterState<T, MockEntityAccess, FakeAuthorizationService>;
 
-fn mock_router_state<T, U>(service: T, email: U) -> MockRouterState<T, U>
+fn mock_router_state<T>(service: T) -> MockRouterState<T>
 where
     T: SoupService,
-    U: EmailService,
 {
     SoupRouterState::new(
         service,
-        email,
         Arc::new(MockEntityAccess),
         MacroAuthorizationState::new(Arc::new(FakeAuthorizationService)),
     )
 }
 
-fn mock_router_with<T, U>(service: T, email: U) -> Router
+fn mock_router_with<T>(service: T) -> Router
 where
     T: SoupService,
-    U: EmailService,
 {
-    soup_router(mock_router_state(service, email))
+    soup_router(mock_router_state(service))
 }
 
 fn mock_router() -> Router {
-    mock_router_with(MockSoup::new(), MockEmail)
+    mock_router_with(MockSoup::new())
 }
 
 fn authenticated_request() -> axum::http::request::Builder {
@@ -702,7 +481,7 @@ async fn internal_credentials_use_the_acting_user() {
         .body(axum::body::Body::empty())
         .unwrap();
 
-    let (status, body) = send_json(mock_router_with(soup, MockEmail), request).await;
+    let (status, body) = send_json(mock_router_with(soup), request).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body, json!({ "items": [], "next_cursor": null }));
 
@@ -711,336 +490,11 @@ async fn internal_credentials_use_the_acting_user() {
     assert_eq!(calls[0].user_id, INTERNAL_USER_ID);
 }
 
-struct MockEmailLinkResult {
-    get_link_result: Arc<
-        dyn Fn() -> Result<Option<email::domain::models::Link>, email::domain::models::EmailErr>
-            + Send
-            + Sync,
-    >,
-}
-
-impl EmailService for MockEmailLinkResult {
-    async fn resolve_message_operation(
-        &self,
-        _actor: macro_user_id::user_id::MacroUserIdStr<'static>,
-        _request: email::domain::models::mailbox_operation::MessageResolutionRequest,
-    ) -> Result<Uuid, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("unused test capability")))
-    }
-
-    async fn send_message_for_user(
-        &self,
-        _user: MacroUserIdStr<'static>,
-        _link: Option<uuid::Uuid>,
-        _input: email::domain::models::CreateDraftInput,
-    ) -> Result<email::domain::models::CreatedDraft, EmailErr> {
-        Err(EmailErr::SendAsUnavailable)
-    }
-
-    async fn set_thread_archived(
-        &self,
-        _user: MacroUserIdStr<'static>,
-        _id: uuid::Uuid,
-        _archived: bool,
-    ) -> Result<(), EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn mark_thread_unread(
-        &self,
-        _macro_id: MacroUserIdStr<'static>,
-        _thread_id: uuid::Uuid,
-    ) -> Result<(), EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn get_email_thread_previews(
-        &self,
-        _req: email::domain::models::GetEmailsRequest,
-    ) -> Result<
-        models_pagination::PaginatedCursor<
-            email::domain::models::EnrichedEmailThreadPreview,
-            uuid::Uuid,
-            models_pagination::SimpleSortMethod,
-            (),
-        >,
-        email::domain::models::EmailErr,
-    > {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn get_link_by_auth_id_and_macro_id(
-        &self,
-        _auth_id: &str,
-        _macro_id: macro_user_id::user_id::MacroUserIdStr<'_>,
-    ) -> Result<Option<email::domain::models::Link>, email::domain::models::EmailErr> {
-        (self.get_link_result)()
-    }
-
-    async fn resolve_sending_inbox(
-        &self,
-        _macro_id: macro_user_id::user_id::MacroUserIdStr<'_>,
-        _request: email::domain::models::SendingInboxRequest<'_>,
-    ) -> Result<email::domain::models::ResolvedSendingInbox, email::domain::models::EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn get_inboxes_for_macro_id(
-        &self,
-        _macro_id: macro_user_id::user_id::MacroUserIdStr<'_>,
-    ) -> Result<Vec<email::domain::models::Link>, email::domain::models::EmailErr> {
-        (self.get_link_result)().map(|opt| opt.into_iter().collect())
-    }
-
-    async fn get_owned_link_for_thread(
-        &self,
-        _macro_id: macro_user_id::user_id::MacroUserIdStr<'_>,
-        _thread_id: uuid::Uuid,
-    ) -> Result<Option<email::domain::models::Link>, email::domain::models::EmailErr> {
-        (self.get_link_result)()
-    }
-
-    async fn get_thread_with_messages(
-        &self,
-        _receipt: EntityAccessReceipt<ViewAccessLevel>,
-        _offset: i64,
-        _limit: i64,
-    ) -> Result<Option<email::domain::models::Thread>, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn get_thread_parsed(
-        &self,
-        _receipt: EntityAccessReceipt<ViewAccessLevel>,
-        _offset: i64,
-        _limit: i64,
-    ) -> Result<Option<email::domain::models::ParsedThread>, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn create_draft(
-        &self,
-        _link: &email::domain::models::Link,
-        _accessible_inboxes: &[email::domain::models::Link],
-        _input: email::domain::models::CreateDraftInput,
-    ) -> Result<email::domain::models::CreatedDraft, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn save_draft_for_user(
-        &self,
-        _macro_id: macro_user_id::user_id::MacroUserIdStr<'_>,
-        _link_id: Option<uuid::Uuid>,
-        _input: email::domain::models::CreateDraftInput,
-    ) -> Result<email::domain::models::SavedUserDraft, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn delete_draft_for_user(
-        &self,
-        _macro_id: macro_user_id::user_id::MacroUserIdStr<'_>,
-        _draft_id: uuid::Uuid,
-    ) -> Result<email::domain::models::DeletedUserDraft, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn send_message(
-        &self,
-        _link: &email::domain::models::Link,
-        _accessible_inboxes: &[email::domain::models::Link],
-        _input: email::domain::models::CreateDraftInput,
-    ) -> Result<email::domain::models::CreatedDraft, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn list_labels(
-        &self,
-        _link: &email::domain::models::Link,
-    ) -> Result<Vec<email::domain::models::LinkLabel>, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn update_thread_labels(
-        &self,
-        _link: &email::domain::models::Link,
-        _thread_id: uuid::Uuid,
-        _label_id: uuid::Uuid,
-        _add: bool,
-    ) -> Result<email::domain::models::UpdateThreadLabelsResult, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn update_thread_project(
-        &self,
-        _thread_receipt: EntityAccessReceipt<entity_access::domain::models::EditAccessLevel>,
-        _project_receipt: Option<
-            EntityAccessReceipt<entity_access::domain::models::EditAccessLevel>,
-        >,
-    ) -> Result<Option<String>, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn upsert_email_filter(
-        &self,
-        _link: &email::domain::models::Link,
-        _input: email::domain::models::UpsertEmailFilterInput,
-    ) -> Result<email::domain::models::EmailFilter, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn set_sender_policy(
-        &self,
-        _actor: &macro_user_id::user_id::MacroUserIdStr<'_>,
-        _link: &email::domain::models::Link,
-        _sender_email: &str,
-        _policy: email::domain::models::SenderPolicy,
-    ) -> Result<(), EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn delete_email_filter(
-        &self,
-        _link: &email::domain::models::Link,
-        _filter_id: Uuid,
-    ) -> Result<bool, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-
-    async fn list_email_filters(
-        &self,
-        _link: &email::domain::models::Link,
-    ) -> Result<Vec<email::domain::models::EmailFilter>, EmailErr> {
-        Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
-    }
-}
-
-#[tokio::test]
-async fn it_calls_soup_with_missing_link() {
-    let soup = MockSoup::new();
-    let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup,
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
-
-    let request = authenticated_request()
-        .uri(format!("/soup?cursor={CURSOR}"))
-        .body(axum::body::Body::empty())
-        .unwrap();
-
-    let _res = router.oneshot(request).await.unwrap();
-
-    let guard = inner_counter.lock().unwrap();
-
-    assert_eq!(guard.len(), 1);
-    assert!(guard.first().unwrap().link_ids.is_empty())
-}
-
-#[tokio::test]
-async fn it_does_not_call_soup_with_db_err() {
-    let soup = MockSoup::new();
-    let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup,
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| {
-                Err(EmailErr::RepoErr(anyhow::anyhow!("failed to fetch")))
-            }),
-        },
-    );
-
-    let request = authenticated_request()
-        .uri(format!("/soup?cursor={CURSOR}"))
-        .body(axum::body::Body::empty())
-        .unwrap();
-
-    let _res = router.oneshot(request).await.unwrap();
-
-    let guard = inner_counter.lock().unwrap();
-
-    assert_eq!(guard.len(), 0);
-}
-
-#[tokio::test]
-async fn it_loads_email_all_view() {
-    let soup = MockSoup::new();
-    let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup,
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
-
-    let request = authenticated_request()
-        .uri(format!("/soup?cursor={CURSOR}"))
-        .method(Method::POST)
-        .header("content-type", "application/json")
-        .body(axum::body::Body::from(
-            serde_json::to_vec(&serde_json::json!({
-                "emailView": "all"
-            }))
-            .unwrap(),
-        ))
-        .unwrap();
-
-    let _res = router.oneshot(request).await.unwrap();
-
-    let guard = inner_counter.lock().unwrap();
-    let arg = guard.first().unwrap();
-    assert!(matches!(arg.soup_type, SoupType::Expanded));
-    assert_eq!(
-        arg.email_preview_view,
-        PreviewView::StandardLabel(PreviewViewStandardLabel::All)
-    );
-}
-
-#[tokio::test]
-async fn it_loads_email_sent_view() {
-    let soup = MockSoup::new();
-    let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup,
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
-
-    let request = authenticated_request()
-        .uri(format!("/soup?cursor={CURSOR}"))
-        .method(Method::POST)
-        .header("content-type", "application/json")
-        .body(axum::body::Body::from(
-            serde_json::to_vec(&serde_json::json!({
-                "emailView": "sent"
-            }))
-            .unwrap(),
-        ))
-        .unwrap();
-
-    let _res = router.oneshot(request).await.unwrap();
-
-    let guard = inner_counter.lock().unwrap();
-    let arg = guard.first().unwrap();
-    assert!(matches!(arg.soup_type, SoupType::Expanded));
-    assert_eq!(
-        arg.email_preview_view,
-        PreviewView::StandardLabel(PreviewViewStandardLabel::Sent)
-    );
-}
-
 #[tokio::test]
 async fn it_parses_file_assoc_filters() {
     let soup = MockSoup::new();
     let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup,
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
+    let router: Router = mock_router_with(soup);
 
     let request = authenticated_request()
         .uri("/soup")
@@ -1068,12 +522,7 @@ async fn it_parses_file_assoc_filters() {
 async fn cursor_with_assoc_works() {
     let soup = MockSoup::new();
     let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup.clone(),
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
+    let router: Router = mock_router_with(soup.clone());
 
     let request = authenticated_request()
         .uri("/soup")
@@ -1136,12 +585,7 @@ async fn cursor_with_assoc_works() {
         ))
         .unwrap();
 
-    let router: Router = mock_router_with(
-        soup,
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
+    let router: Router = mock_router_with(soup);
 
     let _res = router.oneshot(request2).await.unwrap();
     let guard2 = inner_counter.lock().unwrap();
@@ -1153,12 +597,7 @@ async fn cursor_with_assoc_works() {
 async fn cursor_with_all_works() {
     let soup = MockSoup::new();
     let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup.clone(),
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
+    let router: Router = mock_router_with(soup.clone());
 
     let request = authenticated_request()
         .uri("/soup")
@@ -1221,12 +660,7 @@ async fn cursor_with_all_works() {
         ))
         .unwrap();
 
-    let router: Router = mock_router_with(
-        soup,
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
+    let router: Router = mock_router_with(soup);
 
     let _res = router.oneshot(request2).await.unwrap();
     let guard2 = inner_counter.lock().unwrap();
@@ -1238,12 +672,7 @@ async fn cursor_with_all_works() {
 async fn it_parses_channel_filters() {
     let soup = MockSoup::new();
     let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup.clone(),
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
+    let router: Router = mock_router_with(soup.clone());
 
     let uuid1 = Uuid::new_v4();
     let uuid2 = Uuid::new_v4();
@@ -1276,12 +705,7 @@ async fn it_parses_channel_filters() {
 async fn it_parses_notification_and_task_filters() {
     let soup = MockSoup::new();
     let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup,
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
+    let router: Router = mock_router_with(soup);
 
     let request = authenticated_request()
         .uri("/soup")
@@ -1350,11 +774,6 @@ async fn it_can_filter_chat_owners() {
 "00000000-0000-0000-0000-000000000000"
 ]
 },
-"email_filters": {
-"recipients": [
-"00000000-0000-0000-0000-000000000000"
-]
-},
 "project_filters": {
 "project_ids": [
 "00000000-0000-0000-0000-000000000000"
@@ -1365,19 +784,13 @@ async fn it_can_filter_chat_owners() {
 "macro|rahul@macro.com"
 ]
 },
-"emailView": "all",
 "limit": 100,
 "sort_method": "updated_at"
 }"#;
 
     let soup = MockSoup::new();
     let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup,
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
+    let router: Router = mock_router_with(soup);
 
     let request = authenticated_request()
         .uri("/soup")
@@ -1404,12 +817,7 @@ async fn it_can_filter_chat_owners() {
 async fn ast_endpoint_expands_file_assoc_pdf() {
     let soup = MockSoup::new();
     let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup,
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
+    let router: Router = mock_router_with(soup);
 
     let request = authenticated_request()
         .uri("/soup/ast")
@@ -1444,12 +852,7 @@ async fn ast_endpoint_expands_file_assoc_pdf() {
 async fn ast_endpoint_passes_through_plain_document_literal() {
     let soup = MockSoup::new();
     let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup,
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
+    let router: Router = mock_router_with(soup);
 
     let doc_id = Uuid::new_v4();
     let request = authenticated_request()
@@ -1485,12 +888,7 @@ async fn ast_endpoint_passes_through_plain_document_literal() {
 async fn ast_endpoint_passes_through_foreign_entity_filter() {
     let soup = MockSoup::new();
     let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup,
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
+    let router: Router = mock_router_with(soup);
 
     let request = authenticated_request()
         .uri("/soup/ast")
@@ -1548,12 +946,7 @@ fn ast_cursor_without_foreign_entity_filter_deserializes() {
 async fn ast_endpoint_expands_file_assoc_image_to_or_tree() {
     let soup = MockSoup::new();
     let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup,
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
+    let router: Router = mock_router_with(soup);
 
     let request = authenticated_request()
         .uri("/soup/ast")
@@ -1679,12 +1072,7 @@ async fn it_can_expand_assoc_ast() {
 
     let soup = MockSoup::new();
     let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup.clone(),
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
+    let router: Router = mock_router_with(soup.clone());
 
     let request = authenticated_request()
         .uri("/soup/ast")
@@ -1744,12 +1132,7 @@ async fn it_can_expand_assoc_ast() {
         ))
         .unwrap();
 
-    let router: Router = mock_router_with(
-        soup,
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
+    let router: Router = mock_router_with(soup);
 
     let _res = router.oneshot(request2).await.unwrap();
 
@@ -1758,231 +1141,6 @@ async fn it_can_expand_assoc_ast() {
         .first()
         .expect("SoupService::handle should have been called with next cursor");
     assert!(matches!(req.cursor_kind, MockCursorKind::SimpleCursor));
-}
-
-// ============================================================================
-// /soup/ast CRM scope extension
-// ============================================================================
-
-use item_filters::ast::CrmScope;
-
-#[test]
-fn ast_endpoint_email_crm_domains_stamps_scope_and_ands_into_tree() {
-    let js = json!({
-        "ecd": ["acme.com"],
-    });
-    let api: ApiEntityFilterAst = serde_json::from_value(js).unwrap();
-    let req = SoupRequest {
-        sort_direction: SoupSortDirection::default(),
-        soup_type: SoupType::Expanded,
-        limit: 20,
-        cursor: SoupQuery::Simple(SimpleQueryInner(Query::Sort(
-            SimpleSortMethod::ViewedAt,
-            api,
-        ))),
-        user: MacroUserIdStr::parse_from_str("macro|alice@example.com").unwrap(),
-        email_preview_view: PreviewView::StandardLabel(PreviewViewStandardLabel::Inbox),
-        link_ids: vec![],
-    };
-    let req: SoupRequest<Option<EntityFilterAst>> = req.into_ast().unwrap();
-    let ast = match &req.cursor {
-        SoupQuery::Simple(SimpleQueryInner(Query::Sort(_, f))) => f.as_ref().unwrap(),
-        _ => panic!("expected simple sort"),
-    };
-    let scope = ast.email_filter.crm_scope.as_ref().expect("scope set");
-    assert!(matches!(scope, CrmScope::Domains(d) if d == &vec!["acme.com".to_string()]));
-    // Sub-tree of any-direction OR literals stamped on the email AST.
-    assert!(ast.email_filter.tree.is_some());
-}
-
-#[test]
-fn ast_endpoint_email_crm_addresses_stamps_scope() {
-    let js = json!({
-        "eca": ["alice@acme.com"],
-    });
-    let api: ApiEntityFilterAst = serde_json::from_value(js).unwrap();
-    let req = SoupRequest {
-        sort_direction: SoupSortDirection::default(),
-        soup_type: SoupType::Expanded,
-        limit: 20,
-        cursor: SoupQuery::Simple(SimpleQueryInner(Query::Sort(
-            SimpleSortMethod::ViewedAt,
-            api,
-        ))),
-        user: MacroUserIdStr::parse_from_str("macro|alice@example.com").unwrap(),
-        email_preview_view: PreviewView::StandardLabel(PreviewViewStandardLabel::Inbox),
-        link_ids: vec![],
-    };
-    let req: SoupRequest<Option<EntityFilterAst>> = req.into_ast().unwrap();
-    let ast = match &req.cursor {
-        SoupQuery::Simple(SimpleQueryInner(Query::Sort(_, f))) => f.as_ref().unwrap(),
-        _ => panic!("expected simple sort"),
-    };
-    let scope = ast.email_filter.crm_scope.as_ref().expect("scope set");
-    assert!(matches!(scope, CrmScope::Addresses(a) if a == &vec!["alice@acme.com".to_string()]));
-    assert!(ast.email_filter.tree.is_some());
-}
-
-#[test]
-fn ast_endpoint_email_crm_both_lists_rejected() {
-    let js = json!({
-        "ecd": ["acme.com"],
-        "eca": ["alice@acme.com"],
-    });
-    let api: ApiEntityFilterAst = serde_json::from_value(js).unwrap();
-    let req = SoupRequest {
-        sort_direction: SoupSortDirection::default(),
-        soup_type: SoupType::Expanded,
-        limit: 20,
-        cursor: SoupQuery::Simple(SimpleQueryInner(Query::Sort(
-            SimpleSortMethod::ViewedAt,
-            api,
-        ))),
-        user: MacroUserIdStr::parse_from_str("macro|alice@example.com").unwrap(),
-        email_preview_view: PreviewView::StandardLabel(PreviewViewStandardLabel::Inbox),
-        link_ids: vec![],
-    };
-    let res = req.into_ast();
-    assert!(res.is_err(), "mutual exclusivity must reject both lists");
-}
-
-#[test]
-fn ast_endpoint_empty_crm_lists_leaves_scope_none() {
-    let js = json!({
-        "ef": null,
-    });
-    let api: ApiEntityFilterAst = serde_json::from_value(js).unwrap();
-    let req = SoupRequest {
-        sort_direction: SoupSortDirection::default(),
-        soup_type: SoupType::Expanded,
-        limit: 20,
-        cursor: SoupQuery::Simple(SimpleQueryInner(Query::Sort(
-            SimpleSortMethod::ViewedAt,
-            api,
-        ))),
-        user: MacroUserIdStr::parse_from_str("macro|alice@example.com").unwrap(),
-        email_preview_view: PreviewView::StandardLabel(PreviewViewStandardLabel::Inbox),
-        link_ids: vec![],
-    };
-    let req: SoupRequest<Option<EntityFilterAst>> = req.into_ast().unwrap();
-    // ast.is_none() because the whole filter is empty.
-    let ast = match &req.cursor {
-        SoupQuery::Simple(SimpleQueryInner(Query::Sort(_, f))) => f.as_ref(),
-        _ => panic!("expected simple sort"),
-    };
-    assert!(ast.is_none(), "fully-empty filter should collapse to None");
-}
-
-#[test]
-fn ast_endpoint_crm_ands_with_existing_freeform_ef() {
-    // The AND-merge between the freeform `ef` AST and the CRM-expanded
-    // sub-tree is the most consequential bit of `into_entity_ast`. This
-    // test pins the root shape:
-    //   Expr::And(
-    //       <original ef literal>,            // unchanged
-    //       <any-direction OR over the CRM domain>
-    //   )
-    let js = json!({
-        "ef": { "l": { "Sender": { "Complete": "bob@elsewhere.com" } } },
-        "ecd": ["acme.com"],
-    });
-    let api: ApiEntityFilterAst = serde_json::from_value(js).unwrap();
-    let req = SoupRequest {
-        sort_direction: SoupSortDirection::default(),
-        soup_type: SoupType::Expanded,
-        limit: 20,
-        cursor: SoupQuery::Simple(SimpleQueryInner(Query::Sort(
-            SimpleSortMethod::ViewedAt,
-            api,
-        ))),
-        user: MacroUserIdStr::parse_from_str("macro|alice@example.com").unwrap(),
-        email_preview_view: PreviewView::StandardLabel(PreviewViewStandardLabel::Inbox),
-        link_ids: vec![],
-    };
-    let req: SoupRequest<Option<EntityFilterAst>> = req.into_ast().unwrap();
-    let ast = match &req.cursor {
-        SoupQuery::Simple(SimpleQueryInner(Query::Sort(_, f))) => f.as_ref().unwrap(),
-        _ => panic!("expected simple sort"),
-    };
-
-    let tree = ast.email_filter.tree.as_ref().expect("tree set");
-    match tree.as_ref() {
-        filter_ast::Expr::And(left, right) => {
-            // Left = the original ef literal, untouched.
-            let left_json = serde_json::to_value(left.as_ref()).unwrap();
-            assert_eq!(
-                left_json,
-                serde_json::json!({ "l": { "Sender": { "Complete": "bob@elsewhere.com" } } }),
-                "left side of AND must be the original ef literal verbatim"
-            );
-            // Right = the any-direction CRM sub-tree. All four direction
-            // literals must appear in the right subtree carrying acme.com.
-            let right_json = serde_json::to_string(right.as_ref()).unwrap();
-            for direction in ["Sender", "Cc", "Bcc", "Recipient"] {
-                assert!(
-                    right_json.contains(direction),
-                    "right side must contain {} direction literal",
-                    direction
-                );
-            }
-            assert!(right_json.contains("acme.com"));
-        }
-        other => panic!(
-            "expected And at root after CRM AND-merge, got: {}",
-            serde_json::to_string(other).unwrap()
-        ),
-    }
-}
-
-#[test]
-fn ast_endpoint_crm_ef_merge_tolerates_shared_arc() {
-    // The soup service clones the request filters before AST expansion
-    // (`get_user_soup_internal`), so the `ef` Arc reaches the CRM
-    // AND-merge with refcount > 1. The merge must clone, not error.
-    let js = json!({
-        "ef": { "l": { "Importance": true } },
-        "ecd": ["acme.com"],
-    });
-    let api: ApiEntityFilterAst = serde_json::from_value(js).unwrap();
-    let _extra_ref = api.email_filter.clone();
-    let ast = api
-        .into_entity_ast()
-        .expect("shared ef Arc must not fail the merge");
-    let tree = ast.email_filter.tree.as_ref().expect("tree set");
-    assert!(
-        matches!(tree.as_ref(), filter_ast::Expr::And(_, _)),
-        "expected And at root after CRM AND-merge"
-    );
-}
-
-#[test]
-fn ast_endpoint_crm_domains_are_lowercased_in_scope() {
-    // Mixed-case input must land in the scope as lowercase — the CRM
-    // pre-check uses LOWER(domain) on the SQL side and would otherwise
-    // miss legitimate matches.
-    let js = json!({
-        "ecd": ["ACME.com"],
-    });
-    let api: ApiEntityFilterAst = serde_json::from_value(js).unwrap();
-    let req = SoupRequest {
-        sort_direction: SoupSortDirection::default(),
-        soup_type: SoupType::Expanded,
-        limit: 20,
-        cursor: SoupQuery::Simple(SimpleQueryInner(Query::Sort(
-            SimpleSortMethod::ViewedAt,
-            api,
-        ))),
-        user: MacroUserIdStr::parse_from_str("macro|alice@example.com").unwrap(),
-        email_preview_view: PreviewView::StandardLabel(PreviewViewStandardLabel::Inbox),
-        link_ids: vec![],
-    };
-    let req: SoupRequest<Option<EntityFilterAst>> = req.into_ast().unwrap();
-    let ast = match &req.cursor {
-        SoupQuery::Simple(SimpleQueryInner(Query::Sort(_, f))) => f.as_ref().unwrap(),
-        _ => panic!("expected simple sort"),
-    };
-    let scope = ast.email_filter.crm_scope.as_ref().expect("scope set");
-    assert!(matches!(scope, CrmScope::Domains(d) if d == &vec!["acme.com".to_string()]));
 }
 
 /// Ascending frecency has no meaning — the frecency branch orders by relevance
@@ -2019,12 +1177,7 @@ async fn ascending_frecency_is_rejected() {
 async fn descending_frecency_is_accepted() {
     let soup = MockSoup::new();
     let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup,
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
+    let router: Router = mock_router_with(soup);
 
     let request = authenticated_request()
         .uri("/soup/ast")
@@ -2050,12 +1203,7 @@ async fn descending_frecency_is_accepted() {
 async fn touched_by_me_sort_selects_touched_query() {
     let soup = MockSoup::new();
     let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup,
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
+    let router: Router = mock_router_with(soup);
 
     let request = authenticated_request()
         .uri("/soup/ast")
@@ -2078,12 +1226,7 @@ async fn touched_by_me_sort_selects_touched_query() {
 async fn touched_cursor_round_trips() {
     let soup = MockSoup::new();
     let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup,
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
+    let router: Router = mock_router_with(soup);
 
     // The shape the service emits: entity id + own-mutation timestamp. The
     // sort marker serializes as null (like frecency's); the timestamp value
@@ -2152,12 +1295,7 @@ async fn ascending_touched_is_rejected() {
 async fn notified_at_sort_selects_notified_query() {
     let soup = MockSoup::new();
     let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup,
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
+    let router: Router = mock_router_with(soup);
 
     let request = authenticated_request()
         .uri("/soup/ast")
@@ -2181,12 +1319,7 @@ async fn notified_at_sort_selects_notified_query() {
 async fn notified_cursor_round_trips() {
     let soup = MockSoup::new();
     let inner_counter = soup.called.clone();
-    let router: Router = mock_router_with(
-        soup,
-        MockEmailLinkResult {
-            get_link_result: Arc::new(|| Ok(None)),
-        },
-    );
+    let router: Router = mock_router_with(soup);
 
     let cursor = models_pagination::Base64Str::encode_json(models_pagination::Cursor {
         id: Uuid::new_v4().to_string(),

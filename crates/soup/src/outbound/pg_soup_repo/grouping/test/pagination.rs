@@ -13,7 +13,6 @@ pub(super) fn task_filter() -> EntityFilterAst {
         )))),
         chat_filter: Some(Arc::new(Expr::val(ChatLiteral::Importance(false)))),
         project_filter: Some(Arc::new(Expr::val(ProjectLiteral::Importance(false)))),
-        calendar_event_filter: Some(Arc::new(Expr::val(CalendarEventLiteral::Id(Uuid::nil())))),
         ..EntityFilterAst::mock_empty()
     }
 }

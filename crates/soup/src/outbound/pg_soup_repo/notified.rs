@@ -3,9 +3,8 @@
 //!
 //! Every candidate is gated on existence, deletion and access, and on the
 //! request's filters where soup owns the fold (documents, chats, projects,
-//! calendar events, properties). Channel, channel-thread, email,
-//! foreign-entity candidates are gated on access (plus the
-//! notification-state and, for emails, importance conjuncts their trees
+//! properties). Channel, channel-thread and foreign-entity candidates are
+//! gated on access (plus the notification-state conjuncts their trees
 //! imply): their filter trees fold in their own domains' query
 //! builders, so the service applies them in full when it hydrates the page
 //! through those legs and drops the candidates that fail, refilling from the
@@ -21,9 +20,8 @@
 use filter_ast::Expr;
 use item_filters::ast::EntityFilterAst;
 use item_filters::ast::agent_session::AgentSessionLiteral;
-use item_filters::ast::calendar_event::CalendarEventLiteral;
 use item_filters::ast::foreign_entity::ForeignEntityLiteral;
-use item_filters::ast::properties::{PropertyEntityType, properties_filter_matches_propertyless};
+use item_filters::ast::properties::properties_filter_matches_propertyless;
 use model_entity::EntityType;
 use recursion::CollapsibleExt;
 use sqlx::{PgPool, Row};
@@ -31,75 +29,19 @@ use std::str::FromStr;
 
 use crate::domain::models::{NotifiedEntity, NotifiedSoupRequest};
 use crate::outbound::pg_soup_repo::candidate_gates::{
-    channel_gate, channel_thread_gate, chat_gate, document_gate, email_gate, implied_conjuncts_sql,
-    includes_channels, includes_chats, includes_documents, includes_email_threads,
-    includes_initiatives, includes_projects, initiative_gate, project_gate, uuid_guarded,
+    channel_gate, channel_thread_gate, chat_gate, document_gate, implied_conjuncts_sql,
+    includes_channels, includes_chats, includes_documents, includes_initiatives, includes_projects,
+    initiative_gate, project_gate, uuid_guarded,
 };
-use crate::outbound::pg_soup_repo::expanded::dynamic::{
-    build_notification_state_clause, build_properties_filter, calendar_event_filter_is_impossible,
-    properties_filter_can_apply_to,
-};
+use crate::outbound::pg_soup_repo::expanded::dynamic::build_notification_state_clause;
 use crate::outbound::pg_soup_repo::type_err;
 
 /// The candidate row's entity id, as the gates see it: the `notified` CTE's
 /// derived key (thread root for thread-scoped channel notifications).
 pub(super) const ID_SQL: &str = "nc.entity_id";
 
-/// Folds a calendar filter into SQL over the `event` alias. Only the literals
-/// [`calendar_filter_supported_by_notified`] admits have a fold; anything
-/// else fails closed, since the service already rejected such trees.
-///
-/// [`calendar_filter_supported_by_notified`]: crate::domain::models::calendar_filter_supported_by_notified
-fn build_calendar_event_filter(tree: Option<&Expr<CalendarEventLiteral>>) -> String {
-    let Some(tree) = tree else {
-        return String::new();
-    };
-    let sql = tree.collapse_frames(|frame| match frame {
-        filter_ast::ExprFrame::And(a, b) => format!("({a} AND {b})"),
-        filter_ast::ExprFrame::Or(a, b) => format!("({a} OR {b})"),
-        filter_ast::ExprFrame::Not(a) => format!("NOT ({a})"),
-        filter_ast::ExprFrame::Literal(CalendarEventLiteral::Id(id)) => {
-            format!("event.id = '{id}'")
-        }
-        filter_ast::ExprFrame::Literal(CalendarEventLiteral::NotificationState(state)) => {
-            build_notification_state_clause("event.id", "calendar_event", state)
-        }
-        filter_ast::ExprFrame::Literal(_) => "FALSE".to_string(),
-    });
-    format!(" AND {sql}")
-}
-
-/// Calendar events are owner- or delegation-scoped, never `entity_access`
-/// rows: visible iff the caller owns the event or is delegated the inbox it
-/// was synced from. Mirrors the calendar by-ids hydration's access check.
-pub(super) fn calendar_event_gate(filter: Option<&EntityFilterAst>) -> String {
-    let calendar_filter = filter.and_then(|f| f.calendar_event_filter.as_deref());
-    let props_filter = filter.and_then(|f| f.properties_filter.as_deref());
-    uuid_guarded(
-        ID_SQL,
-        format!(
-            r#"EXISTS (
-                SELECT 1 FROM calendar_events event
-                WHERE event.id = {ID_SQL}::uuid
-                AND (
-                    event.owner_id = $1
-                    OR EXISTS (
-                        SELECT 1 FROM macro_user_links link
-                        WHERE link.link_id = event.source_link_id
-                        AND link.primary_macro_id = $1
-                    )
-                )
-                {calendar_fold}
-                {props_fold}
-            )"#,
-            calendar_fold = build_calendar_event_filter(calendar_filter),
-            props_fold = build_properties_filter(props_filter, "event.id::text"),
-        ),
-    )
-}
-
 /// Foreign entities are visible through the source they were stored for:
-/// the caller themselves or a team they belong to (`$7`/`$8` are the
+/// the caller themselves or a team they belong to (`$6`/`$7` are the
 /// parallel id / auth-entity arrays of those sources). The foreign-entity
 /// tree folds in its own crate, which hydration applies in full; the
 /// notification-state conjuncts it implies are pre-applied here.
@@ -120,7 +62,7 @@ pub(super) fn foreign_entity_gate(filter: Option<&EntityFilterAst>) -> String {
                 SELECT 1 FROM foreign_entity fe
                 WHERE fe.id = {ID_SQL}::uuid
                 AND EXISTS (
-                    SELECT 1 FROM unnest($7::text[], $8::text[]) AS source(id, auth_entity)
+                    SELECT 1 FROM unnest($6::text[], $7::text[]) AS source(id, auth_entity)
                     WHERE source.id = fe.stored_for_id
                     AND source.auth_entity = fe.stored_for_auth_entity
                 )
@@ -215,15 +157,6 @@ pub(super) fn included_types(req: &NotifiedSoupRequest<'_>) -> Vec<&'static str>
     if req.hydratable.channel_threads && propertyless_ok {
         types.push(EntityType::ChannelMessage.into());
     }
-    if req.hydratable.email_threads && includes_email_threads(req.filter, req.link_ids) {
-        types.push(EntityType::EmailThread.into());
-    }
-    if !calendar_event_filter_is_impossible(
-        req.filter.and_then(|f| f.calendar_event_filter.as_deref()),
-    ) && properties_filter_can_apply_to(props, &[PropertyEntityType::CalendarEvent])
-    {
-        types.push(EntityType::CalendarEvent.into());
-    }
     // Foreign entities carry no properties, so the filter is
     // settled type-wide like it is for channels.
     if req.hydratable.foreign_entities
@@ -255,8 +188,6 @@ fn build_query(filter: Option<&EntityFilterAst>) -> String {
         initiative_gate = initiative_gate(ID_SQL, filter),
         channel_gate = channel_gate(ID_SQL, filter),
         channel_thread_gate = channel_thread_gate(ID_SQL, filter),
-        email_gate = email_gate(ID_SQL, filter),
-        calendar_event_gate = calendar_event_gate(filter),
         foreign_entity_gate = foreign_entity_gate(filter),
         agent_session_gate = agent_session_gate(filter),
     )
@@ -309,7 +240,6 @@ pub(super) async fn notified_soup_page(
         .bind(&types)
         .bind(after_ts)
         .bind(after_id)
-        .bind(req.link_ids)
         .bind(req.limit as i64)
         .bind(&source_ids)
         .bind(&source_auth_entities)

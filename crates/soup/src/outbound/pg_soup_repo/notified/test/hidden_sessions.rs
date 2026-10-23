@@ -15,7 +15,6 @@ fn work_request<'a>(
         after: None,
         types: &[EntityType::AgentSession],
         filter: Some(filter),
-        link_ids: &[],
         foreign_entity_sources: sources,
         hydratable: EVERYTHING,
         only,
@@ -52,8 +51,7 @@ async fn hidden_contexts_with_notifications_and_activity_stay_out_of_broad_feeds
     )
     .execute(&pool)
     .await?;
-    let notified =
-        notified_soup_page(&pool, req(Some(&include), &[], &sources, EVERYTHING)).await?;
+    let notified = notified_soup_page(&pool, req(Some(&include), &sources, EVERYTHING)).await?;
     assert!(!keys(&notified).contains(&(EntityType::AgentSession, mine.to_string())));
     for mode in [WorkFeedSoupMode::Work, WorkFeedSoupMode::Attention] {
         assert!(
@@ -85,7 +83,7 @@ async fn hidden_contexts_with_notifications_and_activity_stay_out_of_broad_feeds
         .len(),
         1
     );
-    let notified = notified_soup_page(&pool, req(Some(&named), &[], &sources, EVERYTHING)).await?;
+    let notified = notified_soup_page(&pool, req(Some(&named), &sources, EVERYTHING)).await?;
     assert!(keys(&notified).contains(&(EntityType::AgentSession, mine.to_string())));
     // Favorites add positive ID constraints to the view's existing filter.
     let favorite = EntityFilterAst {

@@ -7,7 +7,6 @@ use item_filters::ast::{
     EntityFilterAst,
     call::CallLiteral,
     channel::{ChannelLiteral, ChannelThreadLiteral},
-    email::EmailLiteral,
     foreign_entity::ForeignEntityLiteral,
 };
 use recursion::CollapsibleExt;
@@ -23,13 +22,6 @@ fn excludes_all<L: Clone>(tree: Option<&Expr<L>>, excludes: impl Fn(L) -> bool) 
             ExprFrame::Literal(literal) => excludes(literal),
         })
     })
-}
-
-pub(super) fn email(filter: Option<&EntityFilterAst>) -> bool {
-    excludes_all(
-        filter.and_then(|filter| filter.email_filter.tree.as_deref()),
-        |literal| matches!(literal, EmailLiteral::ThreadId(id) if id.is_nil()),
-    )
 }
 
 pub(super) fn channel(filter: Option<&EntityFilterAst>) -> bool {

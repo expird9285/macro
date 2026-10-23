@@ -6,7 +6,6 @@ use macro_db_migrator::MACRO_DB_MIGRATIONS;
 use macro_user_id::user_id::MacroUserIdStr;
 use model_entity::Entity;
 use sqlx::{Pool, Postgres};
-use uuid::Uuid;
 
 const USER_1: &str = "macro|user-1@test.com";
 const DOC_A: &str = "11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
@@ -19,14 +18,10 @@ const DOC_H: &str = "11111111-9999-9999-9999-999999999999";
 const CHAT_A: &str = "22222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 const CHANNEL_X: &str = "33333333-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 const THREAD_M: &str = "99999999-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-const THREAD_Z: &str = "44444444-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-const THREAD_S: &str = "44444444-5555-5555-5555-555555555555";
-const LINK_1: &str = "55555555-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 
 const EVERYTHING: NotifiedHydratableTypes = NotifiedHydratableTypes {
     channels: true,
     channel_threads: true,
-    email_threads: true,
     foreign_entities: true,
 };
 
@@ -36,17 +31,11 @@ const ALL_TYPES: &[EntityType] = &[
     EntityType::Project,
     EntityType::Channel,
     EntityType::ChannelMessage,
-    EntityType::EmailThread,
-    EntityType::CalendarEvent,
     EntityType::ForeignEntity,
     EntityType::AgentSession,
 ];
 
-fn req<'a>(
-    mode: WorkFeedSoupMode,
-    link_ids: &'a [Uuid],
-    sources: &'a [SourceId],
-) -> WorkFeedCandidateRequest<'a> {
+fn req<'a>(mode: WorkFeedSoupMode, sources: &'a [SourceId]) -> WorkFeedCandidateRequest<'a> {
     WorkFeedCandidateRequest {
         user_id: MacroUserIdStr::parse_from_str(USER_1).unwrap(),
         limit: 50,
@@ -54,7 +43,6 @@ fn req<'a>(
         after: None,
         types: ALL_TYPES,
         filter: None,
-        link_ids,
         foreign_entity_sources: sources,
         hydratable: EVERYTHING,
         only: None,
@@ -87,8 +75,6 @@ fn sources() -> Vec<SourceId> {
 /// The fixture's whole work-mode feed, newest first.
 fn work_feed_order() -> Vec<(EntityType, String)> {
     vec![
-        (EntityType::EmailThread, THREAD_S.to_string()),
-        (EntityType::EmailThread, THREAD_Z.to_string()),
         (EntityType::Channel, CHANNEL_X.to_string()),
         (EntityType::Document, DOC_H.to_string()),
         (EntityType::Document, DOC_A.to_string()),
@@ -106,19 +92,13 @@ fn work_feed_order() -> Vec<(EntityType, String)> {
     migrator = "MACRO_DB_MIGRATIONS"
 )]
 async fn work_mode_merges_attention_and_own_work(pool: Pool<Postgres>) -> anyhow::Result<()> {
-    let link_ids = [Uuid::parse_str(LINK_1)?];
     let sources = sources();
-    let page = work_feed_soup_page(&pool, req(WorkFeedSoupMode::Work, &link_ids, &sources)).await?;
+    let page = work_feed_soup_page(&pool, req(WorkFeedSoupMode::Work, &sources)).await?;
 
     assert_eq!(keys(&page), work_feed_order());
     assert_eq!(
         minutes(&page),
         vec![
-            // thread-S: its notification does not count outside the inbox,
-            // and archiving it after the send is not own work. Archived
-            // thread-A has nothing else, so it stays out.
-            (13, None, Some(13)),
-            (12, Some(12), None),
             // channel-X: the thread mention belongs to thread-M.
             (11, None, Some(11)),
             // doc-H: attention is its newest pending notification; the newer
@@ -146,15 +126,12 @@ async fn work_mode_merges_attention_and_own_work(pool: Pool<Postgres>) -> anyhow
     migrator = "MACRO_DB_MIGRATIONS"
 )]
 async fn attention_mode_ignores_own_work(pool: Pool<Postgres>) -> anyhow::Result<()> {
-    let link_ids = [Uuid::parse_str(LINK_1)?];
     let sources = sources();
-    let page =
-        work_feed_soup_page(&pool, req(WorkFeedSoupMode::Attention, &link_ids, &sources)).await?;
+    let page = work_feed_soup_page(&pool, req(WorkFeedSoupMode::Attention, &sources)).await?;
 
     assert_eq!(
         keys(&page),
         vec![
-            (EntityType::EmailThread, THREAD_Z.to_string()),
             (EntityType::Document, DOC_B.to_string()),
             (EntityType::Document, DOC_G.to_string()),
             (EntityType::Document, DOC_H.to_string()),
@@ -165,8 +142,8 @@ async fn attention_mode_ignores_own_work(pool: Pool<Postgres>) -> anyhow::Result
     );
     assert!(page.iter().all(|c| c.touched_at.is_none()));
     // doc-H sits at its pending notification, not its newer done one.
-    assert_eq!(page[3].sort_at.minute(), 6);
-    assert_eq!(page[4].sort_at.minute(), 5);
+    assert_eq!(page[2].sort_at.minute(), 6);
+    assert_eq!(page[3].sort_at.minute(), 5);
 
     Ok(())
 }
@@ -176,13 +153,12 @@ async fn attention_mode_ignores_own_work(pool: Pool<Postgres>) -> anyhow::Result
     migrator = "MACRO_DB_MIGRATIONS"
 )]
 async fn keyset_paginates_across_both_streams(pool: Pool<Postgres>) -> anyhow::Result<()> {
-    let link_ids = [Uuid::parse_str(LINK_1)?];
     let sources = sources();
 
     let mut all = Vec::new();
     let mut after = None;
     loop {
-        let mut request = req(WorkFeedSoupMode::Work, &link_ids, &sources);
+        let mut request = req(WorkFeedSoupMode::Work, &sources);
         request.limit = 3;
         request.after = after;
         let page = work_feed_soup_page(&pool, request).await?;
@@ -200,10 +176,9 @@ async fn keyset_paginates_across_both_streams(pool: Pool<Postgres>) -> anyhow::R
 
     // Pages of three — including a boundary inside the doc-B/doc-G tie —
     // yield the same feed as one page: nothing repeats and nothing is lost.
-    let one_page =
-        work_feed_soup_page(&pool, req(WorkFeedSoupMode::Work, &link_ids, &sources)).await?;
+    let one_page = work_feed_soup_page(&pool, req(WorkFeedSoupMode::Work, &sources)).await?;
     assert_eq!(keys(&all), keys(&one_page));
-    assert_eq!(all.len(), 11);
+    assert_eq!(all.len(), 9);
 
     Ok(())
 }
@@ -213,14 +188,13 @@ async fn keyset_paginates_across_both_streams(pool: Pool<Postgres>) -> anyhow::R
     migrator = "MACRO_DB_MIGRATIONS"
 )]
 async fn every_page_size_matches_the_whole_feed(pool: Pool<Postgres>) -> anyhow::Result<()> {
-    let link_ids = [Uuid::parse_str(LINK_1)?];
     let sources = sources();
     let whole = work_feed_order();
 
     // A full page of own work bounds how far back attention is read; each
     // smaller page must still be the head of the whole feed.
     for limit in 1..=whole.len() {
-        let mut request = req(WorkFeedSoupMode::Work, &link_ids, &sources);
+        let mut request = req(WorkFeedSoupMode::Work, &sources);
         request.limit = u16::try_from(limit)?;
         let page = work_feed_soup_page(&pool, request).await?;
         assert_eq!(keys(&page), whole[..limit], "limit {limit}");
@@ -234,7 +208,6 @@ async fn every_page_size_matches_the_whole_feed(pool: Pool<Postgres>) -> anyhow:
     migrator = "MACRO_DB_MIGRATIONS"
 )]
 async fn only_restricts_to_known_items(pool: Pool<Postgres>) -> anyhow::Result<()> {
-    let link_ids = [Uuid::parse_str(LINK_1)?];
     let sources = sources();
     let only: Vec<Entity<'static>> = vec![
         EntityType::Document.with_entity_string(DOC_A.to_string()),
@@ -242,7 +215,7 @@ async fn only_restricts_to_known_items(pool: Pool<Postgres>) -> anyhow::Result<(
         EntityType::Document.with_entity_string(DOC_F.to_string()),
         EntityType::ChannelMessage.with_entity_string(THREAD_M.to_string()),
     ];
-    let mut request = req(WorkFeedSoupMode::Work, &link_ids, &sources);
+    let mut request = req(WorkFeedSoupMode::Work, &sources);
     request.only = Some(&only);
     let page = work_feed_soup_page(&pool, request).await?;
 
@@ -262,17 +235,15 @@ async fn only_restricts_to_known_items(pool: Pool<Postgres>) -> anyhow::Result<(
     migrator = "MACRO_DB_MIGRATIONS"
 )]
 async fn types_narrow_both_streams(pool: Pool<Postgres>) -> anyhow::Result<()> {
-    let link_ids = [Uuid::parse_str(LINK_1)?];
     let sources = sources();
-    let mut request = req(WorkFeedSoupMode::Work, &link_ids, &sources);
-    request.types = &[EntityType::EmailThread, EntityType::Chat];
+    let mut request = req(WorkFeedSoupMode::Work, &sources);
+    request.types = &[EntityType::Channel, EntityType::Chat];
     let page = work_feed_soup_page(&pool, request).await?;
 
     assert_eq!(
         keys(&page),
         vec![
-            (EntityType::EmailThread, THREAD_S.to_string()),
-            (EntityType::EmailThread, THREAD_Z.to_string()),
+            (EntityType::Channel, CHANNEL_X.to_string()),
             (EntityType::Chat, CHAT_A.to_string()),
         ]
     );

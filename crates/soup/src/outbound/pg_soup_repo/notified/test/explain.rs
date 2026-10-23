@@ -10,15 +10,13 @@ const PAGE_SIZE: i64 = 100;
 // Both alternatives use the production query's bindings and access scopes.
 // The SQL is generated from AST gates, so this cannot use a static SQLx macro.
 fn bind_query(sql: &str) -> Query<'_, Postgres, PgArguments> {
-    let links = vec![Uuid::parse_str(LINK_1).unwrap()];
     let sources = sources();
-    let types = included_types(&req(None, &links, &sources, EVERYTHING));
+    let types = included_types(&req(None, &sources, EVERYTHING));
     sqlx::query(sql)
         .bind(USER_1)
         .bind(types)
         .bind(None::<NaiveDateTime>)
         .bind(None::<String>)
-        .bind(links)
         .bind(PAGE_SIZE)
         .bind(vec![USER_1, TEAM_T])
         .bind(vec!["user", "team"])

@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use crate::domain::models::{
-    AdvancedSortParams, CrmPropertyEdge, EnrichedSoupItem, GroupedSortRequest, IntoSoupReqAst,
-    NotifiedEntity, NotifiedSoupRequest, SimpleSortRequest, SoupErr, SoupProjectionHydration,
-    SoupPropertiesField, SoupRequest, TouchedEntity, TouchedSoupRequest, WorkFeedCandidate,
-    WorkFeedCandidateRequest, WorkFeedSoupPage, WorkFeedSoupRequest, grouping::ItemGroupingInfo,
+    AdvancedSortParams, EnrichedSoupItem, GroupedSortRequest, IntoSoupReqAst, NotifiedEntity,
+    NotifiedSoupRequest, SimpleSortRequest, SoupErr, SoupProjectionHydration, SoupPropertiesField,
+    SoupRequest, TouchedEntity, TouchedSoupRequest, WorkFeedCandidate, WorkFeedCandidateRequest,
+    WorkFeedSoupPage, WorkFeedSoupRequest, grouping::ItemGroupingInfo,
 };
 use entity_access::domain::models::{EntityAccessReceipt, MemberTeamRole};
 use macro_user_id::user_id::MacroUserIdStr;
@@ -96,15 +96,6 @@ pub trait SoupRepo: Send + Sync + 'static {
         &self,
         req: TouchedSoupRequest<'a>,
     ) -> impl Future<Output = Result<Vec<TouchedEntity>, Self::Err>> + Send;
-
-    /// Every entity whose Companies property names one of `company_ids` or
-    /// whose Contacts property names one of `contact_ids`. Not authorized:
-    /// each entity reaches the caller only through its own source query.
-    fn crm_property_edges<'a>(
-        &self,
-        company_ids: &'a [uuid::Uuid],
-        contact_ids: &'a [uuid::Uuid],
-    ) -> impl Future<Output = Result<Vec<CrmPropertyEdge>, Self::Err>> + Send;
 
     /// Fetch one page of notified-at candidates: entities the user holds a
     /// live notification for, newest notification first, already gated on
@@ -218,10 +209,9 @@ mod test;
 pub trait SoupService: Send + Sync + 'static {
     /// Run a soup query without loading entity properties or frecency.
     ///
-    /// `team_receipt` proves the user belongs to a team and may be used by
-    /// filters that broaden visibility beyond the user's own mailboxes (e.g.
-    /// `EmailFilters::crm_domains` / `crm_addresses`). Pass `None` when
-    /// no CRM-scoped filter is active.
+    /// `team_receipt` proves the user belongs to a team and widens the
+    /// foreign-entity sources the query reads to include the team's. Pass
+    /// `None` when the caller has no team.
     fn get_user_soup<T>(
         &self,
         req: SoupRequest<T>,

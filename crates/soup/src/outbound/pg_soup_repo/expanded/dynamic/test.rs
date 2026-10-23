@@ -134,7 +134,6 @@ async fn grouped_query_explain_local(pool: PgPool) -> anyhow::Result<()> {
         )))),
         chat_filter: Some(Arc::new(Expr::val(ChatLiteral::Importance(false)))),
         project_filter: Some(Arc::new(Expr::val(ProjectLiteral::Importance(false)))),
-        calendar_event_filter: Some(Arc::new(Expr::val(CalendarEventLiteral::Id(Uuid::nil())))),
         ..EntityFilterAst::mock_empty()
     };
     for sort in [SimpleSortMethod::UpdatedAt, SimpleSortMethod::ViewedUpdated] {

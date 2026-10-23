@@ -1,4 +1,3 @@
-pub(crate) mod contact_listing;
 pub mod grouping;
 
 mod exclusions;
@@ -8,9 +7,6 @@ mod test;
 
 use call::domain::models::GetCallRecordsRequest;
 use channels::domain::models::{GetChannelsRequest, GetThreadReplyRowsRequest};
-use crm::domain::auth::CrmTeamReceipt;
-use crm::domain::companies_repo::{CrmCompanyListSort, CrmCompanySoupCursor};
-use email::domain::models::{GetEmailsRequest, PreviewView};
 use entity_access::domain::models::{EntityAccessReceipt, MemberTeamRole};
 use filter_ast::Expr;
 use foreign_entity::domain::{models::SourceId, ports::ForeignEntityListQuery};
@@ -20,13 +16,10 @@ use item_filters::{
     EntityFilters,
     ast::{
         EntityFilterAst, ExpandErr, LiteralTree,
-        calendar_event::CalendarEventLiteral,
         call::CallLiteral,
-        crm_company::CrmCompanyLiteral,
-        email::EmailLiteral,
         github_pull_request::GithubPullRequestLiteral,
         properties::{
-            PropertiesLiteral, PropertyEntityType, properties_filter_can_apply_to,
+            PropertiesLiteral, properties_filter_can_apply_to,
             properties_filter_matches_propertyless,
         },
     },
@@ -40,7 +33,6 @@ use models_pagination::{
 use models_soup::SoupProperty;
 use models_soup::item::SoupItem;
 use non_empty::IsEmpty;
-use recursion::CollapsibleExt;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use thiserror::Error;
@@ -340,12 +332,6 @@ pub struct SoupRequest<T> {
     pub sort_direction: SoupSortDirection,
     /// User whose soup should be queried.
     pub user: MacroUserIdStr<'static>,
-    /// Email preview view used when hydrating email soup items.
-    pub email_preview_view: PreviewView,
-    /// Every inbox the caller can read (own + delegated via macro_user_links).
-    /// Empty when the caller has no inboxes — `build_email_request` returns
-    /// `None` so the email branch is skipped, unless the request is CRM-scoped.
-    pub link_ids: Vec<Uuid>,
 }
 
 /// trait which defines a type which can be fallibly converted into a SoupRequest with ast
@@ -362,8 +348,6 @@ impl IntoSoupReqAst for SoupRequest<EntityFilters> {
             cursor,
             sort_direction,
             user,
-            email_preview_view,
-            link_ids,
         } = self;
 
         Ok(SoupRequest {
@@ -372,8 +356,6 @@ impl IntoSoupReqAst for SoupRequest<EntityFilters> {
             cursor: cursor.into_ast()?,
             sort_direction,
             user,
-            email_preview_view,
-            link_ids,
         })
     }
 }
@@ -386,8 +368,6 @@ impl IntoSoupReqAst for SoupRequest<EntityFilterAst> {
             cursor,
             sort_direction,
             user,
-            email_preview_view,
-            link_ids,
         } = self;
 
         Ok(SoupRequest {
@@ -396,8 +376,6 @@ impl IntoSoupReqAst for SoupRequest<EntityFilterAst> {
             cursor: cursor.map(|f| if f.is_empty() { None } else { Some(f) }),
             sort_direction,
             user,
-            email_preview_view,
-            link_ids,
         })
     }
 }
@@ -411,91 +389,6 @@ impl<T> SoupRequest<T> {
 }
 
 impl SoupRequest<Option<EntityFilterAst>> {
-    /// take the parts of the [SoupRequest] that are only relevant to email
-    /// and move them into a [GetEmailsRequest] if it is possible to create one.
-    ///
-    /// `team_receipt` is forwarded onto the email request so the query
-    /// layer can verify and use it when the email filter carries a CRM
-    /// scope tag (`EntityFilterAst::email_filter::crm_scope`).
-    pub(crate) fn build_email_request(
-        &self,
-        team_receipt: Option<EntityAccessReceipt<MemberTeamRole>>,
-    ) -> Option<GetEmailsRequest> {
-        let entity_ast = self.entity_ast();
-        let crm_scope = entity_ast.and_then(|a| a.email_filter.crm_scope.clone());
-
-        // A CRM scope reads teammates' threads, which email authorizes against
-        // the scope, so a viewer without a mailbox of their own still sees them.
-        if self.link_ids.is_empty() && crm_scope.is_none() {
-            return None;
-        }
-        // CRM-scoped requests must still reach email's authorization precheck,
-        // even when their id filter cannot match any threads.
-        if crm_scope.is_none() && exclusions::email(entity_ast) {
-            return None;
-        }
-
-        // A properties filter that cannot match threads makes the email
-        // branch empty, so the sub-request is skipped. Otherwise it is ANDed
-        // into the email tree so the query returns exactly matching threads.
-        let properties_filter = entity_ast.and_then(|a| a.properties_filter.as_deref());
-        if let Some(propf) = properties_filter
-            && !properties_filter_can_apply_to(propf, &[PropertyEntityType::Thread])
-        {
-            return None;
-        }
-
-        Some(GetEmailsRequest {
-            view: self.email_preview_view.clone(),
-            link_ids: self.link_ids.clone(),
-            macro_id: self.user.clone(),
-            limit: Some(self.limit as u32),
-            query: match &self.cursor {
-                SoupQuery::Simple(SimpleQueryInner(Query::Sort(t, f))) => Some(Query::Sort(
-                    *t,
-                    with_properties_filter(
-                        f.as_ref().and_then(|f| f.email_filter.tree.clone()),
-                        properties_filter,
-                    ),
-                )),
-                SoupQuery::Simple(SimpleQueryInner(Query::Cursor(CursorWithValAndFilter {
-                    id,
-                    limit,
-                    val,
-                    filter,
-                }))) => Some(Query::Cursor(CursorWithValAndFilter {
-                    id: *id,
-                    limit: *limit,
-                    val: val.clone(),
-                    filter: with_properties_filter(
-                        filter.as_ref().and_then(|f| f.email_filter.tree.clone()),
-                        properties_filter,
-                    ),
-                })),
-                // we don't yet have sort by frecency implemented for emails yet
-                SoupQuery::Frecency(_) => None,
-                // touched-by-me hydrates emails by thread id, not via this leg
-                SoupQuery::Touched(_) => None,
-                // notified-at hydrates its email candidates through this leg
-                // with the request's own tree, so the view and every email
-                // literal keep applying: the handler ANDs the thread ids in.
-                SoupQuery::Notified(NotifiedQueryInner(query)) => Some(Query::Sort(
-                    SimpleSortMethod::UpdatedAt,
-                    with_properties_filter(
-                        query
-                            .filter()
-                            .as_ref()
-                            .and_then(|f| f.email_filter.tree.clone()),
-                        properties_filter,
-                    ),
-                )),
-            }?,
-            include_frecency: false,
-            team_receipt,
-            crm_scope,
-        })
-    }
-
     /// The request's entity filter ast, regardless of cursor position.
     pub(crate) fn entity_ast(&self) -> Option<&EntityFilterAst> {
         match &self.cursor {
@@ -512,7 +405,7 @@ impl SoupRequest<Option<EntityFilterAst>> {
 
     /// True when an active properties filter can never match an entity with
     /// no property rows. Property-less sub-requests (channels, channel
-    /// threads, calls, CRM companies, foreign entities) are skipped so pages
+    /// threads, calls, foreign entities) are skipped so pages
     /// only contain rows the filter applies to.
     fn properties_filter_blocks_propertyless(&self) -> bool {
         self.entity_ast()
@@ -569,86 +462,6 @@ impl SoupRequest<Option<EntityFilterAst>> {
                 // call notifications are not rolled into the notified feed
                 SoupQuery::Notified(_) => None,
             }?,
-        })
-    }
-
-    /// Returns `None` (skipping the CRM sub-request) for no-team users,
-    /// Frecency cursors, or a malformed team-receipt uuid.
-    pub(crate) fn build_crm_company_request(
-        &self,
-        team_receipt: &Option<EntityAccessReceipt<MemberTeamRole>>,
-    ) -> Option<GetCrmCompaniesRequest> {
-        if self.properties_filter_blocks_propertyless() {
-            return None;
-        }
-        let receipt = team_receipt.as_ref()?;
-        // Re-wrap the verified team receipt as the CRM capability token the
-        // service now requires; a malformed receipt skips the sub-request.
-        let access = CrmTeamReceipt::from_team_receipt(receipt.clone())
-            .inspect_err(|e| {
-                tracing::warn!(
-                    error=?e,
-                    "team_receipt is not a valid CRM team receipt; skipping crm_company sub-request"
-                );
-            })
-            .ok()?;
-
-        // Follow-up pages carry a keyset cursor (sort_ts + id of the
-        // previous page's last row); the first page has none. Without
-        // this the CRM sub-query always returned offset 0, so every
-        // page re-served the same top companies.
-        let (sort_method, filter_ast, cursor): (
-            SimpleSortMethod,
-            Option<&EntityFilterAst>,
-            Option<CrmCompanySoupCursor>,
-        ) = match &self.cursor {
-            SoupQuery::Simple(SimpleQueryInner(Query::Sort(t, f))) => (*t, f.as_ref(), None),
-            SoupQuery::Simple(SimpleQueryInner(Query::Cursor(CursorWithValAndFilter {
-                id,
-                val,
-                filter,
-                ..
-            }))) => (
-                val.sort_type,
-                filter.as_ref(),
-                Some(CrmCompanySoupCursor {
-                    last_sort_ts: val.last_val,
-                    last_id: *id,
-                }),
-            ),
-            SoupQuery::Frecency(_) => return None,
-            // CRM has no mutation activity (deferred from touched-by-me)
-            SoupQuery::Touched(_) => return None,
-            // CRM companies receive no notifications
-            SoupQuery::Notified(_) => return None,
-        };
-
-        let sort = match sort_method {
-            SimpleSortMethod::CreatedAt => CrmCompanyListSort::CreatedAt,
-            SimpleSortMethod::UpdatedAt => CrmCompanyListSort::UpdatedAt,
-            SimpleSortMethod::ViewedAt => CrmCompanyListSort::ViewedAt,
-            SimpleSortMethod::ViewedUpdated => CrmCompanyListSort::ViewedUpdated,
-        };
-
-        let mut extract = CrmCompanyFilterExtract::default();
-        if let Some(tree) = filter_ast.and_then(|a| a.crm_company_filter.as_ref())
-            && !extract_crm_company_filter(tree, &mut extract)
-        {
-            // Fail closed: unsupported AST shape would widen the result
-            // set. Skip the CRM sub-request rather than over-include.
-            return None;
-        }
-
-        Some(GetCrmCompaniesRequest {
-            access,
-            user_id: self.user.clone(),
-            company_ids: extract.ids,
-            hidden: extract.hidden,
-            sort,
-            cursor,
-            // Match the soup paginator's bounds so the CRM layer doesn't
-            // overfetch on an oversized client limit.
-            limit: self.limit.clamp(20, 500) as i64,
         })
     }
 
@@ -829,8 +642,6 @@ pub struct TouchedSoupRequest<'a> {
     pub after: Option<TouchedPagePosition>,
     /// Entity filters folded into the candidate query.
     pub filter: Option<&'a EntityFilterAst>,
-    /// Every inbox the caller can read; gates email-thread candidates.
-    pub link_ids: &'a [Uuid],
 }
 
 /// One touched entity: what it is and when the user last mutated it.
@@ -866,10 +677,8 @@ pub struct NotifiedSoupRequest<'a> {
     /// Resume after this position; `None` for the first page.
     pub after: Option<NotifiedPagePosition>,
     /// Entity filters folded into the candidate query where soup owns the
-    /// fold (documents, chats, projects, calendar events, properties).
+    /// fold (documents, chats, projects, properties).
     pub filter: Option<&'a EntityFilterAst>,
-    /// Every inbox the caller can read; gates email-thread candidates.
-    pub link_ids: &'a [Uuid],
     /// Sources (the caller and their team) whose stored foreign entities the
     /// caller may see; gates foreign-entity candidates.
     pub foreign_entity_sources: &'a [SourceId],
@@ -881,8 +690,8 @@ pub struct NotifiedSoupRequest<'a> {
 
 /// Which domain-hydrated entity types a notified-at request can surface.
 ///
-/// The repository gates documents, chats, projects and calendar events on
-/// the filter tree itself; these four are hydrated through other domains'
+/// The repository gates documents, chats and projects on
+/// the filter tree itself; these are hydrated through other domains'
 /// legs, so whether that leg is active for the request is decided by the
 /// service and passed down here.
 #[derive(Debug, Clone, Copy, Default)]
@@ -893,8 +702,6 @@ pub struct NotifiedHydratableTypes {
     /// (mentions and replies, which name their thread root as the secondary
     /// event item) surface as thread rows, the way the client attributes them.
     pub channel_threads: bool,
-    /// The email leg is active.
-    pub email_threads: bool,
     /// The foreign-entity leg is active.
     pub foreign_entities: bool,
 }
@@ -947,8 +754,6 @@ pub struct WorkFeedCandidateRequest<'a> {
     /// Entity filters folded into the candidate gates where soup owns the
     /// fold, exactly as for the notified-at feed.
     pub filter: Option<&'a EntityFilterAst>,
-    /// Every inbox the caller can read; gates email-thread candidates.
-    pub link_ids: &'a [Uuid],
     /// Sources whose stored foreign entities the caller may see.
     pub foreign_entity_sources: &'a [SourceId],
     /// Entity types whose candidates the domain can hydrate for this request.
@@ -983,8 +788,6 @@ pub struct WorkFeedCandidate {
 pub struct WorkFeedSoupRequest {
     /// User whose feed is listed.
     pub user: MacroUserIdStr<'static>,
-    /// Every inbox the caller can read.
-    pub link_ids: Vec<Uuid>,
     /// Maximum items to return.
     pub limit: u16,
     /// Whether own work admits items.
@@ -1022,53 +825,6 @@ pub struct WorkFeedSoupPage {
     pub next: Option<WorkFeedPagePosition>,
 }
 
-/// Whether the notified-at candidate query can fold this calendar filter.
-///
-/// Only id and notification-state literals have a soup-owned fold; the rest
-/// (status, time bounds, attendee, organizer) live in the calendar leg's
-/// query builder, which the candidate query cannot reach. Rejecting up front
-/// beats silently returning a feed with those events unfiltered.
-pub(crate) fn calendar_filter_supported_by_notified(
-    tree: Option<&Expr<CalendarEventLiteral>>,
-) -> bool {
-    tree.is_none_or(|expr| {
-        expr.collapse_frames(|frame| match frame {
-            filter_ast::ExprFrame::And(a, b) | filter_ast::ExprFrame::Or(a, b) => a && b,
-            filter_ast::ExprFrame::Not(a) => a,
-            filter_ast::ExprFrame::Literal(
-                CalendarEventLiteral::Id(_) | CalendarEventLiteral::NotificationState(_),
-            ) => true,
-            filter_ast::ExprFrame::Literal(_) => false,
-        })
-    })
-}
-
-/// ANDs a properties filter into the email filter tree as thread-level
-/// [EmailLiteral::Property] conditions, so the email query returns exactly
-/// the threads that satisfy it.
-fn with_properties_filter(
-    tree: Option<Arc<Expr<EmailLiteral>>>,
-    properties_filter: Option<&Expr<PropertiesLiteral>>,
-) -> Option<Arc<Expr<EmailLiteral>>> {
-    let Some(propf) = properties_filter else {
-        return tree;
-    };
-    let mapped = map_properties_to_email(propf);
-    Some(Arc::new(match tree {
-        Some(tree) => Expr::and((*tree).clone(), mapped),
-        None => mapped,
-    }))
-}
-
-fn map_properties_to_email(expr: &Expr<PropertiesLiteral>) -> Expr<EmailLiteral> {
-    match expr {
-        Expr::And(a, b) => Expr::and(map_properties_to_email(a), map_properties_to_email(b)),
-        Expr::Or(a, b) => Expr::or(map_properties_to_email(a), map_properties_to_email(b)),
-        Expr::Not(a) => Expr::Not(Box::new(map_properties_to_email(a))),
-        Expr::Literal(lit) => Expr::Literal(EmailLiteral::Property(lit.clone())),
-    }
-}
-
 /// ANDs a properties filter (mapped to [CallLiteral::Property] conditions) into
 /// the call filter tree, so the call query returns exactly the calls that also
 /// satisfy the tag filter.
@@ -1095,97 +851,6 @@ fn map_properties_to_call(expr: &Expr<PropertiesLiteral>) -> Expr<CallLiteral> {
     }
 }
 
-/// An entity whose Companies or Contacts property names a CRM record.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CrmPropertyEdge {
-    /// The entity type the property row is stored under.
-    pub entity_type: models_properties::EntityType,
-    /// The entity id the property row is stored under.
-    pub entity_id: String,
-}
-
-/// Parameters for fetching CRM companies to fold into the soup feed.
-#[derive(Debug)]
-pub struct GetCrmCompaniesRequest {
-    /// Capability token for the team whose CRM companies to list. The
-    /// service derives the team id from it.
-    pub access: CrmTeamReceipt<MemberTeamRole>,
-    /// Requesting user — used to scope the per-user `UserHistory` join
-    /// behind the `Viewed*` sort variants. Always populated; the soup
-    /// request always has a user.
-    pub user_id: MacroUserIdStr<'static>,
-    /// Filter to specific company ids. Empty = all of the team's
-    /// companies matching `hidden` (subject to the killswitch).
-    pub company_ids: Vec<Uuid>,
-    /// Optional `crm_companies.hidden` filter. `None` = visible only
-    /// (default); `Some(false)` = visible only (explicit); `Some(true)`
-    /// = hidden only. The admin/owner role check is enforced by the CRM
-    /// service from `access` when this request is executed.
-    pub hidden: Option<bool>,
-    /// Which timestamp column to sort by.
-    pub sort: CrmCompanyListSort,
-    /// Keyset cursor to seek past the previous page (`None` = first page).
-    pub cursor: Option<CrmCompanySoupCursor>,
-    /// Upper bound on rows returned — the soup paginator re-slices.
-    pub limit: i64,
-}
-
-/// Outcome of walking a `CrmCompanyLiteral` AST: the ids and the
-/// optional `hidden` constraint pulled out of the tree.
-#[derive(Debug, Default)]
-pub(crate) struct CrmCompanyFilterExtract {
-    pub ids: Vec<Uuid>,
-    pub hidden: Option<bool>,
-}
-
-/// Walks a `CrmCompanyLiteral` AST collecting `Id(uuid)` literals into
-/// `out.ids` and a single `Hidden(bool)` constraint into `out.hidden`.
-/// Returns `false` (fail closed) when:
-///   - `Not(_)` appears (would invert set semantics),
-///   - two `Hidden(_)` literals conflict (e.g. `Hidden(true) AND Hidden(false)`),
-///   - an `Or(_, _)` branch mixes ids and a hidden literal (would change
-///     set semantics in ways the simple extractor can't represent).
-fn extract_crm_company_filter(
-    expr: &Expr<CrmCompanyLiteral>,
-    out: &mut CrmCompanyFilterExtract,
-) -> bool {
-    match expr {
-        Expr::Literal(CrmCompanyLiteral::Id(id)) => {
-            out.ids.push(*id);
-            true
-        }
-        Expr::Literal(CrmCompanyLiteral::Hidden(b)) => match out.hidden {
-            Some(prev) if prev != *b => false,
-            _ => {
-                out.hidden = Some(*b);
-                true
-            }
-        },
-        // `And` of arbitrary sub-trees: each side contributes independently
-        // (e.g. id-OR AND Hidden).
-        Expr::And(a, b) => extract_crm_company_filter(a, out) && extract_crm_company_filter(b, out),
-        // `Or` is only safe over ids — mixing a Hidden literal under an Or
-        // would change semantics ("these ids OR all hidden") that the flat
-        // extract can't represent.
-        Expr::Or(a, b) => or_is_ids_only(a, out) && or_is_ids_only(b, out),
-        Expr::Not(_) => false,
-    }
-}
-
-/// Helper for [`extract_crm_company_filter`]: an `Or` branch must be a
-/// pure id sub-tree (nested `Or` of `Id` literals) — any `Hidden`, `And`,
-/// or `Not` inside fails closed.
-fn or_is_ids_only(expr: &Expr<CrmCompanyLiteral>, out: &mut CrmCompanyFilterExtract) -> bool {
-    match expr {
-        Expr::Literal(CrmCompanyLiteral::Id(id)) => {
-            out.ids.push(*id);
-            true
-        }
-        Expr::Or(a, b) => or_is_ids_only(a, out) && or_is_ids_only(b, out),
-        _ => false,
-    }
-}
-
 /// Authoritative document facts that are unavailable as direct Soup fields.
 ///
 /// This value is internal hydration state. It is deliberately separate from
@@ -1193,7 +858,8 @@ fn or_is_ids_only(expr: &Expr<CrmCompanyLiteral>, out: &mut CrmCompanyFilterExtr
 /// fields on [`models_soup::document::SoupDocument`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SoupDocumentServerFacts {
-    /// Whether `document_email` contains a row for the document.
+    /// Always `false`: documents are no longer linked to email attachments.
+    /// The field stays so the cached projection wire format is unchanged.
     pub is_email_attachment: bool,
     /// Whether the document is important to the requesting viewer.
     ///
@@ -1287,18 +953,12 @@ pub enum SoupErr {
     /// Soup repository query failed.
     #[error(transparent)]
     SoupDbErr(#[from] anyhow::Error),
-    /// Email preview lookup failed.
-    #[error(transparent)]
-    EmailErr(#[from] email::domain::models::EmailErr),
     /// Channel or communication lookup failed.
     #[error("A comms error has occured, see logs for more details")]
     CommsErr,
     /// Call record lookup failed.
     #[error("A call error has occurred, see logs for more details")]
     CallErr,
-    /// CRM lookup failed.
-    #[error("A CRM error has occurred, see logs for more details")]
-    CrmErr,
     /// A touched-by-me query carried a filter kind this mode cannot
     /// evaluate (the fold lives in another domain's query builder).
     /// Rejecting beats silently returning a feed with that type missing.
@@ -1308,17 +968,6 @@ pub enum SoupErr {
     /// (the fold lives in another domain's query builder).
     #[error("sort_method=notified_at does not support {0} filters")]
     NotifiedUnsupportedFilter(&'static str),
-    /// The filter requested CRM-scoped data but the caller has no
-    /// qualifying team membership.
-    #[error("CRM-scoped queries require team membership")]
-    CrmTeamRequired,
-    /// The filter requested hidden CRM companies but the caller's team
-    /// role is below admin/owner.
-    #[error("Querying hidden CRM companies requires admin/owner team role")]
-    CrmAdminRequired,
-    /// The filter is restricted to a CRM record the caller cannot see.
-    #[error("CRM record not found")]
-    CrmRecordNotFound,
     /// GitHub pull request listing failed.
     #[error(transparent)]
     GithubPullRequestErr(#[from] GithubPullRequestError),

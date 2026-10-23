@@ -173,8 +173,6 @@ pub mod entity_type_labels {
     pub fn label(key: &str) -> &'static str {
         match key {
             "document" => "Documents",
-            "email" => "Emails",
-            "calendar_event" => "Calendar",
             "channel" => "Messages",
             "chat" => "Chats",
             "project" => "Projects",
@@ -187,8 +185,6 @@ pub mod entity_type_labels {
     pub fn display_order(key: &str) -> i32 {
         match key {
             "document" => 0,
-            "email" => 1,
-            "calendar_event" => 2,
             "channel" => 3,
             "chat" => 4,
             "project" => 5,

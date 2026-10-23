@@ -6,7 +6,6 @@ use crate::outbound::pg_soup_repo::expanded::dynamic::{
 use filter_ast::Expr;
 use item_filters::ast::{
     EntityFilterAst,
-    calendar_event::CalendarEventLiteral,
     chat::ChatLiteral,
     database_row::DatabaseRowLiteral,
     document::DocumentLiteral,
@@ -49,7 +48,6 @@ fn rows_of(row_filter: Option<Expr<DatabaseRowLiteral>>) -> EntityFilterAst {
         document_filter: Some(Arc::new(Expr::val(DocumentLiteral::Id(Uuid::nil())))),
         chat_filter: Some(Arc::new(Expr::val(ChatLiteral::Importance(false)))),
         project_filter: Some(Arc::new(Expr::val(ProjectLiteral::Importance(false)))),
-        calendar_event_filter: Some(Arc::new(Expr::val(CalendarEventLiteral::Id(Uuid::nil())))),
         ..EntityFilterAst::default()
     }
 }
@@ -88,9 +86,6 @@ async fn a_viewer_reads_the_won_deals_of_one_table(pool: PgPool) {
                     document_filter: Some(Arc::new(Expr::val(DocumentLiteral::Id(Uuid::nil())))),
                     chat_filter: Some(Arc::new(Expr::val(ChatLiteral::Importance(false)))),
                     project_filter: Some(Arc::new(Expr::val(ProjectLiteral::Importance(false)))),
-                    calendar_event_filter: Some(Arc::new(Expr::val(CalendarEventLiteral::Id(
-                        Uuid::nil(),
-                    )))),
                     properties_filter: Some(Arc::new(Expr::val(PropertiesLiteral {
                         property_definition_id: STAGE,
                         entity_type: None,

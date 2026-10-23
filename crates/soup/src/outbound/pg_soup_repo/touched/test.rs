@@ -4,7 +4,6 @@ use item_filters::ast::EntityFilterAst;
 use macro_db_migrator::MACRO_DB_MIGRATIONS;
 use macro_user_id::user_id::MacroUserIdStr;
 use sqlx::{Pool, Postgres};
-use uuid::Uuid;
 
 const USER_1: &str = "macro|user-1@test.com";
 const DOC_A: &str = "11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
@@ -12,20 +11,13 @@ const DOC_B: &str = "11111111-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 const CHAT_A: &str = "22222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 const PROJECT_A: &str = "aaaaaaaa-ffff-ffff-ffff-ffffffffffff";
 const CHANNEL_X: &str = "33333333-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-const THREAD_Z: &str = "44444444-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-const LINK_1: &str = "55555555-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 
-fn req<'a>(
-    user_id: &'a str,
-    filter: Option<&'a EntityFilterAst>,
-    link_ids: &'a [uuid::Uuid],
-) -> TouchedSoupRequest<'a> {
+fn req<'a>(user_id: &'a str, filter: Option<&'a EntityFilterAst>) -> TouchedSoupRequest<'a> {
     TouchedSoupRequest {
         user_id: MacroUserIdStr::parse_from_str(user_id).unwrap(),
         limit: 50,
         after: None,
         filter,
-        link_ids,
     }
 }
 
@@ -40,12 +32,10 @@ fn keys(page: &[TouchedEntity]) -> Vec<(EntityType, String)> {
     migrator = "MACRO_DB_MIGRATIONS"
 )]
 async fn feed_orders_by_own_latest_mutation(pool: Pool<Postgres>) -> anyhow::Result<()> {
-    let link_ids = [Uuid::parse_str(LINK_1)?];
-    let page = touched_soup_page(&pool, req(USER_1, None, &link_ids)).await?;
+    let page = touched_soup_page(&pool, req(USER_1, None)).await?;
 
     // Exactly the touchable, visible entities — the deleted doc, isolated
-    // doc, opened-only doc, left channel, and foreign-inbox thread are all
-    // absent — ordered by user-1's own latest mutation. user-2's newer edit
+    // doc, opened-only doc, and left channel are all absent — ordered by user-1's own latest mutation. user-2's newer edit
     // of doc-B must not move it, and chat-A's later `opened` must not
     // outrank doc-A's edit.
     assert_eq!(
@@ -55,7 +45,6 @@ async fn feed_orders_by_own_latest_mutation(pool: Pool<Postgres>) -> anyhow::Res
             (EntityType::Chat, CHAT_A.to_string()),
             (EntityType::Project, PROJECT_A.to_string()),
             (EntityType::Channel, CHANNEL_X.to_string()),
-            (EntityType::EmailThread, THREAD_Z.to_string()),
             (EntityType::Document, DOC_B.to_string()),
         ]
     );
@@ -68,7 +57,7 @@ async fn feed_orders_by_own_latest_mutation(pool: Pool<Postgres>) -> anyhow::Res
             t.touched_at.minute()
         })
         .collect();
-    assert_eq!(minutes, vec![9, 8, 7, 6, 4, 2]);
+    assert_eq!(minutes, vec![9, 8, 7, 6, 2]);
 
     Ok(())
 }
@@ -78,12 +67,10 @@ async fn feed_orders_by_own_latest_mutation(pool: Pool<Postgres>) -> anyhow::Res
     migrator = "MACRO_DB_MIGRATIONS"
 )]
 async fn keyset_paginates_without_overlap_or_gaps(pool: Pool<Postgres>) -> anyhow::Result<()> {
-    let link_ids = [Uuid::parse_str(LINK_1)?];
-
     let mut all = Vec::new();
     let mut after = None;
     loop {
-        let mut request = req(USER_1, None, &link_ids);
+        let mut request = req(USER_1, None);
         request.limit = 2;
         request.after = after;
         let page = touched_soup_page(&pool, request).await?;
@@ -100,9 +87,9 @@ async fn keyset_paginates_without_overlap_or_gaps(pool: Pool<Postgres>) -> anyho
     }
 
     // Walking in pages of 2 yields the same feed as one big page.
-    let one_page = touched_soup_page(&pool, req(USER_1, None, &link_ids)).await?;
+    let one_page = touched_soup_page(&pool, req(USER_1, None)).await?;
     assert_eq!(keys(&all), keys(&one_page));
-    assert_eq!(all.len(), 6);
+    assert_eq!(all.len(), 5);
 
     Ok(())
 }
@@ -112,8 +99,6 @@ async fn keyset_paginates_without_overlap_or_gaps(pool: Pool<Postgres>) -> anyho
     migrator = "MACRO_DB_MIGRATIONS"
 )]
 async fn entity_filters_compose_with_the_touch_gate(pool: Pool<Postgres>) -> anyhow::Result<()> {
-    let link_ids = [Uuid::parse_str(LINK_1)?];
-
     // Restricting documents to pdf drops doc-B (docx) but nothing else.
     let filter = EntityFilterAst {
         document_filter: Some(std::sync::Arc::new(filter_ast::Expr::val(
@@ -121,7 +106,7 @@ async fn entity_filters_compose_with_the_touch_gate(pool: Pool<Postgres>) -> any
         ))),
         ..EntityFilterAst::default()
     };
-    let page = touched_soup_page(&pool, req(USER_1, Some(&filter), &link_ids)).await?;
+    let page = touched_soup_page(&pool, req(USER_1, Some(&filter))).await?;
     assert_eq!(
         keys(&page),
         vec![
@@ -129,7 +114,6 @@ async fn entity_filters_compose_with_the_touch_gate(pool: Pool<Postgres>) -> any
             (EntityType::Chat, CHAT_A.to_string()),
             (EntityType::Project, PROJECT_A.to_string()),
             (EntityType::Channel, CHANNEL_X.to_string()),
-            (EntityType::EmailThread, THREAD_Z.to_string()),
         ]
     );
 
@@ -142,24 +126,13 @@ fn view_tags_render_as_quoted_list() {
 }
 
 #[test]
-fn no_filter_includes_every_touchable_type_with_inboxes() {
-    let link_ids = [uuid::Uuid::from_u128(1)];
-    let types = included_types(&req("macro|user@example.com", None, &link_ids));
-    assert_eq!(
-        types,
-        vec!["document", "chat", "project", "channel", "email_thread"]
-    );
-}
-
-#[test]
-fn no_inboxes_drops_email_threads() {
-    let types = included_types(&req("macro|user@example.com", None, &[]));
-    assert!(!types.contains(&"email_thread"));
+fn no_filter_includes_every_touchable_type() {
+    let types = included_types(&req("macro|user@example.com", None));
+    assert_eq!(types, vec!["document", "chat", "project", "channel"]);
 }
 
 #[test]
 fn positive_properties_filter_drops_propertyless_channels() {
-    let link_ids = [uuid::Uuid::from_u128(1)];
     // A bare tag literal (no entity type) can never match a channel, which
     // carries no properties — the type is settled wholesale, not per row.
     let filter = EntityFilterAst {
@@ -174,14 +147,13 @@ fn positive_properties_filter_drops_propertyless_channels() {
         ))),
         ..EntityFilterAst::default()
     };
-    let types = included_types(&req("macro|user@example.com", Some(&filter), &link_ids));
+    let types = included_types(&req("macro|user@example.com", Some(&filter)));
     assert!(!types.contains(&"channel"));
     assert!(types.contains(&"document"));
 }
 
 #[test]
 fn negated_properties_filter_keeps_propertyless_channels() {
-    let link_ids = [uuid::Uuid::from_u128(1)];
     // NOT(tag) is satisfied by an entity with no properties at all, so
     // channels stay in the feed.
     let filter = EntityFilterAst {
@@ -196,28 +168,26 @@ fn negated_properties_filter_keeps_propertyless_channels() {
         ))),
         ..EntityFilterAst::default()
     };
-    let types = included_types(&req("macro|user@example.com", Some(&filter), &link_ids));
+    let types = included_types(&req("macro|user@example.com", Some(&filter)));
     assert!(types.contains(&"channel"));
 }
 
 #[test]
 fn impossible_document_filter_drops_documents() {
-    let link_ids = [uuid::Uuid::from_u128(1)];
     let filter = EntityFilterAst {
         document_filter: Some(std::sync::Arc::new(filter_ast::Expr::val(
             item_filters::ast::document::DocumentLiteral::Id(uuid::Uuid::nil()),
         ))),
         ..EntityFilterAst::default()
     };
-    let types = included_types(&req("macro|user@example.com", Some(&filter), &link_ids));
+    let types = included_types(&req("macro|user@example.com", Some(&filter)));
     assert!(!types.contains(&"document"));
     assert!(types.contains(&"chat"));
 }
 
 #[test]
 fn keyset_position_is_optional() {
-    let link_ids = [uuid::Uuid::from_u128(1)];
-    let mut request = req("macro|user@example.com", None, &link_ids);
+    let mut request = req("macro|user@example.com", None);
     request.after = Some(TouchedPagePosition {
         occurred_at: chrono::DateTime::UNIX_EPOCH,
         entity_id: uuid::Uuid::from_u128(2).to_string(),

@@ -6,14 +6,12 @@ async fn document_only_soup_never_calls_excluded_entity_services() {
     let document_id = Uuid::from_u128(1);
     let filters: EntityFilters = serde_json::from_value(serde_json::json!({
         "document_filters": { "document_ids": [document_id] },
-        "email_filters": { "email_thread_ids": [nil] },
         "channel_filters": { "channel_ids": [nil] },
         "channel_thread_filters": { "thread_ids": [nil] },
         "call_filters": { "call_ids": [nil] },
         "foreign_entity_filters": { "ids": [nil] }
     }))
     .unwrap();
-    let emails = RecordingEmailPreviewService::default();
     let channels = RecordingCommsService::new(Vec::new());
     let calls = RecordingCallRecordQueryService::new(Vec::new());
     let foreign_entities = RecordingPullRequestListing::new(Vec::new());
@@ -32,10 +30,8 @@ async fn document_only_soup_never_calls_excluded_entity_services() {
     let page = SoupImpl::new(
         soup,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        emails.clone(),
         channels.clone(),
         calls.clone(),
-        NoOpCrmService,
         foreign_entities.clone(),
     )
     .get_user_soup(
@@ -45,8 +41,6 @@ async fn document_only_soup_never_calls_excluded_entity_services() {
             cursor: SoupQuery::new_sort_simple(SimpleSortMethod::UpdatedAt, filters),
             sort_direction: SoupSortDirection::Desc,
             user: MacroUserIdStr::parse_from_str("macro|test@example.com").unwrap(),
-            email_preview_view: PreviewView::default(),
-            link_ids: vec![Uuid::from_u128(2)],
         },
         None,
     )
@@ -59,7 +53,6 @@ async fn document_only_soup_never_calls_excluded_entity_services() {
     assert_matches!(&page.items[0], SoupItem::Document(doc) => {
         assert_eq!(doc.id, document_id);
     });
-    assert!(emails.requests.lock().unwrap().is_empty());
     assert_eq!(channels.channel_calls(), 0);
     assert!(channels.thread_filters().is_empty());
     assert_eq!(calls.calls(), 0);

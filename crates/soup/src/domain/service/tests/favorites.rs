@@ -47,10 +47,8 @@ async fn favorites_are_scoped_before_pagination_and_cursor_keeps_the_filter() {
     let mut service = SoupImpl::new(
         repo,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     );
     service.favorites = Some(Arc::new(ViewerFavorites));
@@ -66,8 +64,6 @@ async fn favorites_are_scoped_before_pagination_and_cursor_keeps_the_filter() {
                 cursor: SoupQuery::new_sort_simple(SimpleSortMethod::UpdatedAt, filters.clone()),
                 sort_direction: SoupSortDirection::Desc,
                 user: MacroUserIdStr::parse_from_str("macro|test@example.com").unwrap(),
-                email_preview_view: PreviewView::default(),
-                link_ids: vec![],
             },
             None,
         )

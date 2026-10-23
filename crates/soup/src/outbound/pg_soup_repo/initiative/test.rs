@@ -5,8 +5,8 @@ use crate::outbound::pg_soup_repo::expanded::dynamic::{
 };
 use filter_ast::Expr;
 use item_filters::ast::{
-    EntityFilterAst, calendar_event::CalendarEventLiteral, chat::ChatLiteral,
-    document::DocumentLiteral, initiative::InitiativeLiteral, project::ProjectLiteral,
+    EntityFilterAst, chat::ChatLiteral, document::DocumentLiteral, initiative::InitiativeLiteral,
+    project::ProjectLiteral,
 };
 use macro_db_migrator::MACRO_DB_MIGRATIONS;
 use macro_user_id::user_id::MacroUserIdStr;
@@ -21,7 +21,6 @@ fn filters() -> EntityFilterAst {
         document_filter: Some(Arc::new(Expr::val(DocumentLiteral::Id(Uuid::nil())))),
         chat_filter: Some(Arc::new(Expr::val(ChatLiteral::Importance(false)))),
         project_filter: Some(Arc::new(Expr::val(ProjectLiteral::Importance(false)))),
-        calendar_event_filter: Some(Arc::new(Expr::val(CalendarEventLiteral::Id(Uuid::nil())))),
         ..EntityFilterAst::default()
     }
 }

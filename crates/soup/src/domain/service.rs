@@ -1,13 +1,12 @@
 use crate::domain::{
     models::{
-        AdvancedSortParams, EnrichedSoupItem, FrecencyQueryInner, GetCrmCompaniesRequest,
-        GroupedSortRequest, IntoSoupReqAst, NotifiedHydratableTypes, NotifiedPagePosition,
-        NotifiedQueryInner, NotifiedSoupRequest, SimpleQueryInner, SimpleSortQuery,
-        SimpleSortRequest, SoupDocumentServerFacts, SoupErr, SoupProjectionHydration,
-        SoupPropertiesField, SoupQuery, SoupRequest, SoupSortDirection, SoupType,
-        TouchedPagePosition, TouchedQueryInner, TouchedSoupRequest, WorkFeedCandidateRequest,
-        WorkFeedPagePosition, WorkFeedSoupItem, WorkFeedSoupPage, WorkFeedSoupRequest,
-        calendar_filter_supported_by_notified, grouping::ItemGroupingInfo,
+        AdvancedSortParams, EnrichedSoupItem, FrecencyQueryInner, GroupedSortRequest,
+        IntoSoupReqAst, NotifiedHydratableTypes, NotifiedPagePosition, NotifiedQueryInner,
+        NotifiedSoupRequest, SimpleQueryInner, SimpleSortQuery, SimpleSortRequest,
+        SoupDocumentServerFacts, SoupErr, SoupProjectionHydration, SoupPropertiesField, SoupQuery,
+        SoupRequest, SoupSortDirection, SoupType, TouchedPagePosition, TouchedQueryInner,
+        TouchedSoupRequest, WorkFeedCandidateRequest, WorkFeedPagePosition, WorkFeedSoupItem,
+        WorkFeedSoupPage, WorkFeedSoupRequest, grouping::ItemGroupingInfo,
     },
     ports::{SoupOutput, SoupRepo, SoupService},
 };
@@ -17,12 +16,7 @@ use channels::domain::{
     ports::ChannelListService,
 };
 use cowlike::CowLike;
-use crm::domain::service::CrmService;
 use either::Either;
-use email::domain::{
-    models::{GetEmailsRequest, PreviewView, PreviewViewStandardLabel},
-    ports::EmailPreviewServiceReadOnly,
-};
 use entity_access::domain::models::{EntityAccessReceipt, MemberTeamRole};
 use filter_ast::Expr;
 use foreign_entity::domain::{
@@ -41,7 +35,6 @@ use github_pull_requests::domain::{
 use item_filters::ast::{
     EntityFilterAst, LiteralTree,
     channel::{ChannelLiteral, ChannelThreadLiteral},
-    email::EmailLiteral,
     foreign_entity::ForeignEntityLiteral,
     github_pull_request::GithubPullRequestLiteral,
 };
@@ -55,8 +48,6 @@ use models_properties::service::property_definition_with_options::PropertyDefini
 use models_soup::{
     call_record::SoupCallRecord,
     comms::{SoupChannel, SoupChannelThread},
-    crm_company::SoupCrmCompany,
-    crm_contact::SoupCrmContact,
     foreign_entity::SoupForeignEntity,
     item::SoupItem,
 };
@@ -67,7 +58,6 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 mod agent_metadata;
-mod crm_association;
 mod favorites;
 
 #[cfg(test)]
@@ -115,9 +105,6 @@ const MAX_NOTIFIED_FILL_ROUNDS: usize = 4;
 /// leg is off for this request, and its entity type never enters the
 /// candidate query.
 struct NotifiedHydrationLegs {
-    /// Every inbox the caller can read; gates email-thread candidates.
-    link_ids: Vec<Uuid>,
-    email: Option<GetEmailsRequest>,
     comms: Option<GetChannelsRequest>,
     comms_threads: Option<GetThreadReplyRowsRequest>,
     foreign_entities: Option<(Vec<SourceId>, ForeignEntityListQuery)>,
@@ -204,53 +191,42 @@ fn foreign_entity_to_soup_item(entity: ForeignEntity) -> SoupItem<()> {
 }
 
 /// struct which handles the actual implementation of soup with abstracted interfaces for mocking
-pub struct SoupImpl<T, U, V, C, K, Crm, F> {
+pub struct SoupImpl<T, U, C, K, F> {
     /// the interface for interacting with the db
     soup_storage: T,
     /// the interface for interacting with frecency
     frecency: U,
-    /// the interface for interacting with email
-    email_service: V,
     /// the interface for interacting with channels
     comms_service: C,
     /// the interface for interacting with call records
     call_record_service: K,
-    /// the interface for interacting with CRM (companies)
-    crm_service: Crm,
     /// the interface for listing GitHub pull requests
     github_pull_request_service: F,
     favorites: Option<Arc<dyn favorites::FavoriteReader>>,
 }
 
-impl<T, U, V, C, K, Crm, F> SoupImpl<T, U, V, C, K, Crm, F>
+impl<T, U, C, K, F> SoupImpl<T, U, C, K, F>
 where
     T: SoupRepo,
     anyhow::Error: From<T::Err>,
     U: FrecencyQueryService,
-    V: EmailPreviewServiceReadOnly,
     C: ChannelListService,
     K: CallRecordQueryService,
-    Crm: CrmService,
     F: GithubPullRequestListing,
 {
     /// Creates a soup service from its repository and dependent domain services.
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         soup_storage: T,
         frecency: U,
-        email_service: V,
         comms_service: C,
         call_record_service: K,
-        crm_service: Crm,
         github_pull_request_service: F,
     ) -> Self {
         SoupImpl {
             soup_storage,
             frecency,
-            email_service,
             comms_service,
             call_record_service,
-            crm_service,
             github_pull_request_service,
             favorites: None,
         }
@@ -544,20 +520,16 @@ where
         soup_type: SoupType,
         user: MacroUserIdStr<'static>,
         limit: u16,
-        link_ids: Vec<Uuid>,
         include_projection: bool,
     ) -> Result<(Vec<SoupCandidate>, Option<TouchedPagePosition>), SoupErr> {
-        // Channel and email filter trees fold in their own domains' query
-        // builders, which the touched candidate query cannot reach.
-        // Rejecting beats accepting the filter and silently returning a
-        // feed with that whole type missing.
-        if let Some(ast) = cursor.filter() {
-            if ast.channel_filter.is_some() {
-                return Err(SoupErr::TouchedUnsupportedFilter("channel"));
-            }
-            if ast.email_filter.tree.is_some() || ast.email_filter.crm_scope.is_some() {
-                return Err(SoupErr::TouchedUnsupportedFilter("email"));
-            }
+        // Channel filter trees fold in the channels domain's query builder,
+        // which the touched candidate query cannot reach. Rejecting beats
+        // accepting the filter and silently returning a feed with that whole
+        // type missing.
+        if let Some(ast) = cursor.filter()
+            && ast.channel_filter.is_some()
+        {
+            return Err(SoupErr::TouchedUnsupportedFilter("channel"));
         }
 
         let after = match &cursor {
@@ -574,7 +546,6 @@ where
                 limit,
                 after,
                 filter: cursor.filter().as_ref(),
-                link_ids: &link_ids,
             })
             .await
             .map_err(anyhow::Error::from)?;
@@ -595,7 +566,6 @@ where
         let mut main_entities = Vec::new();
         let mut project_entities = Vec::new();
         let mut channel_ids = Vec::new();
-        let mut email_ids = Vec::new();
         for candidate in &touched {
             match candidate.entity.entity_type {
                 EntityType::Document | EntityType::Chat | EntityType::Initiative => {
@@ -616,12 +586,6 @@ where
                         tracing::warn!(error = ?error, "touched channel id is not a uuid; skipping")
                     }
                 },
-                EntityType::EmailThread => match Uuid::parse_str(&candidate.entity.entity_id) {
-                    Ok(id) => email_ids.push(id),
-                    Err(error) => {
-                        tracing::warn!(error = ?error, "touched thread id is not a uuid; skipping")
-                    }
-                },
                 // The candidate query only returns the types above.
                 _ => {}
             }
@@ -638,26 +602,6 @@ where
             limit: Some(channel_ids.len() as u32),
             include_frecency: false,
             query: Query::Sort(SimpleSortMethod::UpdatedAt, Some(tree)),
-        });
-        let email_request = balanced_or_tree(
-            email_ids
-                .iter()
-                .map(|id| Expr::val(EmailLiteral::ThreadId(*id)))
-                .collect(),
-        )
-        .map(|tree| GetEmailsRequest {
-            // The `All` view adds no thread/message conditions. Any other
-            // view would re-filter threads the candidate query already
-            // admitted (Inbox drops just-sent and archived threads), and a
-            // candidate that fails hydration is lost from the page.
-            view: PreviewView::StandardLabel(PreviewViewStandardLabel::All),
-            link_ids: link_ids.clone(),
-            macro_id: user.clone(),
-            limit: Some(email_ids.len() as u32),
-            query: Query::Sort(SimpleSortMethod::UpdatedAt, Some(tree)),
-            include_frecency: false,
-            team_receipt: None,
-            crm_scope: None,
         });
 
         // The repo error type is not Send, so it cannot ride through
@@ -688,11 +632,10 @@ where
                 .map_err(anyhow::Error::from)
                 .map_err(SoupErr::from)
         };
-        let (main_items, project_items, channel_candidates, email_candidates) = tokio::join!(
+        let (main_items, project_items, channel_candidates) = tokio::join!(
             main_items_fut,
             project_items_fut,
             self.handle_comms_request(comms_request),
-            self.handle_email_request(email_request),
         );
 
         let mut candidates_by_entity: HashMap<(EntityType, String), SoupCandidate> = HashMap::new();
@@ -700,7 +643,6 @@ where
             .into_iter()
             .chain(project_items?.into_iter().map(SoupCandidate::plain))
             .chain(channel_candidates?)
-            .chain(email_candidates?)
         {
             let key = {
                 let entity = candidate.item.entity();
@@ -734,7 +676,7 @@ where
     /// candidates from the user's notifications, hydrates each entity type by
     /// id, and reassembles the page in notification order.
     ///
-    /// Channel, channel-thread, email and foreign-entity candidates
+    /// Channel, channel-thread and foreign-entity candidates
     /// hydrate through their own domains' legs with the request's filter tree
     /// for that type ANDed in, so those filters apply at hydration rather
     /// than in the candidate query. A candidate the leg does not return is dropped and
@@ -753,14 +695,6 @@ where
         include_projection: bool,
     ) -> Result<(Vec<SoupCandidate>, Option<NotifiedPagePosition>), SoupErr> {
         let filter = cursor.filter().as_ref();
-        // Calendar events hydrate by id through the main query, which takes
-        // no filter, so the candidate query must fold the calendar tree
-        // itself — and it only knows the id and notification literals.
-        if !calendar_filter_supported_by_notified(
-            filter.and_then(|f| f.calendar_event_filter.as_deref()),
-        ) {
-            return Err(SoupErr::NotifiedUnsupportedFilter("calendar_event"));
-        }
 
         let mut after = match &cursor {
             Query::Sort(_, _) => None,
@@ -777,7 +711,6 @@ where
         let hydratable = NotifiedHydratableTypes {
             channels: legs.comms.is_some(),
             channel_threads: legs.comms_threads.is_some(),
-            email_threads: legs.email.is_some(),
             foreign_entities: legs.foreign_entities.is_some(),
         };
         let page_len = usize::from(limit);
@@ -792,7 +725,6 @@ where
                     limit,
                     after: after.clone(),
                     filter,
-                    link_ids: &legs.link_ids,
                     foreign_entity_sources: &foreign_entity_sources,
                     hydratable,
                 })
@@ -852,10 +784,8 @@ where
     /// reassembles the page in feed order.
     ///
     /// The legs come from a notified-at request over the same filter, so each
-    /// domain applies its filter tree exactly as it does for the inbox. The
-    /// email leg uses the `All` view: own work includes sent threads that
-    /// are not in the inbox, and the candidate query already confines email
-    /// attention to inbox threads. Candidates a leg rejects are dropped and
+    /// domain applies its filter tree exactly as it does for the inbox.
+    /// Candidates a leg rejects are dropped and
     /// the page refills from the next candidate page, bounded by
     /// [`MAX_NOTIFIED_FILL_ROUNDS`].
     #[tracing::instrument(err, skip(self, req, team_receipt), fields(user = %req.user))]
@@ -864,16 +794,6 @@ where
         req: WorkFeedSoupRequest,
         team_receipt: Option<EntityAccessReceipt<MemberTeamRole>>,
     ) -> Result<WorkFeedSoupPage, SoupErr> {
-        if !calendar_filter_supported_by_notified(req.filter.calendar_event_filter.as_deref()) {
-            return Err(SoupErr::NotifiedUnsupportedFilter("calendar_event"));
-        }
-        // CRM associations resolve to complete entity sets only for timestamp
-        // sorts; the candidate query would otherwise ignore the scope.
-        if !req.filter.crm_associations().is_empty() {
-            return Err(SoupErr::AstErr(item_filters::ast::ExpandErr::ApiAst(
-                "CRM associations require a timestamp sort".into(),
-            )));
-        }
         let limit = req.limit.clamp(1, 500);
         let legs_request = SoupRequest {
             soup_type: SoupType::Expanded,
@@ -881,21 +801,17 @@ where
             cursor: SoupQuery::new_sort_notified(Some(req.filter.clone())),
             sort_direction: SoupSortDirection::Desc,
             user: req.user.clone(),
-            email_preview_view: PreviewView::StandardLabel(PreviewViewStandardLabel::All),
-            link_ids: req.link_ids.clone(),
         };
         let foreign_entity_source_ids =
             legs_request.build_foreign_entity_source_ids(team_receipt.as_ref());
         let metadata_source_ids = foreign_entity_source_ids.clone();
         let legs = NotifiedHydrationLegs {
-            link_ids: legs_request.link_ids.clone(),
             comms: legs_request.build_comms_request(),
             comms_threads: legs_request.build_comms_thread_request(),
             foreign_entities: legs_request
                 .build_foreign_entity_query()
                 .map(|query| (foreign_entity_source_ids, query)),
             github_pull_request_filter: legs_request.build_github_pull_request_filter(),
-            email: legs_request.build_email_request(team_receipt),
         };
         let foreign_entity_sources: Vec<SourceId> = legs
             .foreign_entities
@@ -905,7 +821,6 @@ where
         let hydratable = NotifiedHydratableTypes {
             channels: legs.comms.is_some(),
             channel_threads: legs.comms_threads.is_some(),
-            email_threads: legs.email.is_some(),
             foreign_entities: legs.foreign_entities.is_some(),
         };
         let page_len = usize::from(limit);
@@ -924,7 +839,6 @@ where
                     after: after.clone(),
                     types: &req.types,
                     filter: Some(&req.filter),
-                    link_ids: &legs.link_ids,
                     foreign_entity_sources: &foreign_entity_sources,
                     hydratable,
                     only: req.only.as_deref(),
@@ -1018,15 +932,12 @@ where
         let mut project_entities = Vec::new();
         let mut channel_ids = Vec::new();
         let mut thread_ids = Vec::new();
-        let mut email_ids = Vec::new();
         let mut foreign_entity_ids = Vec::new();
         for entity in entities {
             match entity.entity_type {
-                // Calendar events and agent sessions ride the main by-ids
-                // query in both soup types.
+                // Agent sessions ride the main by-ids query in both soup types.
                 EntityType::Document
                 | EntityType::Chat
-                | EntityType::CalendarEvent
                 | EntityType::AgentSession
                 | EntityType::Initiative => main_entities.push(entity.copied()),
                 // Same split as the touched feed: the expanded by-ids query
@@ -1041,7 +952,6 @@ where
                 EntityType::ChannelMessage => {
                     push_candidate_uuid(&mut thread_ids, entity, "channel thread")
                 }
-                EntityType::EmailThread => push_candidate_uuid(&mut email_ids, entity, "email"),
                 EntityType::ForeignEntity => {
                     push_candidate_uuid(&mut foreign_entity_ids, entity, "foreign")
                 }
@@ -1081,27 +991,6 @@ where
                     SimpleSortMethod::UpdatedAt,
                     Some(with_id_tree(ids, template.query.filter().as_ref())),
                 ),
-            })
-        });
-        let email_request = legs.email.as_ref().and_then(|template| {
-            let ids = balanced_or_tree(
-                email_ids
-                    .iter()
-                    .map(|id| Expr::val(EmailLiteral::ThreadId(*id)))
-                    .collect(),
-            )?;
-            Some(GetEmailsRequest {
-                view: template.view.clone(),
-                link_ids: template.link_ids.clone(),
-                macro_id: user.clone(),
-                limit: Some(email_ids.len() as u32),
-                query: Query::Sort(
-                    SimpleSortMethod::UpdatedAt,
-                    Some(with_id_tree(ids, template.query.filter().as_ref())),
-                ),
-                include_frecency: false,
-                team_receipt: template.team_receipt.clone(),
-                crm_scope: template.crm_scope.clone(),
             })
         });
         let (foreign_entity_sources, foreign_entity_query) = legs
@@ -1158,14 +1047,12 @@ where
             project_items,
             channel_candidates,
             thread_candidates,
-            email_candidates,
             foreign_entity_candidates,
         ) = tokio::join!(
             main_items_fut,
             project_items_fut,
             self.handle_comms_request(comms_request),
             self.handle_comms_thread_request(comms_thread_request),
-            self.handle_email_request(email_request),
             self.handle_foreign_entity_request(
                 Some(user.to_string()),
                 foreign_entity_sources,
@@ -1182,7 +1069,6 @@ where
             .chain(project_items?.into_iter().map(SoupCandidate::plain))
             .chain(channel_candidates?)
             .chain(thread_candidates?)
-            .chain(email_candidates?)
             .chain(foreign_entity_candidates?)
         {
             let key = {
@@ -1192,41 +1078,6 @@ where
             candidates_by_entity.insert(key, candidate);
         }
         Ok(candidates_by_entity)
-    }
-
-    #[tracing::instrument(err, skip(self, req))]
-    async fn handle_email_request(
-        &self,
-        req: Option<GetEmailsRequest>,
-    ) -> Result<impl Iterator<Item = SoupCandidate>, SoupErr> {
-        use frecency::domain::models::AggregateFrecency;
-
-        let Some(req) = req else {
-            return Ok(Either::Left(None.into_iter()));
-        };
-
-        let email_response = self.email_service.get_email_thread_previews(req).await?;
-
-        let mut frecency_scores: Vec<Option<AggregateFrecency>> =
-            Vec::with_capacity(email_response.items.len());
-        let items: Vec<SoupItem<()>> = email_response
-            .items
-            .into_iter()
-            .map(|mut preview| {
-                frecency_scores.push(preview.frecency_score.take());
-                SoupItem::EmailThread(preview.into())
-            })
-            .collect();
-
-        Ok(Either::Right(items.into_iter().zip(frecency_scores).map(
-            |(item, frecency_score)| SoupCandidate {
-                item,
-                document_server_facts: None,
-                frecency_score,
-                touched_at: None,
-                notified_at: None,
-            },
-        )))
     }
 
     #[tracing::instrument(err, skip(self, req))]
@@ -1280,70 +1131,6 @@ where
                     ))
                 }),
         ))
-    }
-
-    #[tracing::instrument(err, skip(self, req))]
-    async fn handle_crm_contact_request(
-        &self,
-        req: Option<super::models::contact_listing::GetCrmContactsRequest>,
-    ) -> Result<impl Iterator<Item = SoupCandidate>, SoupErr> {
-        let Some(req) = req else {
-            return Ok(Vec::new().into_iter());
-        };
-        let contacts = self
-            .crm_service
-            .list_contacts_for_soup(req.user_id.as_ref(), req.access.as_ref(), req.query)
-            .await
-            .map_err(|_| SoupErr::CrmErr)?;
-        Ok(contacts
-            .into_iter()
-            .map(|contact| {
-                SoupCandidate::plain(SoupItem::CrmContact(SoupCrmContact::from(contact)))
-            })
-            .collect::<Vec<_>>()
-            .into_iter())
-    }
-
-    #[tracing::instrument(err, skip(self, req))]
-    async fn handle_crm_company_request(
-        &self,
-        req: Option<GetCrmCompaniesRequest>,
-    ) -> Result<impl Iterator<Item = SoupCandidate>, SoupErr> {
-        let Some(req) = req else {
-            return Ok(Either::Left(None.into_iter()));
-        };
-
-        let GetCrmCompaniesRequest {
-            access,
-            user_id,
-            company_ids,
-            hidden,
-            sort,
-            cursor,
-            limit,
-        } = req;
-
-        let items: Vec<SoupItem<()>> = self
-            .crm_service
-            .list_companies_for_soup(
-                &access,
-                user_id.as_ref(),
-                &company_ids,
-                hidden,
-                sort,
-                cursor,
-                limit,
-            )
-            .await
-            .map_err(|err| match err {
-                crm::domain::model::CrmError::AdminRoleRequired => SoupErr::CrmAdminRequired,
-                _ => SoupErr::CrmErr,
-            })?
-            .into_iter()
-            .map(|company| SoupItem::CrmCompany(SoupCrmCompany::from(company)))
-            .collect();
-
-        Ok(Either::Right(items.into_iter().map(SoupCandidate::plain)))
     }
 
     #[tracing::instrument(err, skip(self, req))]
@@ -1655,84 +1442,15 @@ where
                 .cursor
                 .map(|ast| ast.map(|ast| favorites::apply(ast, entities)));
         }
-        // CRM associations resolve to complete entity sets, so they only
-        // compose with the timestamp-sorted sources that take those sets.
-        let crm_record = req.entity_ast().and_then(|ast| ast.crm_association);
-        // Read the filter of every query kind: `entity_ast` hides frecency
-        // filters, which must be rejected rather than silently unscoped.
-        let crm_associations = if req
-            .cursor
-            .filter()
-            .as_ref()
-            .is_some_and(|ast| !ast.crm_associations().is_empty())
-        {
-            if !matches!(&req.cursor, SoupQuery::Simple(_)) {
-                return Err(SoupErr::AstErr(item_filters::ast::ExpandErr::ApiAst(
-                    "CRM associations require a timestamp sort".into(),
-                )));
-            }
-            // Unexpanded candidate queries cannot apply filter trees, so the
-            // resolved entity sets would have nowhere to go.
-            if matches!(req.soup_type, SoupType::UnExpanded) {
-                return Err(SoupErr::AstErr(item_filters::ast::ExpandErr::ApiAst(
-                    "CRM associations require an expanded query".into(),
-                )));
-            }
-            let resolved = self
-                .resolve_crm_associations(&req.user, team_receipt.as_ref(), req.entity_ast())
-                .await?;
-            if let Some(resolved) = &resolved {
-                req.cursor = req.cursor.map(|ast| ast.map(|ast| resolved.apply(ast)));
-            }
-            resolved
-        } else {
-            None
-        };
         let limit = req.limit.clamp(1, 500);
-
-        // CRM-scoped visibility (team-wide email scope or hidden CRM
-        // companies) requires a team receipt. Without this check the CRM
-        // sub-request would silently skip for no-team callers, disguising
-        // "no access" as "no data". The admin/owner role gate for hidden
-        // companies lives one layer down in the CRM service, derived from
-        // the receipt itself.
-        if let Some(ast) = req.entity_ast()
-            && (ast.requests_crm_scope() || ast.requests_crm_admin())
-            && team_receipt.is_none()
-        {
-            return Err(SoupErr::CrmTeamRequired);
-        }
-
-        // Borrow before email's builder consumes team_receipt.
-        let crm_contact_request = req.build_crm_contact_request(team_receipt.as_ref())?;
-        let mut crm_company_request = req.build_crm_company_request(&team_receipt);
         let foreign_entity_source_ids = req.build_foreign_entity_source_ids(team_receipt.as_ref());
         let metadata_source_ids = foreign_entity_source_ids.clone();
         let metadata_user = req.user.to_string();
         let foreign_entity_query = req.build_foreign_entity_query();
         let github_pull_request_filter = req.build_github_pull_request_filter();
-        let email_request = req.build_email_request(team_receipt);
         let comms_request = req.build_comms_request();
         let comms_thread_request = req.build_comms_thread_request();
         let call_request = req.build_call_request();
-        if let Some(entities) = &favorite_entities {
-            crm_company_request = crm_company_request.and_then(|mut request| {
-                favorites::intersect(
-                    &mut request.company_ids,
-                    favorites::ids(entities, EntityType::CrmCompany),
-                )
-                .then_some(request)
-            });
-        }
-        if let Some(entities) = crm_record.and_then(|record| {
-            crm_associations
-                .as_ref()
-                .and_then(|resolved| resolved.get(&record))
-        }) {
-            crm_company_request = crm_company_request.and_then(|mut request| {
-                crm_association::intersect_crm_companies(&mut request, entities).then_some(request)
-            });
-        }
         let sort_direction = req.sort_direction;
 
         let output: Result<SoupOutput<R, SoupCandidate>, SoupErr> = match req.cursor {
@@ -1748,12 +1466,9 @@ where
                     },
                     include_projection,
                 );
-                let email_soup_fut = self.handle_email_request(email_request);
                 let comms_soup_fut = self.handle_comms_request(comms_request);
                 let comms_thread_soup_fut = self.handle_comms_thread_request(comms_thread_request);
                 let call_soup_fut = self.handle_call_request(call_request);
-                let crm_company_soup_fut = self.handle_crm_company_request(crm_company_request);
-                let crm_contact_soup_fut = self.handle_crm_contact_request(crm_contact_request);
                 let foreign_entity_soup_fut = self.handle_foreign_entity_request(
                     Some(req.user.to_string()),
                     foreign_entity_source_ids,
@@ -1763,33 +1478,18 @@ where
                     sort_direction,
                 );
 
-                let (
-                    main_soup,
-                    email_soup,
-                    comms_soup,
-                    comms_thread_soup,
-                    call_soup,
-                    crm_company_soup,
-                    crm_contact_soup,
-                    foreign_entity_soup,
-                ) = tokio::join!(
+                let (main_soup, comms_soup, comms_thread_soup, call_soup, foreign_entity_soup) = tokio::join!(
                     main_soup_fut,
-                    email_soup_fut,
                     comms_soup_fut,
                     comms_thread_soup_fut,
                     call_soup_fut,
-                    crm_company_soup_fut,
-                    crm_contact_soup_fut,
                     foreign_entity_soup_fut,
                 );
 
                 let paginator = main_soup?
-                    .chain(email_soup?)
                     .chain(comms_soup?)
                     .chain(comms_thread_soup?)
                     .chain(call_soup?)
-                    .chain(crm_company_soup?)
-                    .chain(crm_contact_soup?)
                     .chain(foreign_entity_soup?)
                     .paginate_on(limit.into(), sort_method)
                     .filter_on(entity_filter);
@@ -1822,7 +1522,6 @@ where
                         req.soup_type,
                         req.user,
                         limit,
-                        req.link_ids,
                         include_projection,
                     )
                     .await?;
@@ -1844,8 +1543,6 @@ where
             }
             SoupQuery::Notified(NotifiedQueryInner(cursor)) => {
                 let legs = NotifiedHydrationLegs {
-                    link_ids: req.link_ids,
-                    email: email_request,
                     comms: comms_request,
                     comms_threads: comms_thread_request,
                     foreign_entities: foreign_entity_query
@@ -1897,15 +1594,13 @@ where
     }
 }
 
-impl<T, U, V, C, K, Crm, F> SoupService for SoupImpl<T, U, V, C, K, Crm, F>
+impl<T, U, C, K, F> SoupService for SoupImpl<T, U, C, K, F>
 where
     T: SoupRepo,
     anyhow::Error: From<T::Err>,
     U: FrecencyQueryService,
-    V: EmailPreviewServiceReadOnly,
     C: ChannelListService,
     K: CallRecordQueryService,
-    Crm: CrmService,
     F: GithubPullRequestListing,
 {
     #[tracing::instrument(err, skip(self, req, team_receipt))]
@@ -2023,14 +1718,6 @@ where
             req.cursor = req
                 .cursor
                 .map_filter(|ast| favorites::apply(ast, &entities));
-        }
-        // Grouped queries carry no team receipt, so associations resolve
-        // under the viewer's own CRM teams.
-        if let Some(resolved) = self
-            .resolve_crm_associations(&user_id, None, Some(req.cursor.filter()))
-            .await?
-        {
-            req.cursor = req.cursor.map_filter(|ast| resolved.apply(ast));
         }
         let items = self.handle_grouped_soup_request(req).await?;
         self.populate_grouped_items(user_id, items).await

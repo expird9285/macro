@@ -1,7 +1,7 @@
 //! Bound id sets for the expanded document filter.
 //!
-//! A resolved CRM association constrains documents to an OR over every
-//! associated id, and its negation to an AND over every excluded id; either
+//! An id-set constraint (such as the viewer's favorites) becomes an OR over
+//! every listed id, and its negation an AND over every excluded id; either
 //! can name thousands of documents. Rendered one equality per id, the SQL
 //! text grows with the set. Instead, each run of two or more ids of the same
 //! polarity becomes one `d.id = ANY($n::text[])` over a bound array, so the

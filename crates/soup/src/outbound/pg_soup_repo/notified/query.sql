@@ -47,11 +47,9 @@ WHERE CASE nc.entity_type
     WHEN 'initiative' THEN {initiative_gate}
     WHEN 'channel' THEN {channel_gate}
     WHEN 'channel_message' THEN {channel_thread_gate}
-    WHEN 'email_thread' THEN {email_gate}
-    WHEN 'calendar_event' THEN {calendar_event_gate}
     WHEN 'foreign_entity' THEN {foreign_entity_gate}
     WHEN 'agent_session' THEN {agent_session_gate}
     ELSE FALSE
 END
 ORDER BY nc.notified_at DESC, nc.entity_id DESC
-LIMIT $6
+LIMIT $5

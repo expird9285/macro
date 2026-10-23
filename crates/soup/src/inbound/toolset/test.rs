@@ -105,11 +105,6 @@ fn test_full_ast_input_deserializes() {
         "cf": {"l": {"cid": "00000000-0000-0000-0000-000000000000"}},
         "chanf": {"l": {"ChannelId": "00000000-0000-0000-0000-000000000000"}},
         "df": {"l": {"id": "00000000-0000-0000-0000-000000000000"}},
-        "ef": {"&": [
-            {"l": {"Importance": true}},
-            {"l": {"Shared": "exclude"}}
-        ]},
-        "emailView": "inbox",
         "fef": {"l": {"feid": "github:123"}},
         "limit": 100,
         "pf": {"l": {"pid": "00000000-0000-0000-0000-000000000000"}},
@@ -123,28 +118,6 @@ fn test_full_ast_input_deserializes() {
     assert!(matches!(list.sort_by, SortBy::RecentlyUpdated));
     assert!(!ast.is_empty());
     assert!(ast.foreign_entity_filter.is_some());
-    assert_eq!(
-        list.email_view().unwrap(),
-        email::domain::models::PreviewView::default()
-    );
-}
-
-#[test]
-fn test_email_preset_defaults_to_email_results() {
-    let list: ListEntities = serde_json::from_value(serde_json::json!({
-        "emailPreset": "signal"
-    }))
-    .unwrap();
-
-    let ast = list.entity_filter_ast(None);
-    assert!(ast.email_filter.tree.is_some());
-    assert!(ast.document_filter.is_some());
-    assert!(ast.project_filter.is_some());
-    assert!(ast.chat_filter.is_some());
-    assert!(ast.channel_filter.is_some());
-    assert!(ast.call_filter.is_some());
-    assert!(ast.foreign_entity_filter.is_some());
-    assert_eq!(list.effective_include_types(), Some(vec![ItemType::Email]));
 }
 
 #[test]
@@ -174,7 +147,6 @@ fn test_include_types_foreign_entity_without_filter_keeps_foreign_entity_unfilte
     assert!(ast.document_filter.is_some());
     assert!(ast.project_filter.is_some());
     assert!(ast.chat_filter.is_some());
-    assert!(ast.email_filter.tree.is_some());
     assert!(ast.channel_filter.is_some());
     assert!(ast.call_filter.is_some());
     assert!(ast.foreign_entity_filter.is_none());
@@ -182,40 +154,6 @@ fn test_include_types_foreign_entity_without_filter_keeps_foreign_entity_unfilte
         list.effective_include_types(),
         Some(vec![ItemType::ForeignEntity])
     );
-}
-
-#[test]
-fn test_list_entities_schema_documents_email_time_range_filtering() {
-    let validated = generate_validated_input_schema::<ListEntities>().unwrap();
-    let schema_json = serde_json::to_string(&validated.schema).unwrap();
-
-    assert!(
-        schema_json.contains("\\\"ua\\\""),
-        "schema should document the ua (updated_at) email filter key"
-    );
-    assert!(
-        schema_json.contains("last 7 days"),
-        "schema should give a worked example for filtering emails by a recent time window (macro-2543)"
-    );
-}
-
-#[test]
-fn test_email_updated_at_range_filter_deserializes() {
-    let input = serde_json::json!({
-        "includeTypes": ["email"],
-        "ef": {
-            "&": [
-                { "l": { "ua": { "gte": "2026-07-15T00:00:00Z" } } },
-                { "l": { "ua": { "lt": "2026-07-22T00:00:00Z" } } }
-            ]
-        }
-    });
-
-    let list: ListEntities = serde_json::from_value(input).unwrap();
-    let ast = list.entity_filter_ast(None);
-
-    assert_eq!(list.effective_include_types(), Some(vec![ItemType::Email]));
-    assert!(ast.email_filter.tree.is_some());
 }
 
 #[test]
@@ -244,17 +182,6 @@ fn test_build_summary_with_items() {
             sub_type: Some("task".to_string()),
             tags: vec![],
         },
-        EntityItem::Email {
-            id: Uuid::new_v4(),
-            subject: Some("Hello".to_string()),
-            snippet: Some("Can you review this?".to_string()),
-            sender_name: Some("Ada".to_string()),
-            sender_email: Some("ada@example.com".to_string()),
-            inbox_visible: true,
-            is_read: false,
-            is_draft: false,
-            tags: vec![],
-        },
         EntityItem::ForeignEntity {
             id: Uuid::new_v4(),
             foreign_entity_id: "github:123".to_string(),
@@ -265,7 +192,6 @@ fn test_build_summary_with_items() {
 
     let summary = build_summary(&items, false, &None);
     assert!(summary.contains("2 documents"));
-    assert!(summary.contains("1 email"));
     assert!(summary.contains("1 foreign entity"));
     assert!(summary.starts_with("Found"));
 

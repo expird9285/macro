@@ -9,7 +9,6 @@ use channels::domain::{
 use chrono::Days;
 use chrono::{DateTime, Utc};
 use cool_asserts::assert_matches;
-use email::domain::models::{EnrichedEmailThreadPreview, PreviewView};
 use filter_ast::Expr;
 use foreign_entity::domain::{
     models::{ForeignEntity, SourceId},
@@ -33,8 +32,7 @@ use model_entity::EntityType;
 use model_owner::Owner;
 use models_grouping::{GroupByField, GroupingConfig};
 use models_pagination::{
-    Cursor, CursorVal, CursorWithValAndFilter, FrecencyValue, PaginatedCursor, SimpleSortMethod,
-    TypeEraseCursor,
+    Cursor, CursorVal, CursorWithValAndFilter, FrecencyValue, SimpleSortMethod, TypeEraseCursor,
 };
 use models_soup::document::{SoupDocument, SoupDocumentSubType};
 use ordered_float::OrderedFloat;
@@ -45,28 +43,9 @@ use uuid::Uuid;
 use super::*;
 
 mod agent_metadata;
-mod crm_association;
 mod exclusions;
 mod favorites;
 mod work_feed;
-
-struct NoopEmailPreviewService;
-
-impl EmailPreviewServiceReadOnly for NoopEmailPreviewService {
-    async fn get_email_thread_previews(
-        &self,
-        req: email::domain::models::GetEmailsRequest,
-    ) -> Result<
-        PaginatedCursor<EnrichedEmailThreadPreview, Uuid, SimpleSortMethod, ()>,
-        email::domain::models::EmailErr,
-    > {
-        assert!(!req.include_frecency);
-        Ok(Option::<EnrichedEmailThreadPreview>::None
-            .into_iter()
-            .paginate_on(0, SimpleSortMethod::CreatedAt)
-            .into_page())
-    }
-}
 
 struct NoopCommsService;
 
@@ -275,8 +254,6 @@ fn call_record(
         source: None,
     }
 }
-
-use crm::domain::service::NoOpCrmService;
 
 #[derive(Clone)]
 struct NoopPullRequestListing;
@@ -561,19 +538,13 @@ async fn simple_soup_includes_channel_threads() {
     let page = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         comms_service.clone(),
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![],
             soup_type: SoupType::UnExpanded,
             limit: 20,
             cursor: SoupQuery::new_sort_simple(
@@ -623,19 +594,13 @@ async fn simple_soup_includes_call_records() {
     let page = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         NoopCommsService,
         call_query_service.clone(),
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![],
             soup_type: SoupType::UnExpanded,
             limit: 20,
             cursor: SoupQuery::new_sort_simple(
@@ -677,19 +642,13 @@ async fn simple_soup_uses_channel_thread_filters_without_touching_channel_filter
     let _page = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         comms_service.clone(),
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![],
             soup_type: SoupType::UnExpanded,
             limit: 20,
             cursor: SoupQuery::new_sort_simple(
@@ -754,19 +713,13 @@ async fn simple_soup_includes_foreign_entities() {
     let page = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         pull_request_listing.clone(),
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![],
             soup_type: SoupType::UnExpanded,
             limit: 20,
             cursor: SoupQuery::new_sort_simple(
@@ -810,19 +763,13 @@ async fn simple_soup_passes_the_github_pull_request_filter_to_the_listing() {
     SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         pull_request_listing.clone(),
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![],
             soup_type: SoupType::UnExpanded,
             limit: 20,
             cursor: SoupQuery::new_sort_simple(
@@ -864,19 +811,13 @@ async fn ascending_simple_soup_lists_pull_requests_oldest_first() {
     SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         pull_request_listing.clone(),
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::Asc,
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![],
             soup_type: SoupType::UnExpanded,
             limit: 20,
             cursor: SoupQuery::new_sort_simple(
@@ -935,19 +876,13 @@ async fn frecency_soup_does_not_query_foreign_entities() {
     SoupImpl::new(
         soup,
         frecency,
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         pull_request_listing.clone(),
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![],
             soup_type: SoupType::UnExpanded,
             limit: 20,
             cursor: SoupQuery::new_sort_frecency(Frecency, EntityFilters::default()),
@@ -982,19 +917,13 @@ async fn team_receipt_contributes_team_foreign_entity_source_id() {
     SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         pull_request_listing.clone(),
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![],
             soup_type: SoupType::UnExpanded,
             limit: 20,
             cursor: SoupQuery::new_sort_simple(
@@ -1021,56 +950,6 @@ async fn team_receipt_contributes_team_foreign_entity_source_id() {
 }
 
 #[tokio::test]
-async fn crm_filters_without_team_receipt_are_rejected() {
-    let user = MacroUserIdStr::parse_from_str("macro|test@example.com").unwrap();
-
-    let hidden_companies_filter = EntityFilters {
-        crm_company_filters: item_filters::CrmCompanyFilters {
-            company_ids: vec![],
-            hidden: Some(true),
-        },
-        ..EntityFilters::default()
-    };
-    let crm_scope_filter = EntityFilters {
-        email_filters: item_filters::EmailFilters {
-            crm_domains: vec!["example.com".to_string()],
-            ..item_filters::EmailFilters::default()
-        },
-        ..EntityFilters::default()
-    };
-
-    for filters in [hidden_companies_filter, crm_scope_filter] {
-        let err = SoupImpl::new(
-            MockSoupRepo::new(),
-            FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-            NoopEmailPreviewService,
-            NoopCommsService,
-            NoopCallRecordQueryService,
-            NoOpCrmService,
-            RecordingPullRequestListing::new(Vec::new()),
-        )
-        .get_user_soup(
-            SoupRequest {
-                sort_direction: SoupSortDirection::default(),
-                email_preview_view: PreviewView::StandardLabel(
-                    email::domain::models::PreviewViewStandardLabel::Inbox,
-                ),
-                link_ids: vec![],
-                soup_type: SoupType::UnExpanded,
-                limit: 20,
-                cursor: SoupQuery::new_sort_simple(SimpleSortMethod::UpdatedAt, filters),
-                user: user.clone(),
-            },
-            None,
-        )
-        .await
-        .unwrap_err();
-
-        assert!(matches!(err, SoupErr::CrmTeamRequired), "{err:?}");
-    }
-}
-
-#[tokio::test]
 async fn foreign_entity_filter_suppresses_non_matching_foreign_entities() {
     let user = MacroUserIdStr::parse_from_str("macro|test@example.com").unwrap();
     let pull_request_listing = RecordingPullRequestListing::new(vec![pull_request_for_source(
@@ -1089,19 +968,13 @@ async fn foreign_entity_filter_suppresses_non_matching_foreign_entities() {
     let page = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         pull_request_listing.clone(),
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![],
             soup_type: SoupType::UnExpanded,
             limit: 20,
             cursor: SoupQuery::new_sort_simple(
@@ -1162,19 +1035,13 @@ async fn it_should_not_query_frecency() {
     let res = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![Uuid::new_v4()],
             soup_type: SoupType::UnExpanded,
             limit: 0,
             cursor: SoupQuery::new_sort_simple(
@@ -1224,19 +1091,13 @@ async fn properties_are_populated_once_after_pagination() {
     let res = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup_with_properties(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![Uuid::new_v4()],
             soup_type: SoupType::UnExpanded,
             limit: 20,
             cursor: SoupQuery::new_sort_simple(
@@ -1298,19 +1159,13 @@ async fn frecency_is_populated_once_after_pagination() {
     let res = SoupImpl::new(
         soup_mock,
         frecency,
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup_with_frecency(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![Uuid::new_v4()],
             soup_type: SoupType::UnExpanded,
             limit: 20,
             cursor: SoupQuery::new_sort_simple(
@@ -1367,19 +1222,13 @@ async fn properties_and_frecency_are_composed_after_pagination() {
     let res = SoupImpl::new(
         soup_mock,
         frecency,
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup_with_properties_and_frecency(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![Uuid::new_v4()],
             soup_type: SoupType::UnExpanded,
             limit: 20,
             cursor: SoupQuery::new_sort_simple(
@@ -1441,10 +1290,8 @@ async fn grouped_properties_are_populated_by_the_service() {
     let service = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     );
     let items = service
@@ -1531,19 +1378,13 @@ async fn it_should_query_frecency() {
     let res = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(frecency_mock),
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![Uuid::new_v4()],
             soup_type: SoupType::UnExpanded,
             limit: u16::MAX,
             cursor: SoupQuery::new_sort_frecency(Frecency, EntityFilters::default()),
@@ -1616,19 +1457,13 @@ async fn it_should_sort_frecency_descending() {
     let res = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(frecency_mock),
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup_with_frecency(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![Uuid::new_v4()],
             soup_type: SoupType::UnExpanded,
             limit: u16::MAX,
             cursor: SoupQuery::new_sort_frecency(Frecency, EntityFilters::default()),
@@ -1715,19 +1550,13 @@ async fn frecency_should_fallback() {
     let res = SoupImpl::new(
         soup,
         frecency,
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup_with_frecency(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![Uuid::new_v4()],
             soup_type: SoupType::UnExpanded,
             limit: 100,
             cursor: SoupQuery::new_sort_frecency(Frecency, EntityFilters::default()),
@@ -1799,19 +1628,13 @@ async fn frecency_should_paginate() {
     let res = SoupImpl::new(
         soup,
         frecency,
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup_with_frecency(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![Uuid::new_v4()],
             soup_type: SoupType::UnExpanded,
             limit: 100,
             cursor: SoupQuery::new_sort_frecency(Frecency, EntityFilters::default()),
@@ -1885,19 +1708,13 @@ async fn frecency_should_resume_cursor() {
     let res = SoupImpl::new(
         soup,
         frecency,
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup_with_frecency(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![Uuid::new_v4()],
             soup_type: SoupType::UnExpanded,
             limit: 100,
             cursor: SoupQuery::new_cursor_frecency(CursorWithValAndFilter {
@@ -1987,19 +1804,13 @@ async fn frecency_fallback_cursor_should_resume() {
     let res = SoupImpl::new(
         soup,
         frecency,
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup_with_frecency(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![Uuid::new_v4()],
             soup_type: SoupType::UnExpanded,
             limit: 100,
             cursor: SoupQuery::new_cursor_frecency(CursorWithValAndFilter {
@@ -2062,19 +1873,13 @@ async fn cursor_should_return_simple_sort() {
     let res = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![Uuid::new_v4()],
             soup_type: SoupType::UnExpanded,
             limit: 0,
             cursor: SoupQuery::new_sort_simple(
@@ -2135,19 +1940,13 @@ async fn cursor_should_return_frecency() {
     let res = SoupImpl::new(
         soup,
         frecency,
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![Uuid::new_v4()],
             soup_type: SoupType::UnExpanded,
             limit: 100,
             cursor: SoupQuery::new_sort_frecency(Frecency, EntityFilters::default()),
@@ -2195,19 +1994,13 @@ async fn it_should_return_is_completed_true_for_completed_tasks() {
     let res = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![Uuid::new_v4()],
             soup_type: SoupType::UnExpanded,
             limit: 0,
             cursor: SoupQuery::new_sort_simple(
@@ -2245,19 +2038,13 @@ async fn it_should_return_is_completed_false_for_incomplete_tasks() {
     let res = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![Uuid::new_v4()],
             soup_type: SoupType::UnExpanded,
             limit: 0,
             cursor: SoupQuery::new_sort_simple(
@@ -2295,19 +2082,13 @@ async fn it_should_return_is_completed_none_for_non_tasks() {
     let res = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![Uuid::new_v4()],
             soup_type: SoupType::UnExpanded,
             limit: 0,
             cursor: SoupQuery::new_sort_simple(
@@ -2357,19 +2138,13 @@ async fn it_should_preserve_is_completed_for_mixed_items() {
     let res = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![Uuid::new_v4()],
             soup_type: SoupType::UnExpanded,
             limit: 3,
             cursor: SoupQuery::new_sort_simple(
@@ -2441,19 +2216,13 @@ async fn it_should_preserve_is_completed_in_by_ids_queries() {
     let res = SoupImpl::new(
         soup_mock,
         frecency,
-        NoopEmailPreviewService,
         NoopCommsService,
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![Uuid::new_v4()],
             soup_type: SoupType::UnExpanded,
             limit: 3,
             cursor: SoupQuery::new_sort_frecency(Frecency, EntityFilters::default()),
@@ -2573,19 +2342,13 @@ async fn touched_soup_orders_by_touch_and_drops_unhydrated() {
     let page = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         RecordingCommsService::new(vec![]),
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup_with_properties(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![],
             soup_type: SoupType::Expanded,
             limit: 20,
             cursor: SoupQuery::new_sort_touched(EntityFilters::default()),
@@ -2616,9 +2379,9 @@ async fn touched_soup_orders_by_touch_and_drops_unhydrated() {
 }
 
 #[tokio::test]
-async fn touched_soup_projection_preserves_authoritative_attachment_facts() {
+async fn touched_soup_projection_preserves_authoritative_document_facts() {
     let user = MacroUserIdStr::parse_from_str("macro|test@example.com").unwrap();
-    let attachment = Uuid::from_u128(1);
+    let important_document = Uuid::from_u128(1);
     let ordinary_document = Uuid::from_u128(2);
     let base: DateTime<Utc> = DateTime::default();
 
@@ -2630,7 +2393,8 @@ async fn touched_soup_projection_preserves_authoritative_attachment_facts() {
             Box::pin(async move {
                 Ok(vec![
                     TouchedEntity {
-                        entity: EntityType::Document.with_entity_string(attachment.to_string()),
+                        entity: EntityType::Document
+                            .with_entity_string(important_document.to_string()),
                         touched_at: base + Days::new(2),
                     },
                     TouchedEntity {
@@ -2657,17 +2421,17 @@ async fn touched_soup_projection_preserves_authoritative_attachment_facts() {
                         )),
                         document_server_facts: Some(SoupDocumentServerFacts {
                             is_email_attachment: false,
-                            is_important: true,
+                            is_important: false,
                             status_option_ids: Vec::new(),
                         }),
                     },
                     SoupProjectionHydration {
                         item: SoupItem::Document(soup_document_uuid_with_updated(
-                            attachment,
+                            important_document,
                             Default::default(),
                         )),
                         document_server_facts: Some(SoupDocumentServerFacts {
-                            is_email_attachment: true,
+                            is_email_attachment: false,
                             is_important: true,
                             status_option_ids: Vec::new(),
                         }),
@@ -2679,19 +2443,13 @@ async fn touched_soup_projection_preserves_authoritative_attachment_facts() {
     let page = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         RecordingCommsService::new(vec![]),
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup_with_projection(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![],
             soup_type: SoupType::Expanded,
             limit: 20,
             cursor: SoupQuery::new_sort_touched(EntityFilters::default()),
@@ -2705,11 +2463,11 @@ async fn touched_soup_projection_preserves_authoritative_attachment_facts() {
     .unwrap();
 
     let ids: Vec<Uuid> = page.items.iter().map(|item| item.item.id()).collect();
-    assert_eq!(ids, vec![attachment, ordinary_document]);
+    assert_eq!(ids, vec![important_document, ordinary_document]);
     assert_eq!(
         page.items[0].document_server_facts,
         Some(SoupDocumentServerFacts {
-            is_email_attachment: true,
+            is_email_attachment: false,
             is_important: true,
             status_option_ids: Vec::new(),
         })
@@ -2718,7 +2476,7 @@ async fn touched_soup_projection_preserves_authoritative_attachment_facts() {
         page.items[1].document_server_facts,
         Some(SoupDocumentServerFacts {
             is_email_attachment: false,
-            is_important: true,
+            is_important: false,
             status_option_ids: Vec::new(),
         })
     );
@@ -2785,19 +2543,13 @@ async fn unexpanded_touched_hydrates_projects_in_the_main_query() {
     let page = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         RecordingCommsService::new(vec![]),
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![],
             soup_type: SoupType::UnExpanded,
             limit: 20,
             cursor: SoupQuery::new_sort_touched(EntityFilters::default()),
@@ -2855,19 +2607,13 @@ async fn touched_soup_full_page_builds_keyset_cursor() {
     let page = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         RecordingCommsService::new(vec![]),
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
     .get_user_soup(
         SoupRequest {
             sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![],
             soup_type: SoupType::Expanded,
             limit: 20,
             cursor: SoupQuery::new_sort_touched(EntityFilters::default()),
@@ -2888,146 +2634,33 @@ async fn touched_soup_full_page_builds_keyset_cursor() {
     assert_eq!(decoded.val.last_val, last_touch);
 }
 
-/// Records each email hydration request and returns no threads.
-#[derive(Clone, Default)]
-struct RecordingEmailPreviewService {
-    requests: Arc<Mutex<Vec<(PreviewView, Vec<Uuid>, Option<u32>)>>>,
-    filters: Arc<Mutex<Vec<String>>>,
-}
-
-impl EmailPreviewServiceReadOnly for RecordingEmailPreviewService {
-    async fn get_email_thread_previews(
-        &self,
-        req: email::domain::models::GetEmailsRequest,
-    ) -> Result<
-        PaginatedCursor<EnrichedEmailThreadPreview, Uuid, SimpleSortMethod, ()>,
-        email::domain::models::EmailErr,
-    > {
-        self.requests
-            .lock()
-            .unwrap()
-            .push((req.view.clone(), req.link_ids.clone(), req.limit));
-        self.filters
-            .lock()
-            .unwrap()
-            .push(serde_json::to_string(req.query.filter()).unwrap());
-        Ok(Option::<EnrichedEmailThreadPreview>::None
-            .into_iter()
-            .paginate_on(0, SimpleSortMethod::CreatedAt)
-            .into_page())
-    }
-}
-
-/// Touched email hydration must use the unfiltered `All` view: the candidate
-/// query admits threads the caller's display view (e.g. Inbox) would hide,
-/// and a view-filtered hydration would silently drop them from the page.
-#[tokio::test]
-async fn touched_soup_hydrates_emails_with_the_unfiltered_view() {
-    let user = MacroUserIdStr::parse_from_str("macro|test@example.com").unwrap();
-    let thread = Uuid::from_u128(7);
-    let link = Uuid::from_u128(8);
-    let base: DateTime<Utc> = DateTime::default();
-
-    let mut soup_mock = MockSoupRepo::new();
-    soup_mock
-        .expect_touched_soup_page()
-        .times(1)
-        .returning(move |_req| {
-            Box::pin(async move {
-                Ok(vec![TouchedEntity {
-                    entity: EntityType::EmailThread.with_entity_string(thread.to_string()),
-                    touched_at: base + Days::new(1),
-                }])
-            })
-        });
-    soup_mock
-        .expect_expanded_soup_by_ids()
-        .returning(|_params| Box::pin(async move { Ok(Vec::new()) }));
-
-    let email_service = RecordingEmailPreviewService::default();
-    let requests = email_service.requests.clone();
-
-    let _page = SoupImpl::new(
-        soup_mock,
-        FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        email_service,
-        RecordingCommsService::new(vec![]),
-        NoopCallRecordQueryService,
-        NoOpCrmService,
-        NoopPullRequestListing,
-    )
-    .get_user_soup(
-        SoupRequest {
-            sort_direction: SoupSortDirection::default(),
-            email_preview_view: PreviewView::StandardLabel(
-                email::domain::models::PreviewViewStandardLabel::Inbox,
-            ),
-            link_ids: vec![link],
-            soup_type: SoupType::Expanded,
-            limit: 20,
-            cursor: SoupQuery::new_sort_touched(EntityFilters::default()),
-            user,
-        },
-        None,
-    )
-    .await
-    .unwrap();
-
-    let recorded = requests.lock().unwrap();
-    let (view, link_ids, limit) = recorded.first().expect("email hydration ran");
-    assert_eq!(
-        view,
-        &PreviewView::StandardLabel(email::domain::models::PreviewViewStandardLabel::All)
-    );
-    assert_eq!(link_ids, &vec![link]);
-    assert_eq!(limit, &Some(1));
-}
-
-/// Channel and email filter trees fold in their own domains; combining them
-/// with touched_by_me is rejected rather than silently dropping the type.
+/// Channel filter trees fold in their own domain; combining them with
+/// touched_by_me is rejected rather than silently dropping the type.
 #[tokio::test]
 async fn touched_soup_rejects_unfoldable_filters() {
-    for (filters, expected_kind) in [
-        (
-            EntityFilters {
-                channel_filters: item_filters::ChannelFilters {
-                    importance: Some(true),
-                    ..Default::default()
-                },
+    for (filters, expected_kind) in [(
+        EntityFilters {
+            channel_filters: item_filters::ChannelFilters {
+                importance: Some(true),
                 ..Default::default()
             },
-            "channel",
-        ),
-        (
-            EntityFilters {
-                email_filters: item_filters::EmailFilters {
-                    importance: Some(true),
-                    ..Default::default()
-                },
-                ..Default::default()
-            },
-            "email",
-        ),
-    ] {
+            ..Default::default()
+        },
+        "channel",
+    )] {
         let mut soup_mock = MockSoupRepo::new();
         soup_mock.expect_touched_soup_page().times(0);
 
         let err = SoupImpl::new(
             soup_mock,
             FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-            NoopEmailPreviewService,
             RecordingCommsService::new(vec![]),
             NoopCallRecordQueryService,
-            NoOpCrmService,
             NoopPullRequestListing,
         )
         .get_user_soup(
             SoupRequest {
                 sort_direction: SoupSortDirection::default(),
-                email_preview_view: PreviewView::StandardLabel(
-                    email::domain::models::PreviewViewStandardLabel::Inbox,
-                ),
-                link_ids: vec![],
                 soup_type: SoupType::Expanded,
                 limit: 20,
                 cursor: SoupQuery::new_sort_touched(filters),
@@ -3044,17 +2677,9 @@ async fn touched_soup_rejects_unfoldable_filters() {
     }
 }
 
-fn notified_request(
-    limit: u16,
-    link_ids: Vec<Uuid>,
-    filters: EntityFilters,
-) -> SoupRequest<EntityFilters> {
+fn notified_request(limit: u16, filters: EntityFilters) -> SoupRequest<EntityFilters> {
     SoupRequest {
         sort_direction: SoupSortDirection::default(),
-        email_preview_view: PreviewView::StandardLabel(
-            email::domain::models::PreviewViewStandardLabel::Inbox,
-        ),
-        link_ids,
         soup_type: SoupType::Expanded,
         limit,
         cursor: SoupQuery::new_sort_notified(filters),
@@ -3152,13 +2777,11 @@ async fn notified_soup_refills_after_hydration_drops_and_ends_when_exhausted() {
     let page = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         RecordingCommsService::new(vec![]),
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
-    .get_user_soup_with_properties(notified_request(3, vec![], EntityFilters::default()), None)
+    .get_user_soup_with_properties(notified_request(3, EntityFilters::default()), None)
     .await
     .unwrap()
     .into_notified()
@@ -3213,13 +2836,11 @@ async fn notified_soup_full_page_builds_keyset_cursor() {
     let page = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         RecordingCommsService::new(vec![]),
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
-    .get_user_soup(notified_request(2, vec![], EntityFilters::default()), None)
+    .get_user_soup(notified_request(2, EntityFilters::default()), None)
     .await
     .unwrap()
     .into_notified()
@@ -3263,13 +2884,11 @@ async fn notified_soup_caps_refill_rounds_and_keeps_a_cursor() {
     let page = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
         RecordingCommsService::new(vec![]),
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
-    .get_user_soup(notified_request(1, vec![], EntityFilters::default()), None)
+    .get_user_soup(notified_request(1, EntityFilters::default()), None)
     .await
     .unwrap()
     .into_notified()
@@ -3285,16 +2904,13 @@ async fn notified_soup_caps_refill_rounds_and_keeps_a_cursor() {
     );
 }
 
-/// Channel, channel-thread and email candidates hydrate through their own
-/// legs with the request's tree ANDed onto the page's ids, under the
-/// request's own view, so every such filter keeps applying to the notified
-/// feed.
+/// Channel and channel-thread candidates hydrate through their own legs
+/// with the request's tree ANDed onto the page's ids, so every such filter
+/// keeps applying to the notified feed.
 #[tokio::test]
-async fn notified_soup_hydrates_channels_and_emails_with_the_request_tree() {
+async fn notified_soup_hydrates_channels_with_the_request_tree() {
     let channel = Uuid::from_u128(5);
     let channel_thread = Uuid::from_u128(6);
-    let thread = Uuid::from_u128(7);
-    let link = Uuid::from_u128(8);
     let base: DateTime<Utc> = DateTime::default();
 
     let mut soup_mock = MockSoupRepo::new();
@@ -3304,7 +2920,6 @@ async fn notified_soup_hydrates_channels_and_emails_with_the_request_tree() {
         .returning(move |req| {
             assert!(req.hydratable.channels);
             assert!(req.hydratable.channel_threads);
-            assert!(req.hydratable.email_threads);
             Box::pin(async move {
                 Ok(vec![
                     notified(EntityType::Channel, channel, base + Days::new(3)),
@@ -3313,7 +2928,6 @@ async fn notified_soup_hydrates_channels_and_emails_with_the_request_tree() {
                         channel_thread,
                         base + Days::new(2),
                     ),
-                    notified(EntityType::EmailThread, thread, base + Days::new(1)),
                 ])
             })
         });
@@ -3321,9 +2935,6 @@ async fn notified_soup_hydrates_channels_and_emails_with_the_request_tree() {
         .expect_expanded_soup_by_ids()
         .returning(|_params| Box::pin(async move { Ok(Vec::new()) }));
 
-    let email_service = RecordingEmailPreviewService::default();
-    let email_requests = email_service.requests.clone();
-    let email_filters = email_service.filters.clone();
     let comms_service = RecordingCommsService::new(vec![]);
 
     let filters = EntityFilters {
@@ -3337,22 +2948,16 @@ async fn notified_soup_hydrates_channels_and_emails_with_the_request_tree() {
             participant_ids: vec!["macro|test@example.com".to_string()],
             ..Default::default()
         },
-        email_filters: item_filters::EmailFilters {
-            importance: Some(true),
-            ..Default::default()
-        },
         ..Default::default()
     };
     let _page = SoupImpl::new(
         soup_mock,
         FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        email_service,
         comms_service.clone(),
         NoopCallRecordQueryService,
-        NoOpCrmService,
         NoopPullRequestListing,
     )
-    .get_user_soup(notified_request(20, vec![link], filters), None)
+    .get_user_soup(notified_request(20, filters), None)
     .await
     .unwrap();
 
@@ -3367,47 +2972,4 @@ async fn notified_soup_hydrates_channels_and_emails_with_the_request_tree() {
     assert!(thread_filters[0].contains("ThreadId"));
     assert!(thread_filters[0].contains(&channel_thread.to_string()));
     assert!(thread_filters[0].contains("Participant"));
-
-    let recorded = email_requests.lock().unwrap();
-    let (view, link_ids, limit) = recorded.first().expect("email hydration ran");
-    // The request's own view, not the touched feed's unfiltered `All`.
-    assert_eq!(
-        view,
-        &PreviewView::StandardLabel(email::domain::models::PreviewViewStandardLabel::Inbox)
-    );
-    assert_eq!(link_ids, &vec![link]);
-    assert_eq!(limit, &Some(1));
-    let email_filters = email_filters.lock().unwrap();
-    assert!(email_filters[0].contains(&thread.to_string()));
-    assert!(email_filters[0].contains("Importance"));
-}
-
-/// Calendar events hydrate by id through the main query, so only the
-/// calendar literals the candidate query can fold are accepted.
-#[tokio::test]
-async fn notified_soup_rejects_unfoldable_calendar_filters() {
-    let mut soup_mock = MockSoupRepo::new();
-    soup_mock.expect_notified_soup_page().times(0);
-
-    let filters = EntityFilters {
-        calendar_event_filters: item_filters::CalendarEventFilters {
-            organizers: vec!["organizer@example.com".to_string()],
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-    let err = SoupImpl::new(
-        soup_mock,
-        FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
-        NoopEmailPreviewService,
-        RecordingCommsService::new(vec![]),
-        NoopCallRecordQueryService,
-        NoOpCrmService,
-        NoopPullRequestListing,
-    )
-    .get_user_soup(notified_request(20, vec![], filters), None)
-    .await
-    .unwrap_err();
-
-    assert_matches!(err, SoupErr::NotifiedUnsupportedFilter("calendar_event"));
 }

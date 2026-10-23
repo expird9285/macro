@@ -12,9 +12,7 @@
 //!
 //! Both streams share the notified-at feed's keying (thread-scoped channel
 //! notifications become `channel_message` candidates on their thread root)
-//! and its per-type gates. One condition is specific to the work feed: an
-//! email thread's attention lasts only while the thread is in the inbox
-//! (mail's own notion of done).
+//! and its per-type gates.
 //!
 //! Done notifications never place an item, so the query reads only the
 //! viewer's pending ones, once, and both streams look attention up there.
@@ -23,12 +21,11 @@
 //! earlier can reach the page. Reading every notification instead made a
 //! viewer with a long history pay for all of it on each page.
 //!
-//! Like the notified-at feed, channel, channel-thread, email and
+//! Like the notified-at feed, channel, channel-thread and
 //! foreign-entity filter trees fold in their own domains, so the service
 //! drops candidates their hydration legs reject and refills from the next
 //! page; a short page here still means the feed is exhausted.
 
-use activity::Action;
 use cowlike::CowLike;
 use model_entity::EntityType;
 use sqlx::{PgPool, Row};
@@ -38,11 +35,10 @@ use crate::domain::models::{
     NotifiedSoupRequest, WorkFeedCandidate, WorkFeedCandidateRequest, WorkFeedSoupMode,
 };
 use crate::outbound::pg_soup_repo::candidate_gates::{
-    channel_gate, channel_thread_gate, chat_gate, document_gate, email_gate, initiative_gate,
-    project_gate, uuid_guarded,
+    channel_gate, channel_thread_gate, chat_gate, document_gate, initiative_gate, project_gate,
 };
 use crate::outbound::pg_soup_repo::notified::{
-    ID_SQL, agent_session_gate, calendar_event_gate, foreign_entity_gate, included_types,
+    ID_SQL, agent_session_gate, foreign_entity_gate, included_types,
 };
 use crate::outbound::pg_soup_repo::touched::view_tags_sql;
 use crate::outbound::pg_soup_repo::type_err;
@@ -55,7 +51,6 @@ fn requested_types<'a>(req: &WorkFeedCandidateRequest<'a>) -> Vec<&'static str> 
         limit: req.limit,
         after: None,
         filter: req.filter,
-        link_ids: req.link_ids,
         foreign_entity_sources: req.foreign_entity_sources,
         hydratable: req.hydratable,
     };
@@ -66,33 +61,10 @@ fn requested_types<'a>(req: &WorkFeedCandidateRequest<'a>) -> Vec<&'static str> 
         .collect()
 }
 
-/// An email thread's attention lasts while the thread is in the inbox: mail
-/// done is archive, independent of the thread's notification states.
-fn email_inbox_gate() -> String {
-    uuid_guarded(
-        ID_SQL,
-        format!(
-            r#"EXISTS (
-                SELECT 1 FROM email_threads inbox
-                WHERE inbox.id = {ID_SQL}::uuid
-                AND inbox.inbox_visible
-            )"#
-        ),
-    )
-}
-
 /// Whether the `activity_events` row aliased `alias` is the viewer's own work:
-/// any action but a view, except that an email thread is only worked on by
-/// sending from it. Archiving, starring, labeling and moving a thread record
-/// edits, and done itself archives, so counting them would bring every
-/// completed email back as own work.
+/// any action but a view.
 fn own_work(alias: &str) -> String {
-    let sent: &'static str = Action::Sent.into();
-    format!(
-        "{alias}.action NOT IN ({views}) \
-         AND ({alias}.entity_type <> 'email_thread' OR {alias}.action = '{sent}')",
-        views = view_tags_sql(),
-    )
+    format!("{alias}.action NOT IN ({views})", views = view_tags_sql())
 }
 
 fn build_query(req: &WorkFeedCandidateRequest<'_>) -> String {
@@ -101,15 +73,12 @@ fn build_query(req: &WorkFeedCandidateRequest<'_>) -> String {
         include_str!("work_feed/query.sql"),
         own_work_ae = own_work("ae"),
         own_work_newer = own_work("newer"),
-        email_inbox_gate = email_inbox_gate(),
         document_gate = document_gate(ID_SQL, filter),
         chat_gate = chat_gate(ID_SQL, filter),
         project_gate = project_gate(ID_SQL, filter),
         initiative_gate = initiative_gate(ID_SQL, filter),
         channel_gate = channel_gate(ID_SQL, filter),
         channel_thread_gate = channel_thread_gate(ID_SQL, filter),
-        email_gate = email_gate(ID_SQL, filter),
-        calendar_event_gate = calendar_event_gate(filter),
         foreign_entity_gate = foreign_entity_gate(filter),
         agent_session_gate = agent_session_gate(filter),
     )
@@ -158,7 +127,6 @@ pub(super) async fn work_feed_soup_page(
         .bind(&types)
         .bind(after_ts)
         .bind(after_id)
-        .bind(req.link_ids)
         .bind(req.limit as i64)
         .bind(&source_ids)
         .bind(&source_auth_entities)

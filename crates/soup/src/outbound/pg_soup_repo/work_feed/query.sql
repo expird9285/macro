@@ -9,7 +9,7 @@ WITH user_source_ids AS (
 ),
 only_keys AS MATERIALIZED (
     SELECT k.entity_type, k.entity_id
-    FROM unnest($10::text[], $11::text[]) AS k(entity_type, entity_id)
+    FROM unnest($9::text[], $10::text[]) AS k(entity_type, entity_id)
 ),
 -- The viewer's own work: their latest work on each item they may see,
 -- newest first.
@@ -18,13 +18,13 @@ own_work AS NOT MATERIALIZED (
     FROM (
         SELECT ae.entity_type, ae.entity_id, ae.occurred_at AS touched_at
         FROM activity_events ae
-        WHERE $9
+        WHERE $8
         AND ae.subject_id = $1
         AND {own_work_ae}
         AND ae.entity_type = ANY($2)
         AND ae.entity_type <> 'channel_message'
         AND ($3::timestamptz IS NULL OR (ae.occurred_at, ae.entity_id) < ($3, $4))
-        AND ($10::text[] IS NULL OR (ae.entity_type, ae.entity_id) IN (
+        AND ($9::text[] IS NULL OR (ae.entity_type, ae.entity_id) IN (
             SELECT entity_type, entity_id FROM only_keys
         ))
         AND NOT EXISTS (
@@ -44,24 +44,22 @@ own_work AS NOT MATERIALIZED (
         WHEN 'project' THEN {project_gate}
         WHEN 'initiative' THEN {initiative_gate}
         WHEN 'channel' THEN {channel_gate}
-        WHEN 'email_thread' THEN {email_gate}
-        WHEN 'calendar_event' THEN {calendar_event_gate}
         WHEN 'foreign_entity' THEN {foreign_entity_gate}
         WHEN 'agent_session' THEN {agent_session_gate}
         ELSE FALSE
     END
 ),
--- A full page of own work, before attention claims any of it, holds $6
+-- A full page of own work, before attention claims any of it, holds $5
 -- distinct items placed at or after its oldest touch, so no item placed
 -- earlier can reach the page. Attention older than that floor is never read.
 -- Without a full page (attention mode, or little own work) there is no floor.
 attention_floor AS MATERIALIZED (
-    SELECT CASE WHEN count(*) = $6 THEN min(touched_at) END AS floor_at
+    SELECT CASE WHEN count(*) = $5 THEN min(touched_at) END AS floor_at
     FROM (
         SELECT touched_at
         FROM own_work
         ORDER BY touched_at DESC, entity_id DESC
-        LIMIT $6
+        LIMIT $5
     ) page_of_own_work
 ),
 -- The viewer's attention: the newest pending (unseen or seen) notification
@@ -111,7 +109,7 @@ attention_page AS (
             SELECT entity_type, entity_id, attention_at
             FROM pending
             WHERE ($3::timestamptz IS NULL OR (attention_at, entity_id) < ($3, $4))
-            AND ($10::text[] IS NULL OR (entity_type, entity_id) IN (
+            AND ($9::text[] IS NULL OR (entity_type, entity_id) IN (
                 SELECT entity_type, entity_id FROM only_keys
             ))
             ORDER BY attention_at DESC, entity_id DESC
@@ -120,7 +118,7 @@ attention_page AS (
         LEFT JOIN LATERAL (
             SELECT ae.occurred_at
             FROM activity_events ae
-            WHERE $9
+            WHERE $8
             AND ae.subject_id = $1
             AND ae.entity_type = ordered.entity_type
             AND ae.entity_id = ordered.entity_id
@@ -130,7 +128,6 @@ attention_page AS (
         ) latest_own ON TRUE
     ) nc
     WHERE (nc.touched_at IS NULL OR nc.touched_at <= nc.attention_at)
-    AND (nc.entity_type <> 'email_thread' OR {email_inbox_gate})
     AND CASE nc.entity_type
         WHEN 'document' THEN {document_gate}
         WHEN 'chat' THEN {chat_gate}
@@ -138,14 +135,12 @@ attention_page AS (
         WHEN 'initiative' THEN {initiative_gate}
         WHEN 'channel' THEN {channel_gate}
         WHEN 'channel_message' THEN {channel_thread_gate}
-        WHEN 'email_thread' THEN {email_gate}
-        WHEN 'calendar_event' THEN {calendar_event_gate}
         WHEN 'foreign_entity' THEN {foreign_entity_gate}
         WHEN 'agent_session' THEN {agent_session_gate}
         ELSE FALSE
     END
     ORDER BY nc.attention_at DESC, nc.entity_id DESC
-    LIMIT $6
+    LIMIT $5
 ),
 own_page AS (
     SELECT nc.entity_type, nc.entity_id, own_attention.attention_at, nc.touched_at
@@ -157,7 +152,6 @@ own_page AS (
         FROM pending p
         WHERE p.entity_type = nc.entity_type
         AND p.entity_id = nc.entity_id
-        AND (nc.entity_type <> 'email_thread' OR {email_inbox_gate})
         OFFSET 0
     ) own_attention ON TRUE
     -- The attention stream owns a candidate whose attention is at least as
@@ -165,7 +159,7 @@ own_page AS (
     WHERE own_attention.attention_at IS NULL
         OR own_attention.attention_at < nc.touched_at
     ORDER BY nc.touched_at DESC, nc.entity_id DESC
-    LIMIT $6
+    LIMIT $5
 )
 SELECT entity_type, entity_id, attention_at, touched_at, sort_at
 FROM (
@@ -176,4 +170,4 @@ FROM (
     FROM own_page
 ) merged
 ORDER BY sort_at DESC, entity_id DESC
-LIMIT $6
+LIMIT $5

@@ -4799,7 +4799,7 @@ async fn test_dyn_all_types_filtered_to_empty(db: PgPool) -> anyhow::Result<()> 
 )]
 async fn test_all_filter_types_combined(db: PgPool) -> anyhow::Result<()> {
     use item_filters::{
-        ChannelFilters, ChatFilters, DocumentFilters, EmailFilters, EntityFilters, ProjectFilters,
+        ChannelFilters, ChatFilters, DocumentFilters, EntityFilters, ProjectFilters,
     };
 
     let nil = "00000000-0000-0000-0000-000000000000".to_string();
@@ -4811,10 +4811,6 @@ async fn test_all_filter_types_combined(db: PgPool) -> anyhow::Result<()> {
         },
         document_filters: DocumentFilters {
             document_ids: vec![nil.clone()],
-            ..Default::default()
-        },
-        email_filters: EmailFilters {
-            recipients: vec![nil.clone()],
             ..Default::default()
         },
         project_filters: ProjectFilters {
@@ -5424,12 +5420,7 @@ async fn production_documents_presets_have_authoritative_membership(
         serde_json::json!({
             "&": [
                 sub_type_filter,
-                {
-                    "&": [
-                        { "l": { "o": owner } },
-                        { "l": { "iea": false } }
-                    ]
-                }
+                { "l": { "o": owner } }
             ]
         })
     };
@@ -5437,12 +5428,7 @@ async fn production_documents_presets_have_authoritative_membership(
         serde_json::json!({
             "&": [
                 sub_type_filter,
-                {
-                    "&": [
-                        { "!": { "l": { "o": owner } } },
-                        { "l": { "iea": false } }
-                    ]
-                }
+                { "!": { "l": { "o": owner } } }
             ]
         })
     };
@@ -5456,8 +5442,6 @@ async fn production_documents_presets_have_authoritative_membership(
     let ordinary_owned = "ffffffff-ffff-ffff-ffff-ffffffffffff";
     let ordinary_shared = "dddddddd-dddd-dddd-dddd-dddddddddddd";
     let snippet = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee";
-    let attachment_task_a = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-    let attachment_task_b = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 
     let cases = [
         (
@@ -5479,11 +5463,6 @@ async fn production_documents_presets_have_authoritative_membership(
             "shared/snippets-off",
             shared(not_task_or_snippet.clone()),
             ids(&[ordinary_shared]),
-        ),
-        (
-            "attachments",
-            serde_json::json!({ "l": { "iea": true } }),
-            ids(&[attachment_task_a, attachment_task_b]),
         ),
         (
             "all/snippets-on",
@@ -5530,14 +5509,14 @@ async fn projection_hydration_carries_viewer_relative_facts_from_flat_and_by_id_
     )
     .await?;
 
-    let attachment_id = Uuid::parse_str("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")?;
+    let task_id = Uuid::parse_str("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")?;
     let unimportant_task_id = Uuid::parse_str("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")?;
     let ordinary_id = Uuid::parse_str("dddddddd-dddd-dddd-dddd-dddddddddddd")?;
-    let attachment_facts = flat
+    let task_facts = flat
         .iter()
-        .find(|hydration| hydration.item.id() == attachment_id)
+        .find(|hydration| hydration.item.id() == task_id)
         .and_then(|hydration| hydration.document_server_facts.clone())
-        .expect("attachment document server facts are hydrated");
+        .expect("task document server facts are hydrated");
     let unimportant_task_facts = flat
         .iter()
         .find(|hydration| hydration.item.id() == unimportant_task_id)
@@ -5549,9 +5528,9 @@ async fn projection_hydration_carries_viewer_relative_facts_from_flat_and_by_id_
         .and_then(|hydration| hydration.document_server_facts.clone())
         .expect("ordinary document server facts are hydrated");
     assert_eq!(
-        attachment_facts,
+        task_facts,
         SoupDocumentServerFacts {
-            is_email_attachment: true,
+            is_email_attachment: false,
             is_important: true,
             status_option_ids: vec![StatusOption::NOT_STARTED_UUID],
         }
@@ -5559,7 +5538,7 @@ async fn projection_hydration_carries_viewer_relative_facts_from_flat_and_by_id_
     assert_eq!(
         unimportant_task_facts,
         SoupDocumentServerFacts {
-            is_email_attachment: true,
+            is_email_attachment: false,
             is_important: false,
             status_option_ids: vec![StatusOption::IN_PROGRESS_UUID],
         }
@@ -5574,17 +5553,17 @@ async fn projection_hydration_carries_viewer_relative_facts_from_flat_and_by_id_
     );
 
     let entities = [
-        EntityType::Document.with_entity_string(attachment_id.to_string()),
+        EntityType::Document.with_entity_string(task_id.to_string()),
         EntityType::Document.with_entity_string(unimportant_task_id.to_string()),
         EntityType::Document.with_entity_string(ordinary_id.to_string()),
     ];
     let by_id = expanded_soup_by_ids_with_projection(&db, user_id, &entities).await?;
     assert_eq!(by_id.len(), 3);
     assert!(by_id.iter().any(|hydration| {
-        hydration.item.id() == attachment_id
+        hydration.item.id() == task_id
             && hydration.document_server_facts
                 == Some(SoupDocumentServerFacts {
-                    is_email_attachment: true,
+                    is_email_attachment: false,
                     is_important: true,
                     status_option_ids: vec![StatusOption::NOT_STARTED_UUID],
                 })
@@ -5593,7 +5572,7 @@ async fn projection_hydration_carries_viewer_relative_facts_from_flat_and_by_id_
         hydration.item.id() == unimportant_task_id
             && hydration.document_server_facts
                 == Some(SoupDocumentServerFacts {
-                    is_email_attachment: true,
+                    is_email_attachment: false,
                     is_important: false,
                     status_option_ids: vec![StatusOption::IN_PROGRESS_UUID],
                 })
@@ -5607,28 +5586,6 @@ async fn projection_hydration_carries_viewer_relative_facts_from_flat_and_by_id_
                     status_option_ids: Vec::new(),
                 })
     }));
-
-    // The relation probe is backed by the composite primary key's leading
-    // document_id column. Disable sequential scans so the fixture's tiny table
-    // still exposes the representative production access path.
-    let mut tx = db.begin().await?;
-    sqlx::query!("SET LOCAL enable_seqscan = off")
-        .execute(&mut *tx)
-        .await?;
-    let plan = sqlx::query_scalar!(
-        r#"EXPLAIN (FORMAT JSON)
-           SELECT EXISTS (
-               SELECT 1 FROM document_email de WHERE de.document_id = $1
-           )"#,
-        attachment_id.to_string(),
-    )
-    .fetch_one(&mut *tx)
-    .await?
-    .expect("EXPLAIN returns a JSON plan");
-    assert!(
-        plan.to_string().contains("document_email_pkey"),
-        "attachment existence lookup must use document_email_pkey: {plan}"
-    );
 
     Ok(())
 }
@@ -5693,139 +5650,6 @@ async fn projection_status_extraction_treats_non_array_values_as_empty(
             .as_ref()
             .is_some_and(|facts| facts.status_option_ids.is_empty())
     }));
-
-    Ok(())
-}
-
-// Test filtering documents by is_email_attachment = true (only email attachments)
-#[sqlx::test(
-    fixtures(
-        path = "../../../../../macro_db_client/fixtures",
-        scripts("entity_filter_tests")
-    ),
-    migrator = "MACRO_DB_MIGRATIONS"
-)]
-async fn test_dyn_filter_is_email_attachment_true(db: PgPool) -> anyhow::Result<()> {
-    use item_filters::{DocumentFilters, EntityFilters};
-
-    let user_id = MacroUserIdStr::parse_from_str("macro|user-1@test.com").unwrap();
-
-    let entity_filters = EntityFilters {
-        document_filters: DocumentFilters {
-            is_email_attachment: Some(true),
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-
-    let filters = EntityFilterAst::new_from_filters(entity_filters)?.unwrap();
-
-    let items = expanded_dynamic_cursor_soup(
-        &db,
-        ExpandedDynamicCursorArgs {
-            user_id: user_id.copied(),
-            limit: 20,
-            cursor: Query::Sort(SimpleSortMethod::CreatedAt, filters),
-            exclude_frecency: false,
-        },
-    )
-    .await?;
-
-    let doc_ids: HashSet<Uuid> = items
-        .iter()
-        .filter_map(|i| match i {
-            SoupItem::Document(doc) => Some(doc.id),
-            _ => None,
-        })
-        .collect();
-
-    let expected: HashSet<Uuid> = [
-        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-        "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-    ]
-    .iter()
-    .map(|s| Uuid::parse_str(s).unwrap())
-    .collect();
-
-    assert_eq!(
-        doc_ids, expected,
-        "is_email_attachment=true should only return documents linked via document_email"
-    );
-
-    // Chats and projects are unaffected by document filters
-    let chat_count = items
-        .iter()
-        .filter(|i| matches!(i, SoupItem::Chat(_)))
-        .count();
-    let project_count = items
-        .iter()
-        .filter(|i| matches!(i, SoupItem::Project(_)))
-        .count();
-    assert!(chat_count > 0, "Should still get chats");
-    assert!(project_count > 0, "Should still get projects");
-
-    Ok(())
-}
-
-// Test filtering documents by is_email_attachment = false (only non-email attachments)
-#[sqlx::test(
-    fixtures(
-        path = "../../../../../macro_db_client/fixtures",
-        scripts("entity_filter_tests")
-    ),
-    migrator = "MACRO_DB_MIGRATIONS"
-)]
-async fn test_dyn_filter_is_email_attachment_false(db: PgPool) -> anyhow::Result<()> {
-    use item_filters::{DocumentFilters, EntityFilters};
-
-    let user_id = MacroUserIdStr::parse_from_str("macro|user-1@test.com").unwrap();
-
-    let entity_filters = EntityFilters {
-        document_filters: DocumentFilters {
-            is_email_attachment: Some(false),
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-
-    let filters = EntityFilterAst::new_from_filters(entity_filters)?.unwrap();
-
-    let items = expanded_dynamic_cursor_soup(
-        &db,
-        ExpandedDynamicCursorArgs {
-            user_id: user_id.copied(),
-            limit: 20,
-            cursor: Query::Sort(SimpleSortMethod::CreatedAt, filters),
-            exclude_frecency: false,
-        },
-    )
-    .await?;
-
-    let doc_ids: HashSet<Uuid> = items
-        .iter()
-        .filter_map(|i| match i {
-            SoupItem::Document(doc) => Some(doc.id),
-            _ => None,
-        })
-        .collect();
-
-    // doc-in-A and doc-in-B are email attachments, so they should be excluded
-    let email_attachment_ids: HashSet<Uuid> = [
-        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-        "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-    ]
-    .iter()
-    .map(|s| Uuid::parse_str(s).unwrap())
-    .collect();
-
-    assert!(
-        doc_ids.is_disjoint(&email_attachment_ids),
-        "is_email_attachment=false should exclude documents linked via document_email"
-    );
-    assert!(
-        !doc_ids.is_empty(),
-        "Should still return non-email-attachment documents"
-    );
 
     Ok(())
 }
@@ -5898,17 +5722,12 @@ async fn test_dyn_filter_by_not_document_sub_type_task(db: PgPool) -> anyhow::Re
 
 fn mock_empty_ast() -> EntityFilterAst {
     EntityFilterAst {
-        crm_association: None,
         document_filter: None,
-        calendar_event_filter: None,
         project_filter: None,
         chat_filter: None,
-        email_filter: item_filters::ast::EmailFilterAst::default(),
         channel_filter: None,
         channel_thread_filter: None,
         call_filter: None,
-        crm_company_filter: None,
-        crm_contact_filter: None,
         foreign_entity_filter: None,
         github_pull_request_filter: None,
         agent_session_filter: None,
@@ -6907,161 +6726,5 @@ async fn test_optimized_notification_filter_matches_unoptimized_equivalent(
 
     assert_eq!(optimized_ids, unoptimized_ids);
 
-    Ok(())
-}
-
-const DOC_A: &str = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-const DOC_B: &str = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
-const DOC_D: &str = "dddddddd-dddd-dddd-dddd-dddddddddddd";
-
-/// The fixture's attachments hang off messages that do not exist. Give doc A's
-/// attachment a message from the user to vendor@acme.com and doc B's a message
-/// from other@globex.com, and point doc D's Companies property at `company`.
-async fn seed_crm_document_associations(db: &PgPool, company: Uuid) -> anyhow::Result<()> {
-    let mut tx = db.begin().await?;
-    sqlx::query("SET LOCAL session_replication_role = 'replica'")
-        .execute(&mut *tx)
-        .await?;
-    let link = Uuid::now_v7();
-    let (me, vendor, other) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
-    for (id, address) in [
-        (me, "user-1@test.com"),
-        (vendor, "Vendor@Acme.com"),
-        (other, "other@globex.com"),
-    ] {
-        sqlx::query("INSERT INTO email_contacts (id, link_id, email_address) VALUES ($1, $2, $3)")
-            .bind(id)
-            .bind(link)
-            .bind(address)
-            .execute(&mut *tx)
-            .await?;
-    }
-    let to_acme = Uuid::parse_str("ea000001-0000-0000-0000-000000000099")?;
-    let from_globex = Uuid::now_v7();
-    for (message, sender) in [(to_acme, me), (from_globex, other)] {
-        sqlx::query(
-            "INSERT INTO email_messages (id, thread_id, link_id, from_contact_id) VALUES ($1, $2, $3, $4)",
-        )
-        .bind(message)
-        .bind(Uuid::now_v7())
-        .bind(link)
-        .bind(sender)
-        .execute(&mut *tx)
-        .await?;
-    }
-    sqlx::query(
-        "INSERT INTO email_message_recipients (message_id, contact_id, recipient_type) VALUES ($1, $2, 'TO')",
-    )
-    .bind(to_acme)
-    .bind(vendor)
-    .execute(&mut *tx)
-    .await?;
-    sqlx::query(
-        "UPDATE email_attachments SET message_id = $1 WHERE id = 'ea000001-0000-0000-0000-000000000002'",
-    )
-    .bind(from_globex)
-    .execute(&mut *tx)
-    .await?;
-    sqlx::query(
-        r#"INSERT INTO entity_properties (id, entity_id, entity_type, property_definition_id, values)
-           VALUES ($1, $2, 'DOCUMENT', $3, $4)"#,
-    )
-    .bind(Uuid::now_v7())
-    .bind(DOC_D)
-    .bind(SystemPropertyKey::COMPANIES_UUID)
-    .bind(serde_json::json!({
-        "type": "EntityReference",
-        "value": [{ "entity_type": "COMPANY", "entity_id": company.to_string() }]
-    }))
-    .execute(&mut *tx)
-    .await?;
-    tx.commit().await?;
-    Ok(())
-}
-
-async fn matching_document_ids(db: &PgPool, filter: Expr<DocumentLiteral>) -> HashSet<String> {
-    let (items, ..) = run_and_count(
-        db,
-        EntityFilterAst {
-            document_filter: Some(Arc::new(filter)),
-            ..mock_empty_ast()
-        },
-    )
-    .await
-    .unwrap();
-    items
-        .into_iter()
-        .filter_map(|item| match item {
-            SoupItem::Document(doc) => Some(doc.id.to_string()),
-            _ => None,
-        })
-        .collect()
-}
-
-fn ids(values: &[&str]) -> HashSet<String> {
-    values.iter().map(ToString::to_string).collect()
-}
-
-#[sqlx::test(
-    fixtures(
-        path = "../../../../../macro_db_client/fixtures",
-        scripts("entity_filter_tests")
-    ),
-    migrator = "MACRO_DB_MIGRATIONS"
-)]
-async fn crm_document_literals_match_attachments_and_associations(
-    db: PgPool,
-) -> anyhow::Result<()> {
-    use item_filters::ast::{
-        email::Email,
-        properties::{EntityRefId, PropertiesLiteral, PropertyMatchValue},
-    };
-    use macro_user_id::email::EmailStr;
-
-    let company = Uuid::now_v7();
-    seed_crm_document_associations(&db, company).await?;
-    let participant =
-        |email: Email| Expr::Literal(DocumentLiteral::EmailAttachmentParticipant(email));
-    let associated = Expr::Literal(DocumentLiteral::Property(PropertiesLiteral {
-        property_definition_id: SystemPropertyKey::COMPANIES_UUID,
-        entity_type: None,
-        value: PropertyMatchValue::EntityRef(EntityRefId::new(company.to_string())?),
-    }));
-
-    // Recipients count as participants, and domains match case-insensitively.
-    assert_eq!(
-        matching_document_ids(&db, participant(Email::Domain("ACME.com".to_string()))).await,
-        ids(&[DOC_A])
-    );
-    // So do senders, by exact address.
-    let globex = EmailStr::parse_from_str("other@globex.com")?.into_owned();
-    assert_eq!(
-        matching_document_ids(&db, participant(Email::Complete(globex))).await,
-        ids(&[DOC_B])
-    );
-    assert_eq!(
-        matching_document_ids(&db, participant(Email::Partial("vendor@".to_string()))).await,
-        ids(&[DOC_A])
-    );
-    // A company's files: attachments with its people OR documents associated with it.
-    assert_eq!(
-        matching_document_ids(
-            &db,
-            Expr::or(
-                participant(Email::Domain("acme.com".to_string())),
-                associated.clone()
-            )
-        )
-        .await,
-        ids(&[DOC_A, DOC_D])
-    );
-    // Negation keeps every other document.
-    let not_acme = matching_document_ids(
-        &db,
-        Expr::is_not(participant(Email::Domain("acme.com".to_string()))),
-    )
-    .await;
-    assert!(!not_acme.contains(DOC_A));
-    assert!(not_acme.contains(DOC_B) && not_acme.contains(DOC_D));
     Ok(())
 }

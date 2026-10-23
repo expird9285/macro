@@ -5,21 +5,18 @@
 //! Every gate renders against `id_sql`, the SQL expression yielding the
 //! candidate's entity id as TEXT (`ae.entity_id` for the activity log, the
 //! `notified` CTE's derived key for notifications). Both candidate queries
-//! bind the user id as `$1` and the caller's inbox link ids as `$5`, which
-//! the gates reference directly.
+//! bind the user id as `$1`, which the gates reference directly.
 
 use filter_ast::Expr;
 use item_filters::ast::EntityFilterAst;
 use item_filters::ast::channel::{ChannelLiteral, ChannelThreadLiteral};
-use item_filters::ast::email::EmailLiteral;
 use item_filters::ast::properties::{PropertyEntityType, properties_filter_matches_propertyless};
 use system_properties::SystemPropertyKey;
-use uuid::Uuid;
 
 use crate::outbound::pg_soup_repo::expanded::dynamic::{
     NotificationPredicate, access_semi_join, build_chat_filter, build_document_filter,
-    build_notification_exists_clause, build_notification_state_clause, build_project_filter,
-    build_properties_filter, chat_filter_is_impossible, document_filter_is_impossible,
+    build_notification_exists_clause, build_project_filter, build_properties_filter,
+    chat_filter_is_impossible, document_filter_is_impossible,
     document_filter_needs_task_property_joins, project_filter_is_impossible,
     properties_filter_can_apply_to,
 };
@@ -251,48 +248,6 @@ pub(super) fn channel_thread_gate(id_sql: &str, filter: Option<&EntityFilterAst>
     )
 }
 
-/// Email threads are inbox-scoped: visible iff the thread belongs to one of
-/// the caller's readable links (own + delegated).
-///
-/// The email tree folds in the email crate, which hydration applies in full;
-/// the importance and notification-state conjuncts it implies are
-/// pre-applied here (same predicates as the email fold's `t.is_signal` and
-/// notification `EXISTS`) so noise or done threads do not spend candidate
-/// slots on rows hydration is about to drop.
-pub(super) fn email_gate(id_sql: &str, filter: Option<&EntityFilterAst>) -> String {
-    let props_filter = filter.and_then(|f| f.properties_filter.as_deref());
-    let implied = implied_conjuncts_sql(
-        filter.and_then(|f| f.email_filter.tree.as_deref()),
-        |literal| match literal {
-            EmailLiteral::Importance(true) => Some("et.is_signal".to_string()),
-            EmailLiteral::Importance(false) => Some("NOT et.is_signal".to_string()),
-            EmailLiteral::NotificationState(state) => Some(build_notification_state_clause(
-                "et.id",
-                "email_thread",
-                *state,
-            )),
-            EmailLiteral::Read(true) => Some("et.is_read".to_string()),
-            EmailLiteral::Read(false) => Some("NOT et.is_read".to_string()),
-            EmailLiteral::InboxVisible(true) => Some("et.inbox_visible".to_string()),
-            EmailLiteral::InboxVisible(false) => Some("NOT et.inbox_visible".to_string()),
-            _ => None,
-        },
-    );
-    uuid_guarded(
-        id_sql,
-        format!(
-            r#"EXISTS (
-                SELECT 1 FROM email_threads et
-                WHERE et.id = {id_sql}::uuid
-                AND et.link_id = ANY($5)
-                {implied}
-                {props_fold}
-            )"#,
-            props_fold = build_properties_filter(props_filter, "et.id::text"),
-        ),
-    )
-}
-
 /// Documents drop when their own filter can never match or when an active
 /// properties filter can never match a document or task.
 pub(super) fn includes_documents(filter: Option<&EntityFilterAst>) -> bool {
@@ -326,16 +281,6 @@ pub(super) fn includes_channels(filter: Option<&EntityFilterAst>) -> bool {
     filter
         .and_then(|f| f.properties_filter.as_deref())
         .is_none_or(properties_filter_matches_propertyless)
-}
-
-/// Email threads need at least one readable inbox and a properties filter
-/// that can match a thread.
-pub(super) fn includes_email_threads(filter: Option<&EntityFilterAst>, link_ids: &[Uuid]) -> bool {
-    !link_ids.is_empty()
-        && properties_filter_can_apply_to(
-            filter.and_then(|f| f.properties_filter.as_deref()),
-            &[PropertyEntityType::Thread],
-        )
 }
 
 /// Initiative candidates use the same listing policy and filters as normal Soup pages.

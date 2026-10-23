@@ -4,19 +4,19 @@
 
 Backs the Home, Recent, Signal/work-feed, and GraphQL Soup query surfaces.
 Soup is the amalgamated query service: callers filter across many entity
-types (documents, channels, chats, calendar events, agent sessions, database
-rows, initiatives, ...) and get back a single unified, paginated result.
+types (documents, channels, chats, agent sessions, database rows,
+initiatives, ...) and get back a single unified, paginated result.
 
 ## Start here
 
 - `src/domain/service.rs`: the main query service; `src/domain/ports.rs` for
   its repository/collaborator traits.
-- `src/domain/models.rs` (+ `grouping.rs`, `exclusions.rs`, `contact_listing.rs`):
+- `src/domain/models.rs` (+ `grouping.rs`, `exclusions.rs`):
   the unified `SoupItem`/grouping/exclusion shapes.
 - `src/domain/service/favorites.rs`, `agent_metadata.rs`: entity-kind-specific
   query logic layered onto the core service.
 - `src/outbound/pg_soup_repo.rs`: the Postgres repo, split by entity kind
-  (`database_row.rs`, `calendar_event.rs`, `agent_session.rs`, `initiative.rs`,
+  (`database_row.rs`, `agent_session.rs`, `initiative.rs`,
   `work_feed.rs`, `notified.rs`, `touched.rs`) and by shape
   (`expanded/` hydrated, `unexpanded/` id-only).
 - `src/inbound/axum_router.rs` + `src/inbound/toolset/list_entities.rs`: the
@@ -32,9 +32,9 @@ rows, initiatives, ...) and get back a single unified, paginated result.
 
 ## Boundaries
 
-- Depends on: `entity_access`, `properties`, `crm`, `item_filters`,
-  `filter_ast`, `favorites`, `frecency`, `channels`, `email`, `call`,
-  `github_pull_requests`, `foreign_entity`, `activity`.
+- Depends on: `entity_access`, `properties`, `item_filters`, `filter_ast`,
+  `favorites`, `frecency`, `channels`, `call`, `github_pull_requests`,
+  `foreign_entity`, `activity`.
 - Used by: `ai_tools`, `complete_graph`, `databases_sql`, `graphql_initiative`,
   `graphql_soup`, `graphql_work_feed`, `memory`, `skills`, `work_feed`,
   `soup_filter_projection`.

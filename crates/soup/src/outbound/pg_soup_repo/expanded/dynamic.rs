@@ -25,11 +25,9 @@ use document_sub_type::DocumentSubType;
 use filter_ast::Expr;
 use item_filters::ast::{
     EntityFilterAst,
-    calendar_event::CalendarEventLiteral,
     chat::ChatLiteral,
     date::DateLiteral,
     document::DocumentLiteral,
-    email::Email,
     project::ProjectLiteral,
     properties::{PropertiesLiteral, PropertyEntityType, PropertyMatchValue},
 };
@@ -37,7 +35,6 @@ use macro_user_id::user_id::MacroUserIdStr;
 use model_owner::Owner;
 use models_pagination::{Query, SimpleSortMethod};
 use models_soup::{
-    calendar_event::SoupCalendarEvent,
     chat::SoupChat,
     database_row::SoupDatabaseRow,
     document::{SoupDocument, SoupDocumentSubType},
@@ -149,36 +146,6 @@ fn grouped_project_top_clause(sort_method: SimpleSortMethod) -> String {
     )
 }
 
-fn grouped_calendar_event_top_clause(sort_method: SimpleSortMethod) -> String {
-    let sort_ts = match sort_method {
-        SimpleSortMethod::CreatedAt => "event.created_at",
-        SimpleSortMethod::ViewedAt => "'1970-01-01 00:00:00+00'",
-        SimpleSortMethod::UpdatedAt | SimpleSortMethod::ViewedUpdated => {
-            "GREATEST(event.updated_at, event.last_reminder_fired_at)"
-        }
-    };
-    format!(
-        r#"
-                SELECT
-                    'calendar_event'::text as item_type,
-                    event.id::text as id,
-                    {sort_ts}::timestamptz as sort_ts,
-                    NULL::text as project_id,
-                    'CALENDAR_EVENT'::property_entity_type as property_entity_type
-                FROM calendar_events event
-                WHERE (
-                      event.owner_id = $1
-                      OR EXISTS (
-                          SELECT 1
-                          FROM macro_user_links link
-                          WHERE link.link_id = event.source_link_id
-                            AND link.primary_macro_id = $1
-                      )
-                  )
-"#
-    )
-}
-
 // -- Detail clauses: full columns, joined back from TopItems --
 
 static DOCUMENT_DETAIL_CLAUSE: &str = r#"
@@ -199,11 +166,7 @@ static DOCUMENT_DETAIL_CLAUSE: &str = r#"
             NULL::text as "model",
             di.sha as "sha",
             dt.sub_type as "sub_type",
-            EXISTS (
-                SELECT 1
-                FROM document_email de
-                WHERE de.document_id = d.id
-            ) as "is_email_attachment",
+            false as "is_email_attachment",
             (
                 dt.sub_type IS DISTINCT FROM 'task'
                 OR EXISTS (
@@ -376,7 +339,6 @@ static GROUPED_DOCUMENT_DETAIL_CLAUSE: &str = r#"
                 ELSE NULL
             END as "is_completed",
             d."deletedAt"::timestamptz as "deleted_at",
-            NULL::jsonb as "calendar_event",
             NULL::jsonb as "database_row",
             gi.group_key as "group_key",
             gi.group_total_count as "group_total_count",
@@ -430,7 +392,6 @@ static GROUPED_CHAT_DETAIL_CLAUSE: &str = r#"
             gi.sort_ts as "sort_ts",
             NULL::boolean as "is_completed",
             c."deletedAt"::timestamptz as "deleted_at",
-            NULL::jsonb as "calendar_event",
             NULL::jsonb as "database_row",
             gi.group_key as "group_key",
             gi.group_total_count as "group_total_count",
@@ -464,7 +425,6 @@ static GROUPED_PROJECT_DETAIL_CLAUSE: &str = r#"
             gi.sort_ts as "sort_ts",
             NULL::boolean as "is_completed",
             p."deletedAt"::timestamptz as "deleted_at",
-            NULL::jsonb as "calendar_event",
             NULL::jsonb as "database_row",
             gi.group_key as "group_key",
             gi.group_total_count as "group_total_count",
@@ -483,70 +443,6 @@ static GROUPED_INITIATIVE_DETAIL_CLAUSE: &str =
 
 static GROUPED_DATABASE_ROW_DETAIL_CLAUSE: &str =
     include_str!("dynamic/database_row_grouped_detail.sql");
-
-static GROUPED_CALENDAR_EVENT_DETAIL_CLAUSE: &str = r#"
-        SELECT
-            'calendar_event' as "item_type",
-            event.id::text as "id",
-            NULL::text as "document_version_id",
-            event.owner_id as "user_id",
-            event.title as "name",
-            NULL::text as "branched_from_id",
-            NULL::bigint as "branched_from_version_id",
-            NULL::bigint as "document_family_id",
-            NULL::text as "file_type",
-            event.created_at as "created_at",
-            event.updated_at as "updated_at",
-            NULL::text as "project_id",
-            NULL::boolean as "is_persistent",
-            NULL::text as "model",
-            NULL::text as "sha",
-            NULL::document_sub_type_value as "sub_type",
-            NULL::timestamptz as "viewed_at",
-            gi.sort_ts as "sort_ts",
-            NULL::boolean as "is_completed",
-            NULL::timestamptz as "deleted_at",
-            jsonb_build_object(
-                'id', event.id,
-                'ownerId', event.owner_id,
-                'icalUid', event.ical_uid,
-                'title', event.title,
-                'description', event.description,
-                'location', event.location,
-                'status', event.status,
-                'visibility', event.visibility,
-                'transparency', event.transparency,
-                'time', CASE
-                    WHEN event.starts_at IS NOT NULL THEN jsonb_build_object(
-                        'kind', 'timed',
-                        'startsAt', event.starts_at,
-                        'endsAt', event.ends_at,
-                        'timeZone', event.time_zone
-                    )
-                    ELSE jsonb_build_object(
-                        'kind', 'allDay',
-                        'startDate', event.start_date,
-                        'endDate', event.end_date
-                    )
-                END,
-                'organizerEmail', event.organizer_email,
-                'organizerName', event.organizer_name,
-                'conferenceUrl', event.conference_url,
-                'conferenceProvider', event.conference_provider,
-                'isReadOnly', event.is_read_only,
-                'createdAt', event.created_at,
-                'updatedAt', event.updated_at,
-                'lastReminderFiredAt', event.last_reminder_fired_at,
-                'extra', NULL
-            ) as "calendar_event",
-            NULL::jsonb as "database_row",
-            gi.group_key as "group_key",
-            gi.group_total_count as "group_total_count",
-            gi.row_in_group as "row_in_group"
-        FROM GroupedItems gi
-        INNER JOIN calendar_events event ON event.id::text = gi.id
-        WHERE gi.item_type = 'calendar_event'
-"#;
 
 static GROUPED_EMPTY_COMBINED_CLAUSE: &str = r#"
         SELECT
@@ -570,7 +466,6 @@ static GROUPED_EMPTY_COMBINED_CLAUSE: &str = r#"
             NULL::timestamptz as "sort_ts",
             NULL::boolean as "is_completed",
             NULL::timestamptz as "deleted_at",
-            NULL::jsonb as "calendar_event",
             NULL::jsonb as "database_row",
             NULL::text as "group_key",
             NULL::bigint as "group_total_count",
@@ -909,125 +804,22 @@ fn document_literal_sql(literal: DocumentLiteral) -> String {
                 "EXISTS (SELECT 1 FROM document_sub_type dst_f WHERE dst_f.document_id = d.id AND dst_f.sub_type = '{st}')"
             )
         }
-        DocumentLiteral::IsEmailAttachment(true) => {
-            r#"EXISTS(SELECT 1 FROM document_email WHERE document_id = d.id)"#.to_string()
-        }
-        DocumentLiteral::IsEmailAttachment(false) => {
-            r#"NOT EXISTS(SELECT 1 FROM document_email WHERE document_id = d.id)"#.to_string()
-        }
         DocumentLiteral::CreatedAt(lit) => date_predicate(r#"d."createdAt""#, &lit),
         DocumentLiteral::UpdatedAt(lit) => date_predicate(r#"d."updatedAt""#, &lit),
         DocumentLiteral::Property(lit) => property_literal_predicate(&lit, "d.id"),
-        DocumentLiteral::EmailAttachmentParticipant(email) => {
-            email_attachment_participant_predicate(&email, "d.id")
-        }
         DocumentLiteral::NameContains(name) => format!(
             "STRPOS(LOWER(d.name), {}) > 0",
             sql_string_literal(&name.to_lowercase())
         ),
-        // The Soup domain replaces CRM associations with the associated
-        // document ids before querying, so an unresolved one matches nothing.
-        DocumentLiteral::CrmAssociated(_) => "FALSE".to_string(),
     }
-}
-
-/// Matches documents uploaded from an email attachment whose message was sent
-/// by, or addressed to, an address matching `email`.
-fn email_attachment_participant_predicate(email: &Email, document_id_sql: &str) -> String {
-    let address_predicate = match email {
-        Email::Complete(address) => format!(
-            "LOWER(c.email_address) = {}",
-            sql_string_literal(&address.0.as_ref().to_lowercase())
-        ),
-        Email::Domain(domain) => format!(
-            "LOWER(SPLIT_PART(c.email_address, '@', 2)) = {}",
-            sql_string_literal(&domain.to_lowercase())
-        ),
-        Email::Partial(fragment) => format!(
-            "STRPOS(LOWER(c.email_address), {}) > 0",
-            sql_string_literal(&fragment.to_lowercase())
-        ),
-    };
-    format!(
-        r#"EXISTS (
-            SELECT 1
-            FROM document_email de
-            JOIN email_attachments ea ON ea.id = de.email_attachment_id
-            JOIN email_messages m ON m.id = ea.message_id
-            JOIN LATERAL (
-                SELECT m.from_contact_id AS contact_id
-                UNION ALL
-                SELECT r.contact_id FROM email_message_recipients r WHERE r.message_id = m.id
-            ) participant ON TRUE
-            JOIN email_contacts c ON c.id = participant.contact_id
-            WHERE de.document_id = {document_id_sql}
-            AND {address_predicate}
-        )"#
-    )
 }
 
 /// A single-quoted SQL string literal with embedded quotes doubled. Used for
-/// every caller-supplied string these bind-free builders inline: the calendar
-/// filter's statuses and attendee/organizer emails, and the owner principals,
-/// none of which are constrained to the shape of the uuids the sibling
-/// builders inline.
+/// every caller-supplied string these bind-free builders inline, such as the
+/// owner principals, which are not constrained to the shape of the uuids the
+/// sibling builders inline.
 fn sql_string_literal(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
-}
-
-/// Renders the calendar-event filter bind-free: in the hand-numbered grouped
-/// query, `push_bind` placeholders would start at `$1` and collide with the
-/// positionally-bound user id. The notification clauses reference `$1` as the
-/// requesting user, which both this query and `cursor_soup` guarantee.
-fn build_calendar_event_filter(ast: Option<&Expr<CalendarEventLiteral>>) -> String {
-    let Some(expr) = ast else {
-        return String::new();
-    };
-    let expr = push_not_inward(expr, false);
-    let formatting = expr.collapse_frames(|frame| match frame {
-        filter_ast::ExprFrame::And(a, b) => format!("({a} AND {b})"),
-        filter_ast::ExprFrame::Or(a, b) => format!("({a} OR {b})"),
-        filter_ast::ExprFrame::Not(a) => format!("(NOT {a})"),
-        filter_ast::ExprFrame::Literal(CalendarEventLiteral::Id(id)) => {
-            format!("event.id = '{id}'")
-        }
-        filter_ast::ExprFrame::Literal(CalendarEventLiteral::Status(status)) => {
-            format!("event.status = {}", sql_string_literal(&status))
-        }
-        filter_ast::ExprFrame::Literal(CalendarEventLiteral::StartsBefore(value)) => {
-            format!(
-                "COALESCE(event.starts_at, event.start_date::timestamp AT TIME ZONE 'UTC') < '{}'::timestamptz",
-                value.to_rfc3339()
-            )
-        }
-        filter_ast::ExprFrame::Literal(CalendarEventLiteral::EndsAfter(value)) => {
-            format!(
-                "COALESCE(event.ends_at, event.end_date::timestamp AT TIME ZONE 'UTC') > '{}'::timestamptz",
-                value.to_rfc3339()
-            )
-        }
-        filter_ast::ExprFrame::Literal(CalendarEventLiteral::Attendee(email)) => {
-            format!(
-                "EXISTS (SELECT 1 FROM calendar_event_attendees attendee \
-                 WHERE attendee.event_id = event.id AND attendee.email = lower({}))",
-                sql_string_literal(&email)
-            )
-        }
-        filter_ast::ExprFrame::Literal(CalendarEventLiteral::Organizer(email)) => {
-            format!(
-                "lower(event.organizer_email) = lower({})",
-                sql_string_literal(&email)
-            )
-        }
-        filter_ast::ExprFrame::Literal(CalendarEventLiteral::NotificationState(state)) => {
-            build_notification_state_clause("event.id", "calendar_event", state)
-        }
-    });
-    if formatting.is_empty() {
-        String::new()
-    } else {
-        format!(" AND {}", formatting)
-    }
 }
 
 pub(in crate::outbound::pg_soup_repo) fn build_chat_filter(
@@ -1232,20 +1024,6 @@ pub(in crate::outbound::pg_soup_repo) fn project_filter_is_impossible(
             filter_ast::ExprFrame::Or(a, b) => a && b,
             filter_ast::ExprFrame::Not(_) => false,
             filter_ast::ExprFrame::Literal(ProjectLiteral::Importance(false)) => true,
-            filter_ast::ExprFrame::Literal(_) => false,
-        })
-    })
-}
-
-pub(in crate::outbound::pg_soup_repo) fn calendar_event_filter_is_impossible(
-    ast: Option<&Expr<CalendarEventLiteral>>,
-) -> bool {
-    ast.is_some_and(|expr| {
-        expr.collapse_frames(|frame| match frame {
-            filter_ast::ExprFrame::And(a, b) => a || b,
-            filter_ast::ExprFrame::Or(a, b) => a && b,
-            filter_ast::ExprFrame::Not(_) => false,
-            filter_ast::ExprFrame::Literal(CalendarEventLiteral::Id(id)) => id.is_nil(),
             filter_ast::ExprFrame::Literal(_) => false,
         })
     })
@@ -1770,7 +1548,6 @@ enum SoupRow {
     Project(ProjectRow),
     Initiative(InitiativeRow),
     DatabaseRow(DatabaseRowRow),
-    CalendarEvent(SoupCalendarEvent<()>),
 }
 
 impl<'a> FromRow<'a, PgRow> for SoupRow {
@@ -1782,12 +1559,6 @@ impl<'a> FromRow<'a, PgRow> for SoupRow {
             "project" => Ok(SoupRow::Project(ProjectRow::from_row(row)?)),
             "initiative" => Ok(SoupRow::Initiative(InitiativeRow::from_row(row)?)),
             "database_row" => Ok(SoupRow::DatabaseRow(DatabaseRowRow::from_row(row)?)),
-            "calendar_event" => {
-                let value: serde_json::Value = row.try_get("calendar_event")?;
-                let event = serde_json::from_value(value)
-                    .map_err(|error| sqlx::Error::Decode(Box::new(error)))?;
-                Ok(SoupRow::CalendarEvent(event))
-            }
             _ => Err(sqlx::Error::TypeNotFound {
                 type_name: item_type.to_string(),
             }),
@@ -1803,11 +1574,7 @@ impl SoupRow {
                 is_important: row.is_important,
                 status_option_ids: row.status_option_ids.clone(),
             }),
-            Self::Chat(_)
-            | Self::Project(_)
-            | Self::Initiative(_)
-            | Self::DatabaseRow(_)
-            | Self::CalendarEvent(_) => None,
+            Self::Chat(_) | Self::Project(_) | Self::Initiative(_) | Self::DatabaseRow(_) => None,
         }
     }
 
@@ -1946,7 +1713,6 @@ impl SoupRow {
                     extra: (),
                 })
             }
-            SoupRow::CalendarEvent(event) => SoupItem::CalendarEvent(event),
         })
     }
 }
@@ -2168,16 +1934,6 @@ fn build_grouped_query<'a>(
             filter_ast.properties_filter.as_deref(),
             &[PropertyEntityType::Project],
         );
-    // Gated like the other three legs. Beyond skipping a union branch that can
-    // never match, this keeps the NIL-id exclusion every Soup query now sends
-    // from reaching `push_filter` below — see the bind-numbering note there.
-    let include_calendar_events =
-        !calendar_event_filter_is_impossible(filter_ast.calendar_event_filter.as_deref())
-            && properties_filter_can_apply_to(
-                filter_ast.properties_filter.as_deref(),
-                &[PropertyEntityType::CalendarEvent],
-            );
-
     // All matching candidates are needed for exact counts; limits apply after grouping.
     builder.push("TopItems AS (");
     builder.push(
@@ -2222,18 +1978,6 @@ fn build_grouped_query<'a>(
         builder.push(build_properties_filter(
             filter_ast.properties_filter.as_deref(),
             "p.id",
-        ));
-    }
-
-    if include_calendar_events {
-        push_union_separator(&mut builder, &mut needs_separator);
-        builder.push(grouped_calendar_event_top_clause(sort_method));
-        builder.push(build_calendar_event_filter(
-            filter_ast.calendar_event_filter.as_deref(),
-        ));
-        builder.push(build_properties_filter(
-            filter_ast.properties_filter.as_deref(),
-            "event.id::text",
         ));
     }
 
@@ -2328,13 +2072,6 @@ fn build_grouped_query<'a>(
         push_union_separator(&mut builder, &mut combined_needs_separator);
         builder.push(
             GROUPED_PROJECT_DETAIL_CLAUSE
-                .replace("GroupedItems gi", &format!("{} gi", source_table)),
-        );
-    }
-    if include_calendar_events {
-        push_union_separator(&mut builder, &mut combined_needs_separator);
-        builder.push(
-            GROUPED_CALENDAR_EVENT_DETAIL_CLAUSE
                 .replace("GroupedItems gi", &format!("{} gi", source_table)),
         );
     }
