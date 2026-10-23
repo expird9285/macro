@@ -16,7 +16,7 @@ fn favorites_filter_materializes_without_changing_entity_scope() {
     input["favoritesOnly"] = json!(true);
     let ast = materialize_graphql_filter(input).unwrap();
     assert_eq!(ast.favorites_only, Some(true));
-    assert!(ast.email_filter.tree.is_some());
+    assert!(ast.channel_filter.is_some());
 }
 
 #[test]
@@ -34,7 +34,7 @@ fn generated_typescript_variables_materialize_authoritative_ast() {
         Some(Expr::Not(expr))
             if matches!(expr.as_ref(), Expr::Literal(ChatLiteral::Owner(_)))
     ));
-    assert!(ast.email_filter.tree.is_some());
+    assert!(ast.channel_filter.is_some());
 }
 
 #[test]
@@ -246,51 +246,37 @@ fn channel_thread_has_replies_materializes_for_browser_and_server() {
 }
 
 #[test]
-fn crm_document_literals_materialize_for_browser_and_server() {
-    let company_id = "0198a1b2-c3d4-7e5f-8061-728394a5b700";
+fn removed_email_calendar_and_crm_inputs_are_rejected() {
+    for field in [
+        "emailFilter",
+        "calendarEventFilter",
+        "crmCompanyFilter",
+        "crmContactFilter",
+        "crmAssociation",
+    ] {
+        let error = materialize_graphql_filter(json!({ field: {} })).unwrap_err();
+        assert!(matches!(error, MaterializeError::Shape(_)), "{field}");
+    }
+    for literal in [
+        json!({"isEmailAttachment": true}),
+        json!({"emailAttachmentParticipant": {"domain": "acme.com"}}),
+        json!({"crmAssociated": {"company": "0198a1b2-c3d4-7e5f-8061-728394a5b700"}}),
+    ] {
+        let error = materialize_graphql_filter(json!({ "documentFilter": { "literal": literal } }))
+            .unwrap_err();
+        assert!(matches!(error, MaterializeError::Shape(_)));
+    }
+}
+
+#[test]
+fn entity_reference_document_properties_materialize_for_browser_and_server() {
+    let owner_id = "0198a1b2-c3d4-7e5f-8061-728394a5b700";
     let value = json!({
         "documentFilter": {"or": {
             "left": {"literal": {"property": {
                 "propertyDefinitionId": "00000001-0000-0000-0000-00000000000c",
-                "value": {"entityRef": company_id}
+                "value": {"entityRef": owner_id}
             }}},
-            "right": {"literal": {"emailAttachmentParticipant": {"domain": "acme.com"}}}
-        }}
-    });
-    let ast = materialize_graphql_filter(value.clone()).unwrap();
-    let input: GraphqlEntityFilterAst = serde_json::from_value(value).unwrap();
-    assert_eq!(
-        serde_json::to_value(&ast).unwrap(),
-        serde_json::to_value(input.into_ast().unwrap()).unwrap()
-    );
-
-    let Some(Expr::Or(left, right)) = ast.document_filter.as_deref() else {
-        panic!("expected an OR of the two CRM literals")
-    };
-    assert!(matches!(
-        left.as_ref(),
-        Expr::Literal(DocumentLiteral::Property(PropertiesLiteral {
-            entity_type: None,
-            value: PropertyMatchValue::EntityRef(id),
-            ..
-        })) if id.to_string() == company_id
-    ));
-    assert!(matches!(
-        right.as_ref(),
-        Expr::Literal(DocumentLiteral::EmailAttachmentParticipant(
-            item_filters::ast::email::Email::Domain(domain)
-        )) if domain == "acme.com"
-    ));
-}
-
-#[test]
-fn crm_association_materializes_for_browser_and_server() {
-    let company_id = "0198a1b2-c3d4-7e5f-8061-728394a5b700";
-    let contact_id = "0198a1b2-c3d4-7e5f-8061-728394a5b701";
-    let value = json!({
-        "crmAssociation": {"company": company_id},
-        "documentFilter": {"or": {
-            "left": {"literal": {"crmAssociated": {"contact": contact_id}}},
             "right": {"literal": {"nameContains": "Renewal"}}
         }}
     });
@@ -301,50 +287,19 @@ fn crm_association_materializes_for_browser_and_server() {
         serde_json::to_value(input.into_ast().unwrap()).unwrap()
     );
 
-    assert_eq!(
-        ast.crm_association,
-        Some(CrmAssociation::Company(
-            Uuid::parse_str(company_id).unwrap()
-        ))
-    );
     let Some(Expr::Or(left, right)) = ast.document_filter.as_deref() else {
-        panic!("expected an OR of the association and the name literal")
+        panic!("expected an OR of the property and the name literal")
     };
     assert!(matches!(
         left.as_ref(),
-        Expr::Literal(DocumentLiteral::CrmAssociated(CrmAssociation::Contact(id)))
-            if id.to_string() == contact_id
+        Expr::Literal(DocumentLiteral::Property(PropertiesLiteral {
+            entity_type: None,
+            value: PropertyMatchValue::EntityRef(id),
+            ..
+        })) if id.to_string() == owner_id
     ));
     assert!(matches!(
         right.as_ref(),
         Expr::Literal(DocumentLiteral::NameContains(name)) if name == "Renewal"
     ));
-    assert!(
-        materialize_graphql_filter(json!({"crmAssociation": {"company": "not-a-uuid"}})).is_err()
-    );
-}
-
-#[test]
-fn contacts_are_opt_in_and_normalize_full_email_filters() {
-    assert!(
-        materialize_graphql_filter(json!({}))
-            .unwrap()
-            .crm_contact_filter
-            .is_none()
-    );
-    let ast = materialize_graphql_filter(json!({
-        "crmContactFilter": { "and": {
-            "left": { "literal": { "teamId": "00000000-0000-0000-0000-000000000011" } },
-            "right": { "literal": { "email": "  Pat+Alias@Example.com " } }
-        } }
-    }))
-    .unwrap();
-    let tree = serde_json::to_value(ast.crm_contact_filter).unwrap();
-    assert_eq!(tree["&"][1]["l"]["email"], "pat+alias@example.com");
-    assert!(
-        materialize_graphql_filter(
-            json!({ "crmContactFilter": { "literal": { "include": false } } })
-        )
-        .is_err()
-    );
 }

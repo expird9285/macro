@@ -18,9 +18,6 @@
       "literal": { "owner": "macro|user@example.com" }
     }
   },
-  "emailFilter": {
-    "tree": { "literal": { "shared": "EXCLUDE" } }
-  },
   "channelFilter": {
     "literal": { "channelId": "00000000-0000-0000-0000-000000000000" }
   }

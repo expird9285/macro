@@ -17,21 +17,16 @@ use chrono::{DateTime, Utc};
 use document_sub_type::DocumentSubType;
 use filter_ast::Expr;
 use item_filters::{
-    CallStatus, SharedEmailFilter,
+    CallStatus,
     ast::{
-        CrmScope, EmailFilterAst, EntityFilterAst,
+        EntityFilterAst,
         agent_session::AgentSessionLiteral,
-        calendar_event::CalendarEventLiteral,
         call::CallLiteral,
         channel::{ChannelLiteral, ChannelThreadLiteral, ChannelTypeFilter},
         chat::{ChatLiteral, ChatRole},
-        crm_association::CrmAssociation,
-        crm_company::CrmCompanyLiteral,
-        crm_contact::CrmContactLiteral,
         database_row::DatabaseRowLiteral,
         date::DateLiteral,
         document::DocumentLiteral,
-        email::{Email, EmailLiteral},
         foreign_entity::ForeignEntityLiteral,
         github_pull_request::{
             GithubPullRequestLiteral, GithubPullRequestReviewStatus, GithubPullRequestState,
@@ -41,7 +36,7 @@ use item_filters::{
         properties::{EntityRefId, PropertiesLiteral, PropertyEntityType, PropertyMatchValue},
     },
 };
-use macro_user_id::{cowlike::CowLike, email::EmailStr, user_id::MacroUserIdStr};
+use macro_user_id::{cowlike::CowLike, user_id::MacroUserIdStr};
 use model_file_type::FileType;
 use model_owner::Owner;
 use notification_state::graphql::GraphqlNotificationState;
@@ -364,30 +359,18 @@ impl TryFrom<GraphqlPropertyEntityType> for PropertyEntityType {
 pub struct GraphqlEntityFilterAst {
     /// Restrict results to the authenticated viewer's favorites when true.
     favorites_only: Option<bool>,
-    /// Restrict every entity type to items associated with this CRM record.
-    /// Requires an expanded, timestamp-sorted query.
-    crm_association: Option<GraphqlCrmAssociation>,
-    /// The calendar event filter to apply.
-    calendar_event_filter: Option<GraphqlCalendarEventExpr>,
     /// The document filter to apply.
     document_filter: Option<GraphqlDocumentExpr>,
     /// The project filter to apply.
     project_filter: Option<GraphqlProjectExpr>,
     /// The chat filter to apply.
     chat_filter: Option<GraphqlChatExpr>,
-    /// The email filter to apply.
-    email_filter: Option<GraphqlEmailFilterAst>,
     /// The channel filter to apply.
     channel_filter: Option<GraphqlChannelExpr>,
     /// The channel thread filter to apply.
     channel_thread_filter: Option<GraphqlChannelThreadExpr>,
     /// The call filter to apply.
     call_filter: Option<GraphqlCallExpr>,
-    /// The crm company filter to apply.
-    crm_company_filter: Option<GraphqlCrmCompanyExpr>,
-    /// Opt-in CRM contact filters, applied before contacts are collapsed by
-    /// normalized email address.
-    crm_contact_filter: Option<GraphqlCrmContactExpr>,
     /// The foreign entity filter to apply.
     foreign_entity_filter: Option<GraphqlForeignEntityExpr>,
     /// The GitHub pull request filter to apply, on top of the foreign entity filter.
@@ -424,24 +407,12 @@ impl GraphqlEntityFilterAst {
     fn into_ast_unchecked(self) -> InputResult<EntityFilterAst> {
         Ok(EntityFilterAst {
             favorites_only: self.favorites_only,
-            crm_association: self
-                .crm_association
-                .map(GraphqlCrmAssociation::into_ast)
-                .transpose()?,
-            calendar_event_filter: optional_tree(self.calendar_event_filter)?,
             document_filter: optional_tree(self.document_filter)?,
             project_filter: optional_tree(self.project_filter)?,
             chat_filter: optional_tree(self.chat_filter)?,
-            email_filter: self
-                .email_filter
-                .map(GraphqlEmailFilterAst::into_ast)
-                .transpose()?
-                .unwrap_or_default(),
             channel_filter: optional_tree(self.channel_filter)?,
             channel_thread_filter: optional_tree(self.channel_thread_filter)?,
             call_filter: optional_tree(self.call_filter)?,
-            crm_company_filter: optional_tree(self.crm_company_filter)?,
-            crm_contact_filter: optional_tree(self.crm_contact_filter)?,
             foreign_entity_filter: optional_tree(self.foreign_entity_filter)?,
             github_pull_request_filter: optional_tree(self.github_pull_request_filter)?,
             agent_session_filter: optional_tree(self.agent_session_filter)?,
@@ -453,13 +424,6 @@ impl GraphqlEntityFilterAst {
 }
 
 filter_expr_input!(
-    GraphqlCalendarEventExpr,
-    GraphqlCalendarEventBinaryExpr,
-    GraphqlCalendarEventLiteral,
-    CalendarEventLiteral,
-    "CalendarEventFilterExpr"
-);
-filter_expr_input!(
     GraphqlDocumentExpr,
     GraphqlDocumentBinaryExpr,
     GraphqlDocumentLiteral,
@@ -467,47 +431,6 @@ filter_expr_input!(
     "DocumentFilterExpr"
 );
 
-/// GraphQL input representing a calendar event literal.
-#[cfg_attr(feature = "server", derive(async_graphql::OneofObject))]
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-enum GraphqlCalendarEventLiteral {
-    /// Canonical event id.
-    Id(ID),
-    /// Event status.
-    Status(String),
-    /// Master start must be before this RFC3339 instant.
-    StartsBefore(String),
-    /// Master end must be after this RFC3339 instant.
-    EndsAfter(String),
-    /// Attendee email.
-    Attendee(String),
-    /// Organizer email.
-    Organizer(String),
-    /// Exact notification state for the requester.
-    NotificationState(GraphqlNotificationState),
-}
-
-impl IntoFilterExpr<CalendarEventLiteral> for GraphqlCalendarEventLiteral {
-    fn into_expr(self) -> InputResult<Expr<CalendarEventLiteral>> {
-        let parse_date = |value: String| {
-            DateTime::parse_from_rfc3339(&value)
-                .map(|date| date.with_timezone(&Utc))
-                .map_err(|error| {
-                    InputError::new(format!("invalid RFC3339 calendar date `{value}`: {error}"))
-                })
-        };
-        Ok(Expr::val(match self {
-            Self::Id(id) => CalendarEventLiteral::Id(parse_id(id, "id")?),
-            Self::Status(status) => CalendarEventLiteral::Status(status.to_ascii_lowercase()),
-            Self::StartsBefore(value) => CalendarEventLiteral::StartsBefore(parse_date(value)?),
-            Self::EndsAfter(value) => CalendarEventLiteral::EndsAfter(parse_date(value)?),
-            Self::Attendee(email) => CalendarEventLiteral::Attendee(email.to_ascii_lowercase()),
-            Self::Organizer(email) => CalendarEventLiteral::Organizer(email.to_ascii_lowercase()),
-            Self::NotificationState(state) => CalendarEventLiteral::NotificationState(state.into()),
-        }))
-    }
-}
 filter_expr_input!(
     GraphqlProjectExpr,
     GraphqlProjectBinaryExpr,
@@ -521,13 +444,6 @@ filter_expr_input!(
     GraphqlChatLiteral,
     ChatLiteral,
     "ChatFilterExpr"
-);
-filter_expr_input!(
-    GraphqlEmailExpr,
-    GraphqlEmailBinaryExpr,
-    GraphqlEmailLiteral,
-    EmailLiteral,
-    "EmailFilterExpr"
 );
 filter_expr_input!(
     GraphqlChannelExpr,
@@ -551,20 +467,6 @@ filter_expr_input!(
     "CallFilterExpr"
 );
 filter_expr_input!(
-    GraphqlCrmContactExpr,
-    GraphqlCrmContactBinaryExpr,
-    GraphqlCrmContactLiteral,
-    CrmContactLiteral,
-    "CrmContactFilterExpr"
-);
-filter_expr_input!(
-    GraphqlCrmCompanyExpr,
-    GraphqlCrmCompanyBinaryExpr,
-    GraphqlCrmCompanyLiteral,
-    CrmCompanyLiteral,
-    "CrmCompanyFilterExpr"
-);
-filter_expr_input!(
     GraphqlForeignEntityExpr,
     GraphqlForeignEntityBinaryExpr,
     GraphqlForeignEntityLiteral,
@@ -585,54 +487,6 @@ filter_expr_input!(
     AgentSessionLiteral,
     "AgentSessionFilterExpr"
 );
-/// GraphQL input representing the email filter ast.
-#[cfg_attr(feature = "server", derive(async_graphql::InputObject))]
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct GraphqlEmailFilterAst {
-    /// The tree.
-    tree: Option<GraphqlEmailExpr>,
-    /// The crm scope.
-    crm_scope: Option<GraphqlCrmScope>,
-}
-
-impl GraphqlEmailFilterAst {
-    /// Convert this value into the ast representation.
-    fn into_ast(self) -> InputResult<EmailFilterAst> {
-        Ok(EmailFilterAst {
-            tree: optional_tree(self.tree)?,
-            crm_scope: self.crm_scope.map(GraphqlCrmScope::into_ast).transpose()?,
-        })
-    }
-}
-
-/// GraphQL input representing the crm scope.
-#[cfg_attr(feature = "server", derive(async_graphql::OneofObject))]
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-enum GraphqlCrmScope {
-    /// The domains option.
-    Domains(Vec<String>),
-    /// The addresses option.
-    Addresses(Vec<String>),
-}
-
-impl GraphqlCrmScope {
-    /// Convert this value into the ast representation.
-    fn into_ast(self) -> InputResult<CrmScope> {
-        match self {
-            Self::Domains(domains) if domains.is_empty() => {
-                Err(InputError::new("CrmScope.domains cannot be empty"))
-            }
-            Self::Domains(domains) => Ok(CrmScope::Domains(domains)),
-            Self::Addresses(addresses) if addresses.is_empty() => {
-                Err(InputError::new("CrmScope.addresses cannot be empty"))
-            }
-            Self::Addresses(addresses) => Ok(CrmScope::Addresses(addresses)),
-        }
-    }
-}
-
 /// GraphQL input representing the date literal.
 #[cfg_attr(feature = "server", derive(async_graphql::OneofObject))]
 #[derive(Serialize, Deserialize)]
@@ -649,7 +503,7 @@ enum GraphqlDateLiteral {
 }
 
 impl GraphqlDateLiteral {
-    /// Parse an email address from a GraphQL string value.
+    /// Parse an RFC3339 date from a GraphQL string value.
     fn parse(value: String) -> InputResult<DateTime<Utc>> {
         DateTime::parse_from_rfc3339(&value)
             .map(|dt| dt.with_timezone(&Utc))
@@ -691,43 +545,14 @@ enum GraphqlDocumentLiteral {
     SubType(GraphqlDocumentSubType),
     /// The file assoc option.
     FileAssoc(String),
-    /// The is email attachment option.
-    IsEmailAttachment(bool),
     /// The created at option.
     CreatedAt(GraphqlDateLiteral),
     /// The updated at option.
     UpdatedAt(GraphqlDateLiteral),
     /// An entity-property condition on the document or task.
     Property(GraphqlFilterPropertiesLiteral),
-    /// Uploaded from an email attachment sent by, or to, a matching address.
-    EmailAttachmentParticipant(GraphqlEmailValue),
-    /// Associated with a CRM record through its Companies or Contacts
-    /// property or a reference to the record. Requires an expanded,
-    /// timestamp-sorted query.
-    CrmAssociated(GraphqlCrmAssociation),
     /// Case-insensitive substring of the document name.
     NameContains(String),
-}
-
-/// GraphQL input naming the CRM record an association filter restricts to.
-#[cfg_attr(feature = "server", derive(async_graphql::OneofObject))]
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-enum GraphqlCrmAssociation {
-    /// Items associated with the company or any of its contacts.
-    Company(ID),
-    /// Items associated with the contact.
-    Contact(ID),
-}
-
-impl GraphqlCrmAssociation {
-    /// Convert this value into the ast representation.
-    fn into_ast(self) -> InputResult<CrmAssociation> {
-        Ok(match self {
-            Self::Company(id) => CrmAssociation::Company(parse_id(id, "company")?),
-            Self::Contact(id) => CrmAssociation::Contact(parse_id(id, "contact")?),
-        })
-    }
 }
 
 impl IntoFilterExpr<DocumentLiteral> for GraphqlDocumentLiteral {
@@ -753,14 +578,9 @@ impl IntoFilterExpr<DocumentLiteral> for GraphqlDocumentLiteral {
             Self::NotificationState(state) => DocumentLiteral::NotificationState(state.into()),
             Self::IncludeCbmAtmNc(include) => DocumentLiteral::IncludeCbmAtmNc(include),
             Self::SubType(sub_type) => DocumentLiteral::SubType(sub_type.into_model()),
-            Self::IsEmailAttachment(value) => DocumentLiteral::IsEmailAttachment(value),
             Self::CreatedAt(date) => DocumentLiteral::CreatedAt(date.into_ast()?),
             Self::UpdatedAt(date) => DocumentLiteral::UpdatedAt(date.into_ast()?),
             Self::Property(property) => DocumentLiteral::Property(property.into_literal()?),
-            Self::EmailAttachmentParticipant(value) => {
-                DocumentLiteral::EmailAttachmentParticipant(value.into_ast()?)
-            }
-            Self::CrmAssociated(record) => DocumentLiteral::CrmAssociated(record.into_ast()?),
             Self::NameContains(name) => DocumentLiteral::NameContains(name),
         };
         Ok(Expr::val(literal))
@@ -895,124 +715,6 @@ impl GraphqlChatRole {
             Self::User => ChatRole::User,
             Self::System => ChatRole::System,
             Self::Assistant => ChatRole::Assistant,
-        }
-    }
-}
-
-/// GraphQL input representing the email literal.
-#[cfg_attr(feature = "server", derive(async_graphql::OneofObject))]
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-enum GraphqlEmailLiteral {
-    /// The sender option.
-    Sender(GraphqlEmailValue),
-    /// The cc option.
-    Cc(GraphqlEmailValue),
-    /// The bcc option.
-    Bcc(GraphqlEmailValue),
-    /// The recipient option.
-    Recipient(GraphqlEmailValue),
-    /// The thread id option.
-    ThreadId(ID),
-    /// The owner option.
-    Owner(ID),
-    /// The project id option.
-    ProjectId(String),
-    /// The importance option.
-    Importance(bool),
-    /// Exact notification state for the requester.
-    NotificationState(GraphqlNotificationState),
-    /// The email thread read flag, independent of notification state.
-    Read(bool),
-    /// Inbox visibility: false selects archived (done) mail, independently of notifications.
-    InboxVisible(bool),
-    /// The shared option.
-    Shared(GraphqlSharedEmailFilter),
-    /// The calendar only option.
-    CalendarOnly(bool),
-    /// The created at option.
-    CreatedAt(GraphqlDateLiteral),
-    /// The updated at option.
-    UpdatedAt(GraphqlDateLiteral),
-    /// The per-viewer viewed at option.
-    ViewedAt(GraphqlDateLiteral),
-}
-
-impl IntoFilterExpr<EmailLiteral> for GraphqlEmailLiteral {
-    /// Convert this value into the expr representation.
-    fn into_expr(self) -> InputResult<Expr<EmailLiteral>> {
-        let literal = match self {
-            Self::Sender(value) => EmailLiteral::Sender(value.into_ast()?),
-            Self::Cc(value) => EmailLiteral::Cc(value.into_ast()?),
-            Self::Bcc(value) => EmailLiteral::Bcc(value.into_ast()?),
-            Self::Recipient(value) => EmailLiteral::Recipient(value.into_ast()?),
-            Self::ThreadId(id) => EmailLiteral::ThreadId(parse_id(id, "threadId")?),
-            Self::Owner(id) => EmailLiteral::Owner(parse_id(id, "owner")?),
-            Self::ProjectId(id) => EmailLiteral::ProjectId(id),
-            Self::Importance(importance) => EmailLiteral::Importance(importance),
-            Self::NotificationState(state) => EmailLiteral::NotificationState(state.into()),
-            Self::Read(read) => EmailLiteral::Read(read),
-            Self::InboxVisible(visible) => EmailLiteral::InboxVisible(visible),
-            Self::Shared(shared) => EmailLiteral::Shared(shared.into_model()),
-            Self::CalendarOnly(calendar_only) => EmailLiteral::CalendarOnly(calendar_only),
-            Self::CreatedAt(date) => EmailLiteral::CreatedAt(date.into_ast()?),
-            Self::UpdatedAt(date) => EmailLiteral::UpdatedAt(date.into_ast()?),
-            Self::ViewedAt(date) => EmailLiteral::ViewedAt(date.into_ast()?),
-        };
-        Ok(Expr::val(literal))
-    }
-}
-
-/// GraphQL input representing the email value.
-#[cfg_attr(feature = "server", derive(async_graphql::OneofObject))]
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-enum GraphqlEmailValue {
-    /// The partial option.
-    Partial(String),
-    /// The complete option.
-    Complete(String),
-    /// The domain option.
-    Domain(String),
-}
-
-impl GraphqlEmailValue {
-    /// Convert this value into the ast representation.
-    fn into_ast(self) -> InputResult<Email> {
-        Ok(match self {
-            Self::Partial(value) => Email::Partial(value),
-            Self::Complete(value) => Email::Complete(
-                EmailStr::parse_from_str(&value)
-                    .map(CowLike::into_owned)
-                    .map_err(|err| {
-                        InputError::new(format!("invalid complete email `{value}`: {err}"))
-                    })?,
-            ),
-            Self::Domain(value) => Email::Domain(value),
-        })
-    }
-}
-
-/// GraphQL input representing the shared email filter.
-#[cfg_attr(feature = "server", derive(async_graphql::Enum))]
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-enum GraphqlSharedEmailFilter {
-    /// The exclude option.
-    Exclude,
-    /// The include option.
-    Include,
-    /// The only option.
-    Only,
-}
-
-impl GraphqlSharedEmailFilter {
-    /// Convert this GraphQL option into the shared-email filter model.
-    fn into_model(self) -> SharedEmailFilter {
-        match self {
-            Self::Exclude => SharedEmailFilter::Exclude,
-            Self::Include => SharedEmailFilter::Include,
-            Self::Only => SharedEmailFilter::Only,
         }
     }
 }
@@ -1222,28 +924,6 @@ impl IntoFilterExpr<AgentSessionLiteral> for GraphqlAgentSessionLiteral {
             Self::Include(true) => AgentSessionLiteral::Include,
             Self::Id(id) => AgentSessionLiteral::Id(parse_id(id, "id")?),
             Self::Owner(owner) => AgentSessionLiteral::Owner(parse_owner(owner, "owner")?),
-        };
-        Ok(Expr::val(literal))
-    }
-}
-
-/// GraphQL input representing the crm company literal.
-#[cfg_attr(feature = "server", derive(async_graphql::OneofObject))]
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-enum GraphqlCrmCompanyLiteral {
-    /// The id option.
-    Id(ID),
-    /// The hidden option.
-    Hidden(bool),
-}
-
-impl IntoFilterExpr<CrmCompanyLiteral> for GraphqlCrmCompanyLiteral {
-    /// Convert this value into the expr representation.
-    fn into_expr(self) -> InputResult<Expr<CrmCompanyLiteral>> {
-        let literal = match self {
-            Self::Id(id) => CrmCompanyLiteral::Id(parse_id(id, "id")?),
-            Self::Hidden(hidden) => CrmCompanyLiteral::Hidden(hidden),
         };
         Ok(Expr::val(literal))
     }
@@ -1461,41 +1141,5 @@ impl GraphqlGithubPullRequestReviewStatus {
             Self::Approved => GithubPullRequestReviewStatus::Approved,
             Self::ChangesRequested => GithubPullRequestReviewStatus::ChangesRequested,
         }
-    }
-}
-
-/// GraphQL contact predicates over authorized team records.
-#[cfg_attr(feature = "server", derive(async_graphql::OneofObject))]
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-enum GraphqlCrmContactLiteral {
-    /// Include visible contacts. Must be true.
-    Include(bool),
-    /// Exact team-owned contact ID.
-    Id(ID),
-    /// Owning company ID.
-    CompanyId(ID),
-    /// Owning team ID.
-    TeamId(ID),
-    /// Full email address, matched case-insensitively.
-    Email(String),
-    /// Literal name/email search text.
-    Search(String),
-    /// Effective hidden state, subject to the viewer's role on each team.
-    Hidden(bool),
-}
-
-impl IntoFilterExpr<CrmContactLiteral> for GraphqlCrmContactLiteral {
-    fn into_expr(self) -> InputResult<Expr<CrmContactLiteral>> {
-        Ok(Expr::val(match self {
-            Self::Include(true) => CrmContactLiteral::Include,
-            Self::Include(false) => return Err(InputError::new("contact include must be true")),
-            Self::Id(id) => CrmContactLiteral::Id(parse_id(id, "id")?),
-            Self::CompanyId(id) => CrmContactLiteral::CompanyId(parse_id(id, "companyId")?),
-            Self::TeamId(id) => CrmContactLiteral::TeamId(parse_id(id, "teamId")?),
-            Self::Email(email) => CrmContactLiteral::Email(email.trim().to_lowercase()),
-            Self::Search(query) => CrmContactLiteral::Search(query.trim().to_owned()),
-            Self::Hidden(hidden) => CrmContactLiteral::Hidden(hidden),
-        }))
     }
 }
