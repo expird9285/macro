@@ -121,12 +121,9 @@ fn a_tables_rows_are_answered_from_the_cache_and_pick_up_a_new_row() {
                 "documentFilter": { "literal": { "id": "00000000-0000-0000-0000-000000000000" } },
                 "projectFilter": { "literal": { "projectIdSelf": "00000000-0000-0000-0000-000000000000" } },
                 "chatFilter": { "literal": { "chatId": "00000000-0000-0000-0000-000000000000" } },
-                "emailFilter": { "tree": { "literal": { "threadId": "00000000-0000-0000-0000-000000000000" } } },
                 "channelFilter": { "literal": { "channelId": "00000000-0000-0000-0000-000000000000" } },
                 "channelThreadFilter": { "literal": { "threadId": "00000000-0000-0000-0000-000000000000" } },
-                "calendarEventFilter": { "literal": { "id": "00000000-0000-0000-0000-000000000000" } },
                 "callFilter": { "literal": { "callId": "00000000-0000-0000-0000-000000000000" } },
-                "crmCompanyFilter": { "literal": { "id": "00000000-0000-0000-0000-000000000000" } },
                 "foreignEntityFilter": { "literal": { "id": "00000000-0000-0000-0000-000000000000" } },
             })).await,
             vec![
@@ -140,12 +137,9 @@ fn a_tables_rows_are_answered_from_the_cache_and_pick_up_a_new_row() {
                 "documentFilter": { "literal": { "id": "00000000-0000-0000-0000-000000000000" } },
                 "projectFilter": { "literal": { "projectIdSelf": "00000000-0000-0000-0000-000000000000" } },
                 "chatFilter": { "literal": { "chatId": "00000000-0000-0000-0000-000000000000" } },
-                "emailFilter": { "tree": { "literal": { "threadId": "00000000-0000-0000-0000-000000000000" } } },
                 "channelFilter": { "literal": { "channelId": "00000000-0000-0000-0000-000000000000" } },
                 "channelThreadFilter": { "literal": { "threadId": "00000000-0000-0000-0000-000000000000" } },
-                "calendarEventFilter": { "literal": { "id": "00000000-0000-0000-0000-000000000000" } },
                 "callFilter": { "literal": { "callId": "00000000-0000-0000-0000-000000000000" } },
-                "crmCompanyFilter": { "literal": { "id": "00000000-0000-0000-0000-000000000000" } },
                 "foreignEntityFilter": { "literal": { "id": "00000000-0000-0000-0000-000000000000" } },
                 "propertiesFilter": { "literal": {
                     "propertyDefinitionId": STAGE, "value": { "selectOption": WON }
@@ -178,12 +172,9 @@ fn a_tables_rows_are_answered_from_the_cache_and_pick_up_a_new_row() {
                 "documentFilter": { "literal": { "id": "00000000-0000-0000-0000-000000000000" } },
                 "projectFilter": { "literal": { "projectIdSelf": "00000000-0000-0000-0000-000000000000" } },
                 "chatFilter": { "literal": { "chatId": "00000000-0000-0000-0000-000000000000" } },
-                "emailFilter": { "tree": { "literal": { "threadId": "00000000-0000-0000-0000-000000000000" } } },
                 "channelFilter": { "literal": { "channelId": "00000000-0000-0000-0000-000000000000" } },
                 "channelThreadFilter": { "literal": { "threadId": "00000000-0000-0000-0000-000000000000" } },
-                "calendarEventFilter": { "literal": { "id": "00000000-0000-0000-0000-000000000000" } },
                 "callFilter": { "literal": { "callId": "00000000-0000-0000-0000-000000000000" } },
-                "crmCompanyFilter": { "literal": { "id": "00000000-0000-0000-0000-000000000000" } },
                 "foreignEntityFilter": { "literal": { "id": "00000000-0000-0000-0000-000000000000" } },
             })).await,
             vec![

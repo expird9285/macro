@@ -27,7 +27,6 @@ mod channels;
 mod database_rows;
 mod direct_patch;
 pub mod live_query;
-pub mod mail;
 mod notifications;
 pub mod properties;
 pub use notifications::{
@@ -38,6 +37,17 @@ pub use notifications::{
 #[derive(Debug, thiserror::Error)]
 #[error("{0}")]
 pub struct SoupFilterCacheAdapterError(String);
+
+/// Projection extraction failures retain storage errors for host recovery.
+#[derive(Debug, thiserror::Error)]
+pub enum ProjectionError<S: std::error::Error + 'static> {
+    /// Storage failure, including errors that require a physical reset.
+    #[error(transparent)]
+    Storage(S),
+    /// Invalid GraphQL input or projection evidence.
+    #[error(transparent)]
+    Adapter(#[from] SoupFilterCacheAdapterError),
+}
 
 /// Result of compiling a Soup request to generic predicate-index IR.
 #[derive(Debug)]

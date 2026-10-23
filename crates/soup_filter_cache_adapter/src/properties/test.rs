@@ -32,10 +32,9 @@ fn filters(property: Option<Value>) -> Value {
     let nil = id(0);
     let mut filters = json!({
         "documentFilter":{"literal":{"id":nil}}, "projectFilter":{"literal":{"projectIdSelf": id(100)}},
-        "chatFilter":{"literal":{"chatId":nil}}, "emailFilter":{"tree":{"literal":{"threadId":nil}}},
-        "channelFilter":{"literal":{"channelId":nil}}, "channelThreadFilter":{"literal":{"threadId":nil}},
-        "calendarEventFilter":{"literal":{"id":nil}}, "callFilter":{"literal":{"callId":nil}},
-        "crmCompanyFilter":{"literal":{"id":nil}}, "foreignEntityFilter":{"literal":{"id":nil}},
+        "chatFilter":{"literal":{"chatId":nil}}, "channelFilter":{"literal":{"channelId":nil}}, "channelThreadFilter":{"literal":{"threadId":nil}},
+        "callFilter":{"literal":{"callId":nil}},
+        "foreignEntityFilter":{"literal":{"id":nil}},
     });
     if let Some(property) = property {
         filters["propertiesFilter"] = property;

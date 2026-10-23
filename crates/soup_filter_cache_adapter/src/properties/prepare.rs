@@ -81,7 +81,7 @@ impl Changes {
 }
 fn favorite_fact(value: bool) -> ExactFact {
     ExactFact {
-        attribute: item_filter_index::mail::token("is-favorited"),
+        attribute: vocabulary::is_favorited(),
         value: ExactValue::new([u8::from(value)]).expect("boolean fact is bounded"),
     }
 }
@@ -107,7 +107,6 @@ fn parent_key(kind: &str, id: &str) -> Option<RecordKey> {
         "DOCUMENT" | "TASK" => "GraphqlSoupDocument",
         "PROJECT" => "GraphqlSoupProject",
         "CHAT" => "GraphqlSoupChat",
-        "THREAD" => "GraphqlSoupEmailThread",
         "DATABASE_ROW" => "GraphqlSoupDatabaseRow",
         _ => return None,
     };
@@ -118,7 +117,6 @@ fn is_parent(key: &EntityKey<'_>) -> bool {
         "GraphqlSoupDocument:",
         "GraphqlSoupProject:",
         "GraphqlSoupChat:",
-        "GraphqlSoupEmailThread:",
         "GraphqlSoupChannel:",
         "GraphqlSoupDatabaseRow:",
     ]
@@ -275,51 +273,35 @@ async fn owners<S: PredicateIndexStorage>(
     property: &EntityKey<'_>,
     definition: Uuid,
 ) -> Result<Vec<RecordKey>, ProjectionError<S::Error>> {
-    let mut result = Vec::new();
-    for (profile, partitions, sort) in [
-        (
-            vocabulary::profile_v6(),
-            vec![
-                vocabulary::document_partition(),
-                vocabulary::project_partition(),
-                vocabulary::chat_partition(),
-                vocabulary::database_row_partition(),
-            ],
-            vocabulary::updated_at(),
-        ),
-        (
-            facts::mail_profile(),
-            vec![item_filter_index::mail::partition()],
-            item_filter_index::mail::token("mail-all-ts"),
-        ),
-    ] {
-        let predicate = PredicateExpr::Exact {
-            attribute: facts::row_attribute(definition),
-            value: ExactValue::utf8(property.as_ref()).map_err(error)?,
-        };
-        let query = ValidatedIndexQuery::new(IndexQuery {
-            profile,
-            partitions: partitions
-                .into_iter()
-                .map(|partition| PartitionPredicate {
-                    partition,
-                    predicate: predicate.clone(),
-                })
-                .collect(),
-            sort_attribute: sort,
-            sort_direction: SortDirection::Asc,
-            tie_break_direction: SortDirection::Asc,
-            limit: 2,
+    let predicate = PredicateExpr::Exact {
+        attribute: facts::row_attribute(definition),
+        value: ExactValue::utf8(property.as_ref()).map_err(error)?,
+    };
+    let query = ValidatedIndexQuery::new(IndexQuery {
+        profile: vocabulary::profile_v6(),
+        partitions: [
+            vocabulary::document_partition(),
+            vocabulary::project_partition(),
+            vocabulary::chat_partition(),
+            vocabulary::database_row_partition(),
+        ]
+        .into_iter()
+        .map(|partition| PartitionPredicate {
+            partition,
+            predicate: predicate.clone(),
         })
-        .map_err(error)?;
-        result.extend(
-            storage
-                .reconcile_predicate_index(&query, &[])
-                .await
-                .map_err(ProjectionError::Storage)?
-                .keys,
-        );
-    }
+        .collect(),
+        sort_attribute: vocabulary::updated_at(),
+        sort_direction: SortDirection::Asc,
+        tie_break_direction: SortDirection::Asc,
+        limit: 2,
+    })
+    .map_err(error)?;
+    let result = storage
+        .reconcile_predicate_index(&query, &[])
+        .await
+        .map_err(ProjectionError::Storage)?
+        .keys;
     // A property row has one canonical owning entity. Refuse contradictory
     // ownership instead of scanning or updating a truncated owner set.
     if result.len() > 1 {

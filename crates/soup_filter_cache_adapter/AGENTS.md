@@ -16,7 +16,7 @@ understand. Runs both natively (Tauri) and compiled to wasm (web).
 - `src/live_query.rs`: reactive query registration/re-evaluation.
 - `src/direct_patch.rs`, `src/notifications.rs`: optimistic local mutation
   and notification projection updates applied without a server round-trip.
-- `src/channels.rs`, `src/database_rows.rs`, `src/mail.rs`, `src/properties.rs`:
+- `src/channels.rs`, `src/database_rows.rs`, `src/properties.rs`:
   per-entity-kind projection/patch logic.
 
 ## Scope

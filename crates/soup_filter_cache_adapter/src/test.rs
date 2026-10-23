@@ -850,15 +850,12 @@ fn invalid_sort_direction_is_rejected_at_the_soup_boundary() {
 fn production_documents_filters(document_filter: serde_json::Value) -> serde_json::Value {
     const NIL_ID: &str = "00000000-0000-0000-0000-000000000000";
     serde_json::json!({
-        "calendarEventFilter": { "literal": { "id": NIL_ID } },
         "documentFilter": document_filter,
         "projectFilter": { "literal": { "projectId": NIL_ID } },
         "chatFilter": { "literal": { "chatId": NIL_ID } },
-        "emailFilter": { "tree": { "literal": { "threadId": NIL_ID } } },
         "channelFilter": { "literal": { "channelId": NIL_ID } },
         "channelThreadFilter": { "literal": { "threadId": NIL_ID } },
         "callFilter": { "literal": { "callId": NIL_ID } },
-        "crmCompanyFilter": { "literal": { "id": NIL_ID } },
         "foreignEntityFilter": { "literal": { "id": NIL_ID } }
     })
 }
@@ -876,7 +873,6 @@ fn production_documents_filter_cases() -> Vec<(&'static str, serde_json::Value)>
             }
         }
     });
-    let attachments = serde_json::json!({ "literal": { "isEmailAttachment": true } });
 
     vec![
         (
@@ -884,12 +880,7 @@ fn production_documents_filter_cases() -> Vec<(&'static str, serde_json::Value)>
             serde_json::json!({
                 "and": {
                     "left": not_task.clone(),
-                    "right": {
-                        "and": {
-                            "left": { "literal": { "owner": owner } },
-                            "right": { "literal": { "isEmailAttachment": false } }
-                        }
-                    }
+                    "right": { "literal": { "owner": owner } }
                 }
             }),
         ),
@@ -898,12 +889,7 @@ fn production_documents_filter_cases() -> Vec<(&'static str, serde_json::Value)>
             serde_json::json!({
                 "and": {
                     "left": not_task_or_snippet.clone(),
-                    "right": {
-                        "and": {
-                            "left": { "literal": { "owner": owner } },
-                            "right": { "literal": { "isEmailAttachment": false } }
-                        }
-                    }
+                    "right": { "literal": { "owner": owner } }
                 }
             }),
         ),
@@ -912,12 +898,7 @@ fn production_documents_filter_cases() -> Vec<(&'static str, serde_json::Value)>
             serde_json::json!({
                 "and": {
                     "left": not_task.clone(),
-                    "right": {
-                        "and": {
-                            "left": { "not": { "literal": { "owner": owner } } },
-                            "right": { "literal": { "isEmailAttachment": false } }
-                        }
-                    }
+                    "right": { "not": { "literal": { "owner": owner } } }
                 }
             }),
         ),
@@ -926,17 +907,10 @@ fn production_documents_filter_cases() -> Vec<(&'static str, serde_json::Value)>
             serde_json::json!({
                 "and": {
                     "left": not_task_or_snippet.clone(),
-                    "right": {
-                        "and": {
-                            "left": { "not": { "literal": { "owner": owner } } },
-                            "right": { "literal": { "isEmailAttachment": false } }
-                        }
-                    }
+                    "right": { "not": { "literal": { "owner": owner } } }
                 }
             }),
         ),
-        ("attachments/snippets-on", attachments.clone()),
-        ("attachments/snippets-off", attachments),
         ("all/snippets-on", not_task),
         ("all/snippets-off", not_task_or_snippet),
     ]
@@ -1035,7 +1009,6 @@ fn production_my_tasks_importance_and_status_filter_compiles_locally() {
 fn differential_document(
     id: &str,
     owner: &str,
-    is_email_attachment: bool,
     sub_type: Option<&str>,
     sort_value: i64,
 ) -> IndexDocument {
@@ -1051,7 +1024,7 @@ fn differential_document(
         },
         predicate_index::ExactFact {
             attribute: vocabulary::email_attachment(),
-            value: ExactValue::new([u8::from(is_email_attachment)]).unwrap(),
+            value: ExactValue::new([0]).unwrap(),
         },
         predicate_index::ExactFact {
             attribute: vocabulary::importance(),
@@ -1105,38 +1078,28 @@ fn production_documents_membership_matches_postgres_fixture_reference_and_real_t
             differential_document(
                 "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
                 owner,
-                true,
                 Some("task"),
                 1,
             ),
             differential_document(
                 "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
                 owner,
-                true,
                 Some("task"),
                 2,
             ),
             differential_document(
                 "dddddddd-dddd-dddd-dddd-dddddddddddd",
                 "macro|shared@example.com",
-                false,
                 None,
                 3,
             ),
             differential_document(
                 "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
                 owner,
-                false,
                 Some("snippet"),
                 4,
             ),
-            differential_document(
-                "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                owner,
-                false,
-                None,
-                5,
-            ),
+            differential_document("ffffffff-ffff-ffff-ffff-ffffffffffff", owner, None, 5),
         ];
         let mut storage =
             cache_turso::TursoStorage::open_in_memory("soup-v3-production-shape-differential")
@@ -1178,20 +1141,6 @@ fn production_documents_membership_matches_postgres_fixture_reference_and_real_t
             (
                 "shared/snippets-off",
                 ids(&["dddddddd-dddd-dddd-dddd-dddddddddddd"]),
-            ),
-            (
-                "attachments/snippets-on",
-                ids(&[
-                    "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-                    "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-                ]),
-            ),
-            (
-                "attachments/snippets-off",
-                ids(&[
-                    "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-                    "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-                ]),
             ),
             (
                 "all/snippets-on",
@@ -1249,14 +1198,14 @@ fn production_documents_membership_matches_postgres_fixture_reference_and_real_t
 
 #[test]
 fn production_documents_presets_support_importance_in_v4() {
-    let with_unsupported_sibling = serde_json::json!({
+    let with_sibling = serde_json::json!({
         "and": {
-            "left": { "literal": { "isEmailAttachment": false } },
+            "left": { "literal": { "subType": "TASK" } },
             "right": { "literal": { "importance": true } }
         }
     });
     let SoupFilterCompileOutcome::Supported(query) = compile_filter_request(
-        production_documents_filters(with_unsupported_sibling),
+        production_documents_filters(with_sibling),
         "UPDATED_AT",
         "DESC",
         100,
@@ -1356,7 +1305,7 @@ fn soup_flat_v2_supplement_goldens_lock_typed_server_fact_wire() {
         assert_eq!(decoded.partition().as_str(), case.capsule.partition);
         assert_eq!(
             decoded.is_email_attachment(),
-            Some(case.capsule.is_email_attachment)
+            case.capsule.is_email_attachment
         );
         assert_eq!(
             encode_cache_projection_supplement(&decoded)
@@ -1395,7 +1344,7 @@ fn soup_flat_v3_supplement_goldens_lock_viewer_relative_wire() {
         assert_eq!(decoded.partition().as_str(), case.capsule.partition);
         assert_eq!(
             decoded.is_email_attachment(),
-            Some(case.capsule.is_email_attachment)
+            case.capsule.is_email_attachment
         );
         assert_eq!(decoded.is_important(), Some(case.capsule.is_important));
         assert_eq!(

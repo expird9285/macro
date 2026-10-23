@@ -732,15 +732,12 @@ fn backfill_accepts_large_notification_sets_without_losing_members() {
 fn compiler_supports_active_states_for_each_indexed_partition_but_rejects_done() {
     let nil = uuid::Uuid::nil().to_string();
     let base = json!({
-        "calendarEventFilter":{"literal":{"id":nil}},
         "documentFilter":{"literal":{"id":nil}},
         "projectFilter":{"literal":{"projectIdSelf":nil}},
         "chatFilter":{"literal":{"chatId":nil}},
-        "emailFilter":{"tree":{"literal":{"threadId":nil}}},
         "channelFilter":{"literal":{"channelId":nil}},
         "channelThreadFilter":{"literal":{"threadId":nil}},
         "callFilter":{"literal":{"callId":nil}},
-        "crmCompanyFilter":{"literal":{"id":nil}},
         "foreignEntityFilter":{"literal":{"id":nil}}
     });
     for field in ["documentFilter", "projectFilter", "chatFilter"] {

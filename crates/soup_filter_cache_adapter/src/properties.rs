@@ -3,7 +3,7 @@
 //! No database schema or queued-mutation format change is required.
 
 use super::SoupFilterCacheAdapterError;
-use crate::mail::ProjectionError;
+use crate::ProjectionError;
 use cache_core::predicate::{
     ProjectionMutation, ProjectionState, apply_authoritative_projection_mutations,
 };
@@ -29,8 +29,6 @@ fn error(error: impl std::fmt::Display) -> SoupFilterCacheAdapterError {
 fn current_profile(profile: &Profile) -> Profile {
     if profile == &vocabulary::profile_v4() {
         vocabulary::profile_v6()
-    } else if profile == &item_filter_index::mail::profile() {
-        facts::mail_profile()
     } else {
         profile.clone()
     }
@@ -39,15 +37,13 @@ fn current_profile(profile: &Profile) -> Profile {
 fn legacy_profile(profile: &Profile) -> Profile {
     if profile == &vocabulary::profile_v6() {
         vocabulary::profile_v4()
-    } else if profile == &facts::mail_profile() {
-        item_filter_index::mail::profile()
     } else {
         profile.clone()
     }
 }
 
 fn is_current(profile: &Profile) -> bool {
-    profile == &vocabulary::profile_v6() || profile == &facts::mail_profile()
+    profile == &vocabulary::profile_v6()
 }
 
 fn is_extension_attribute(attribute: &Token) -> bool {
@@ -110,7 +106,7 @@ fn extend_document(
     ProjectionMutation::Replace(document)
 }
 
-/// Upgrade legacy core/Mail mutations and maintain property-only writes atomically.
+/// Upgrade legacy core mutations and maintain property-only writes atomically.
 /// An absent property snapshot cannot establish completeness; it may only retain
 /// same-identity property proof already present in the current profile.
 #[expect(
@@ -191,12 +187,10 @@ pub async fn augment_authoritative<S: cache_core::predicate::PredicateIndexStora
             result.push(ProjectionMutation::Delete(key));
         }
     }
-    if matches!(
-        operation,
-        Some("SoupBackfill" | "SoupMailBackfill" | "SoupSharedMailBackfill")
-    ) && result
-        .iter()
-        .any(|mutation| matches!(mutation, ProjectionMutation::MarkIncomplete { .. }))
+    if matches!(operation, Some("SoupBackfill"))
+        && result
+            .iter()
+            .any(|mutation| matches!(mutation, ProjectionMutation::MarkIncomplete { .. }))
     {
         return Err(error("Soup backfill contains an incomplete property projection").into());
     }

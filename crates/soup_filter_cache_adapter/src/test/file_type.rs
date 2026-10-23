@@ -48,14 +48,11 @@ fn filters(document: Value) -> Value {
     let nil = uuid::Uuid::nil().to_string();
     json!({
         "documentFilter": document,
-        "calendarEventFilter": {"literal":{"id":nil}},
         "projectFilter": {"literal":{"projectIdSelf":nil}},
         "chatFilter": {"literal":{"chatId":nil}},
-        "emailFilter": {"tree":{"literal":{"threadId":nil}}},
         "channelFilter": {"literal":{"channelId":nil}},
         "channelThreadFilter": {"literal":{"threadId":nil}},
         "callFilter": {"literal":{"callId":nil}},
-        "crmCompanyFilter": {"literal":{"id":nil}},
         "foreignEntityFilter": {"literal":{"id":nil}}
     })
 }

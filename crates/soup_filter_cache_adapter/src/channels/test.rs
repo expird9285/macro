@@ -38,7 +38,7 @@ fn data(rows: Vec<Value>) -> Value {
 }
 fn filters(channel: Value) -> Value {
     let nil = id(0);
-    json!({"documentFilter":{"literal":{"id":nil}},"projectFilter":{"literal":{"projectIdSelf":nil}},"chatFilter":{"literal":{"chatId":nil}},"calendarEventFilter":{"literal":{"id":nil}},"emailFilter":{"tree":{"literal":{"threadId":nil}}},"channelThreadFilter":{"literal":{"threadId":nil}},"callFilter":{"literal":{"callId":nil}},"crmCompanyFilter":{"literal":{"id":nil}},"foreignEntityFilter":{"literal":{"id":nil}},"channelFilter":channel})
+    json!({"documentFilter":{"literal":{"id":nil}},"projectFilter":{"literal":{"projectIdSelf":nil}},"chatFilter":{"literal":{"chatId":nil}},"channelThreadFilter":{"literal":{"threadId":nil}},"callFilter":{"literal":{"callId":nil}},"foreignEntityFilter":{"literal":{"id":nil}},"channelFilter":channel})
 }
 async fn write<S: PredicateIndexStorage>(engine: &mut Engine<S>, query: &str, data: &Value) {
     let projections = authoritative_projection_mutations(
