@@ -140,82 +140,6 @@ fn test_deserialization() -> anyhow::Result<()> {
         "max_score": 27.399992,
         "hits": [
           {
-            "_index": "emails",
-            "_id": "019a5a07-a1ed-7342-93a7-861582b59a55:019a5a07-b09d-7af9-b6ce-98bced9353d2",
-            "_score": 27.399992,
-            "_source": {
-              "cc": [
-                "hutch@macro.com",
-                "review_requested@noreply.github.com"
-              ],
-              "bcc": [],
-              "subject": "[macro-inc/macro-api] chore: improve ws api gateway authorizer lambda (PR #2520)",
-              "message_id": "019a5a07-b09d-7af9-b6ce-98bced9353d2",
-              "entity_id": "019a5a07-a1ed-7342-93a7-861582b59a55",
-              "link_id": "01976c0a-7554-719c-a2fc-d4dcf7e8a8bf",
-              "content": "## Summary\ntype safety + better deny policy\n## Screenshots, GIFs, and Videos\n## Checklist\n* Included (`MACRO-N`) in the PR title.\n* QA'd\nTests for PR (pick one):\n* N/A\n* 🤖 Automated\n#### You can view, comment on, or merge this pull request online at:\nhttps://github.com/macro-inc/macro-api/pull/2520\n#### Commit Summary\n* 20b26f7 update\n* f39426a make it TS\n#### File Changes\n(6 files)\n* **A** websocket/handlers/authorization-handler/.gitignore (5)\n* **D** websocket/handlers/authorization-handler/index.js (105)\n* **A** websocket/handlers/authorization-handler/index.ts (159)\n* **M** websocket/handlers/authorization-handler/package.json (10)\n* **A** websocket/handlers/authorization-handler/tsconfig.json (18)\n* **M** websocket/infra/index.ts (65)\n#### Patch Links:\n* https://github.com/macro-inc/macro-api/pull/2520.patch\n* https://github.com/macro-inc/macro-api/pull/2520.diff\n—\nReply to this email directly, view it on GitHub, or unsubscribe.\nYou are receiving this because your review was requested.Message ID: <macro-inc/macro-api/pull/2520@github.com>",
-              "labels": [
-                "github",
-                "CATEGORY_PERSONAL",
-                "UNREAD",
-                "IMPORTANT"
-              ],
-              "thread_id": "019a5a07-a1ed-7342-93a7-861582b59a55",
-              "sent_at_millis": 1762447040000_i64,
-              "sender": "notifications@github.com",
-              "user_id": "macro|hutch@macro.com",
-              "updated_at_millis": 1762447044000_i64,
-              "recipients": [
-                "macro-api@noreply.github.com"
-              ]
-            },
-            "highlight": {
-              "content": [
-                ":\n* N/A\n* 🤖 Automated\n#### You can view, comment on, or merge this pull request online at:\nhttps://<macro_em>github.com</macro_em>",
-                "* f39426a make it TS\n#### File Changes\n(6 files)\n* **A** websocket/handlers/authorization-handler/.<macro_em>gitignore</macro_em>",
-                "authorization-handler/tsconfig.json (18)\n* **M** websocket/infra/index.ts (65)\n#### Patch Links:\n* https://<macro_em>github.com</macro_em>",
-                "/macro-inc/macro-api/pull/2520.patch\n* https://<macro_em>github.com</macro_em>/macro-inc/macro-api/pull/2520.diff\n—\nReply",
-                "to this email directly, view it on <macro_em>GitHub</macro_em>, or unsubscribe.",
-                "You are receiving this because your review was requested.Message ID: <macro-inc/macro-api/pull/2520@<macro_em>github.com</macro_em>"
-              ]
-            }
-          },
-          {
-            "_index": "emails",
-            "_id": "01999c74-fb30-7c8a-b334-16035ee46783:01999c75-1c32-7cf4-a168-7741881ceec3",
-            "_score": 22.173065,
-            "_source": {
-              "cc": [],
-              "bcc": [],
-              "subject": "From IaC to AI Platform Engineering: Insights You Can’t Afford to Miss",
-              "message_id": "01999c75-1c32-7cf4-a168-7741881ceec3",
-              "entity_id": "01999c74-fb30-7c8a-b334-16035ee46783",
-              "link_id": "01976c0a-7554-719c-a2fc-d4dcf7e8a8bf",
-              "content": "Learn, connect, and explore the future of IaC, platform engineering, DevOps, and AI.\n pulumi email banner \nHi Will,\nPulumi is on the move, bringing together communities of builders who are pushing the boundaries of Platform Engineering and DevOps with AI.\nThis is where new ideas surface, best practices are shared first, and the conversations shaping tomorrow’s infrastructure are happening now. Don't miss your chance to be part of it!\n### Pulumi User Groups (PUG) Meetups\nOct 1  São Paulo, BR   Sao Paulo PUG: Evento de Lançamento - Do IaC ao Platform Engineering \nOct 9  Copenhagen, DK PUG In-Person Meetup Nº 1: Discover AI in a DevOps World\nOct 22 London, UK     PUG In-Person Meetup Nº 3: Building Better Platforms with Pulumi IDP\nOct 29 Tel Aviv, IL    In-Person Meetup Nº 2: Platform Engineering and DevOps in the Age of AI \n### Events & Conferences\nOct 8     Copenhagen, DK     Join Engin Diri, Senior Solutions Architect at Pulumi, for his talk on GitOps Promotion Tools to add to your GitOps Toolkit in 2025. \nOct 17    Santa Monica, CA  AWS MCP Hackathon\nOct 27–29 San Francisco, CA TechCrunch Disrupt\nOct 29    Bellevue, WA      MCP Academy\nWe hope to see you soon!\nHappy building,\nThe Pulumi Team\n ai-workshop-series-banner \n cloud-red \nTry Pulumi\n docs \nView Docs\ntwitter         GitHub-Mark-120px-plus      linkedin         youtube-play         slack-2 \n© 2025 Pulumi. All rights reserved.\nPulumi Corporation, Two Union Square, 601 Union St, Pulumi Suite 1415, Seattle, WA 98101\nUnsubscribe Manage preferences",
-              "labels": [
-                "INBOX",
-                "CATEGORY_PROMOTIONS"
-              ],
-              "sent_at": 1759241406,
-              "thread_id": "01999c74-fb30-7c8a-b334-16035ee46783",
-              "updated_at": 1759266586,
-              "sent_at_millis": 1759241406000_i64,
-              "sender": "events@pulumi.com",
-              "user_id": "macro|hutch@macro.com",
-              "updated_at_millis": 1759266586000_i64,
-              "recipients": [
-                "hutch@macro.com"
-              ]
-            },
-            "highlight": {
-              "content": [
-                "Oct 8     Copenhagen, DK     Join Engin Diri, Senior Solutions Architect at Pulumi, for his talk on <macro_em>GitOps</macro_em>",
-                "Promotion Tools to add to your <macro_em>GitOps</macro_em> Toolkit in 2025.",
-                "The Pulumi Team\n ai-workshop-series-banner \n cloud-red \nTry Pulumi\n docs \nView Docs\ntwitter         <macro_em>GitHub</macro_em>-Mark"
-              ]
-            }
-          },
-          {
             "_index": "documents",
             "_id": "013021c7-5e14-4aab-855e-01413fff85dc:77",
             "_score": 18.047625,
@@ -236,43 +160,6 @@ fn test_deserialization() -> anyhow::Result<()> {
                 "local (presumably modified) source\r\nregex = { path = \"/home/jon/regex\" }\r\n# use a modification on a <macro_em>git</macro_em>",
                 "branch\r\nserde = { <macro_em>git</macro_em> = \"https://<macro_em>github.com</macro_em>/serde-rs/serde.git\", branch = \"faster\" }\r\n# patch a <macro_em>git</macro_em>",
                 "https://<macro_em>github.com</macro_em>/jonhoo/project.git']\r\nproject = { path = \"/home/jon/project\" }\r\nListing 6-6: Overriding"
-              ]
-            }
-          },
-          {
-            "_index": "emails",
-            "_id": "019a3002-d9ff-79ad-9a5f-c3116b5b229a:019a3002-da01-71aa-aed0-3d699723ba58",
-            "_score": 17.734608,
-            "_source": {
-              "cc": [],
-              "bcc": [],
-              "subject": "[GitHub] A personal access token (classic) has been regenerated for your account",
-              "message_id": "019a3002-da01-71aa-aed0-3d699723ba58",
-              "entity_id": "019a3002-d9ff-79ad-9a5f-c3116b5b229a",
-              "link_id": "01976c0a-7554-719c-a2fc-d4dcf7e8a8bf",
-              "content": "Hey whutchinson98!\r\n\r\nA personal access token (classic) \"zephyr\" with notifications scopes was recently regenerated for your account. Visit https://github.com/settings/tokens for more information.\r\n\r\nTo see this and other security events for your account, visit https://github.com/settings/security-log\r\n\r\nIf you run into problems, please contact support by visiting https://github.com/contact\r\n\r\nThanks,\r\nThe GitHub Team",
-              "labels": [
-                "INBOX",
-                "CATEGORY_UPDATES",
-                "UNREAD"
-              ],
-              "sent_at": 1761742081,
-              "thread_id": "019a3002-d9ff-79ad-9a5f-c3116b5b229a",
-              "updated_at": 1761742084,
-              "sent_at_millis": 1761742081000_i64,
-              "sender": "noreply@github.com",
-              "user_id": "macro|hutch@macro.com",
-              "updated_at_millis": 1761742084000_i64,
-              "recipients": [
-                "will@thehutchery.com"
-              ]
-            },
-            "highlight": {
-              "content": [
-                "Visit https://<macro_em>github.com</macro_em>/settings/tokens for more information.",
-                "To see this and other security events for your account, visit https://<macro_em>github.com</macro_em>/settings/security-log",
-                "If you run into problems, please contact support by visiting https://<macro_em>github.com</macro_em>/contact\r\n\r\nThanks",
-                ",\r\nThe <macro_em>GitHub</macro_em> Team"
               ]
             }
           },
@@ -299,214 +186,6 @@ fn test_deserialization() -> anyhow::Result<()> {
                 "https://<macro_em>github.com</macro_em>/jonhoo/project.git']\r\nproject = { path = \"/home/jon/project\" }\r\nListing 6-6: Overriding"
               ]
             }
-          },
-          {
-            "_index": "emails",
-            "_id": "019a1675-844c-7dcc-bd45-109c25b94fa0:019a1675-8467-7cb3-b57d-8c5c45d5b50c",
-            "_score": 17.500538,
-            "_source": {
-              "cc": [
-                "hutch@macro.com",
-                "review_requested@noreply.github.com"
-              ],
-              "bcc": [],
-              "subject": "[macro-inc/macro-api] fix table name in policy (PR #2425)",
-              "message_id": "019a1675-8467-7cb3-b57d-8c5c45d5b50c",
-              "entity_id": "019a1675-844c-7dcc-bd45-109c25b94fa0",
-              "link_id": "01976c0a-7554-719c-a2fc-d4dcf7e8a8bf",
-              "content": "#### You can view, comment on, or merge this pull request online at:\nhttps://github.com/macro-inc/macro-api/pull/2425\n#### Commit Summary\n* 624dc3f fix table name in policy\n#### File Changes\n(1 file)\n* **M** cloud-storage/infra/packages/resources/src/resources/frecency.ts (4)\n#### Patch Links:\n* https://github.com/macro-inc/macro-api/pull/2425.patch\n* https://github.com/macro-inc/macro-api/pull/2425.diff\n—\nReply to this email directly, view it on GitHub, or unsubscribe.\nYou are receiving this because your review was requested.Message ID: <macro-inc/macro-api/pull/2425@github.com>",
-              "labels": [
-                "github",
-                "CATEGORY_UPDATES",
-                "UNREAD",
-                "IMPORTANT"
-              ],
-              "sent_at": 1761313387,
-              "thread_id": "019a1675-844c-7dcc-bd45-109c25b94fa0",
-              "updated_at": 1761313391,
-              "sent_at_millis": 1761313387000_i64,
-              "sender": "notifications@github.com",
-              "user_id": "macro|hutch@macro.com",
-              "updated_at_millis": 1761313391000_i64,
-              "recipients": [
-                "macro-api@noreply.github.com"
-              ]
-            },
-            "highlight": {
-              "content": [
-                "#### You can view, comment on, or merge this pull request online at:\nhttps://<macro_em>github.com</macro_em>/macro-inc/macro-api",
-                "** cloud-storage/infra/packages/resources/src/resources/frecency.ts (4)\n#### Patch Links:\n* https://<macro_em>github.com</macro_em>",
-                "/macro-inc/macro-api/pull/2425.patch\n* https://<macro_em>github.com</macro_em>/macro-inc/macro-api/pull/2425.diff\n—\nReply",
-                "to this email directly, view it on <macro_em>GitHub</macro_em>, or unsubscribe.",
-                "You are receiving this because your review was requested.Message ID: <macro-inc/macro-api/pull/2425@<macro_em>github.com</macro_em>"
-              ]
-            }
-          },
-          {
-            "_index": "emails",
-            "_id": "019a3653-c914-769b-9454-3b70dc2ad966:019a3653-cd3b-7b24-9dd7-9090e7d30f65",
-            "_score": 17.168581,
-            "_source": {
-              "cc": [
-                "hutch@macro.com",
-                "review_requested@noreply.github.com"
-              ],
-              "bcc": [],
-              "subject": "[macro-inc/macro-api] Fix conn gateway var name (PR #2471)",
-              "message_id": "019a3653-cd3b-7b24-9dd7-9090e7d30f65",
-              "entity_id": "019a3653-c914-769b-9454-3b70dc2ad966",
-              "link_id": "01976c0a-7554-719c-a2fc-d4dcf7e8a8bf",
-              "content": "just rename the thing\n#### You can view, comment on, or merge this pull request online at:\nhttps://github.com/macro-inc/macro-api/pull/2471\n#### Commit Summary\n* f3e3ab1 rename env var\n#### File Changes\n(1 file)\n* **M** cloud-storage/infra/stacks/connection-gateway/index.ts (2)\n#### Patch Links:\n* https://github.com/macro-inc/macro-api/pull/2471.patch\n* https://github.com/macro-inc/macro-api/pull/2471.diff\n—\nReply to this email directly, view it on GitHub, or unsubscribe.\nYou are receiving this because your review was requested.Message ID: <macro-inc/macro-api/pull/2471@github.com>",
-              "labels": [
-                "github",
-                "CATEGORY_PERSONAL",
-                "UNREAD",
-                "IMPORTANT"
-              ],
-              "sent_at": 1761848050,
-              "thread_id": "019a3653-c914-769b-9454-3b70dc2ad966",
-              "updated_at": 1761848053,
-              "sent_at_millis": 1761848050000_i64,
-              "sender": "notifications@github.com",
-              "user_id": "macro|hutch@macro.com",
-              "updated_at_millis": 1761848053000_i64,
-              "recipients": [
-                "macro-api@noreply.github.com"
-              ]
-            },
-            "highlight": {
-              "content": [
-                "just rename the thing\n#### You can view, comment on, or merge this pull request online at:\nhttps://<macro_em>github.com</macro_em>",
-                "file)\n* **M** cloud-storage/infra/stacks/connection-gateway/index.ts (2)\n#### Patch Links:\n* https://<macro_em>github.com</macro_em>",
-                "/macro-inc/macro-api/pull/2471.patch\n* https://<macro_em>github.com</macro_em>/macro-inc/macro-api/pull/2471.diff\n—\nReply",
-                "to this email directly, view it on <macro_em>GitHub</macro_em>, or unsubscribe.",
-                "You are receiving this because your review was requested.Message ID: <macro-inc/macro-api/pull/2471@<macro_em>github.com</macro_em>"
-              ]
-            }
-          },
-          {
-            "_index": "emails",
-            "_id": "019a12cf-ed6d-7cbc-b705-a78bbbe1bba0:019a12d7-9a39-7ce4-a407-a737db30bdfd",
-            "_score": 17.127216,
-            "_source": {
-              "cc": [
-                "hutch@macro.com",
-                "comment@noreply.github.com"
-              ],
-              "bcc": [],
-              "subject": "Re: [macro-inc/macro-api] Update macrodb to use sqlx (PR #2423)",
-              "message_id": "019a12d7-9a39-7ce4-a407-a737db30bdfd",
-              "entity_id": "019a12cf-ed6d-7cbc-b705-a78bbbe1bba0",
-              "link_id": "01976c0a-7554-719c-a2fc-d4dcf7e8a8bf",
-              "content": "@evanhutnik commented on this pull request.\nIn .github/workflows/db-client-check.yml:\n> @@ -1,12 +1,12 @@\nname: db client check\non:\npull_request:\n-    branches: 'never'\n-    # branches: 'dev', 'prod'\n-    # paths:\n+    branches:  'never' \nimage.png (view on web)\nsometimes it be your own self\n—\nReply to this email directly, view it on GitHub, or unsubscribe.\nYou are receiving this because you commented.Message ID: <macro-inc/macro-api/pull/2423/review/3372627995@github.com>",
-              "labels": [
-                "github",
-                "CATEGORY_PERSONAL",
-                "UNREAD",
-                "IMPORTANT"
-              ],
-              "sent_at": 1761252648,
-              "thread_id": "019a12cf-ed6d-7cbc-b705-a78bbbe1bba0",
-              "updated_at": 1761252711,
-              "sent_at_millis": 1761252648000_i64,
-              "sender": "notifications@github.com",
-              "user_id": "macro|hutch@macro.com",
-              "updated_at_millis": 1761252711000_i64,
-              "recipients": [
-                "macro-api@noreply.github.com"
-              ]
-            },
-            "highlight": {
-              "content": [
-                "In .<macro_em>github</macro_em>/workflows/db-client-check.yml:\n> @@ -1,12 +1,12 @@\nname: db client check\non:\npull_request:",
-                "' \nimage.png (view on web)\nsometimes it be your own self\n—\nReply to this email directly, view it on <macro_em>GitHub</macro_em>",
-                "are receiving this because you commented.Message ID: <macro-inc/macro-api/pull/2423/review/3372627995@<macro_em>github.com</macro_em>"
-              ]
-            }
-          },
-          {
-            "_index": "emails",
-            "_id": "019a3575-3540-7231-8b83-51279a1bf623:019a3575-3541-7c31-9857-5dfea488c4c6",
-            "_score": 17.092716,
-            "_source": {
-              "cc": [
-                "hutch@macro.com",
-                "review_requested@noreply.github.com"
-              ],
-              "bcc": [],
-              "subject": "[macro-inc/macro-api] Upgrade db version (PR #2466)",
-              "message_id": "019a3575-3541-7c31-9857-5dfea488c4c6",
-              "entity_id": "019a3575-3540-7231-8b83-51279a1bf623",
-              "link_id": "01976c0a-7554-719c-a2fc-d4dcf7e8a8bf",
-              "content": "## Summary\nAWS auto updated our dbs from 16.3 to 16.8. Updating pulumi to reflect this.\n## Screenshots, GIFs, and Videos\n## Checklist\n* Included (`MACRO-N`) in the PR title.\n* QA'd\nTests for PR (pick one):\n* N/A\n* 🤖 Automated\n#### You can view, comment on, or merge this pull request online at:\nhttps://github.com/macro-inc/macro-api/pull/2466\n#### Commit Summary\n* 452175c Upgrade db version\n#### File Changes\n(1 file)\n* **M** cloud-storage/infra/packages/resources/src/resources/rds.ts (2)\n#### Patch Links:\n* https://github.com/macro-inc/macro-api/pull/2466.patch\n* https://github.com/macro-inc/macro-api/pull/2466.diff\n—\nReply to this email directly, view it on GitHub, or unsubscribe.\nYou are receiving this because your review was requested.Message ID: <macro-inc/macro-api/pull/2466@github.com>",
-              "labels": [
-                "github",
-                "CATEGORY_UPDATES",
-                "UNREAD"
-              ],
-              "sent_at": 1761833460,
-              "thread_id": "019a3575-3540-7231-8b83-51279a1bf623",
-              "updated_at": 1761833465,
-              "sent_at_millis": 1761833460000_i64,
-              "sender": "notifications@github.com",
-              "user_id": "macro|hutch@macro.com",
-              "updated_at_millis": 1761833465000_i64,
-              "recipients": [
-                "macro-api@noreply.github.com"
-              ]
-            },
-            "highlight": {
-              "content": [
-                ":\n* N/A\n* 🤖 Automated\n#### You can view, comment on, or merge this pull request online at:\nhttps://<macro_em>github.com</macro_em>",
-                "* **M** cloud-storage/infra/packages/resources/src/resources/rds.ts (2)\n#### Patch Links:\n* https://<macro_em>github.com</macro_em>",
-                "/macro-inc/macro-api/pull/2466.patch\n* https://<macro_em>github.com</macro_em>/macro-inc/macro-api/pull/2466.diff\n—\nReply",
-                "to this email directly, view it on <macro_em>GitHub</macro_em>, or unsubscribe.",
-                "You are receiving this because your review was requested.Message ID: <macro-inc/macro-api/pull/2466@<macro_em>github.com</macro_em>"
-              ]
-            }
-          },
-          {
-            "_index": "emails",
-            "_id": "019a30ae-2a24-78b3-9eef-e3aa7594a1e4:019a30b1-c647-7949-8be2-1ef3f2195790",
-            "_score": 17.033447,
-            "_source": {
-              "cc": [
-                "hutch@macro.com",
-                "review_requested@noreply.github.com"
-              ],
-              "bcc": [],
-              "subject": "[macro-inc/macro-api] seanaye/add/conn gateway pg frecency (PR #2457)",
-              "message_id": "019a30b1-c647-7949-8be2-1ef3f2195790",
-              "entity_id": "019a30ae-2a24-78b3-9eef-e3aa7594a1e4",
-              "link_id": "01976c0a-7554-719c-a2fc-d4dcf7e8a8bf",
-              "content": "## Summary\nThis PR swaps the backing storage layer for frecency in connection gateway from dynamo -> pg\n* **add inbound poller worker**\n* **switch connection gateway to pg frecency**\n* **use secret macro_db connection string**\n## Screenshots, GIFs, and Videos\n## Checklist\n* Included (`MACRO-N`) in the PR title.\n* QA'd\nTests for PR (pick one):\n* N/A\n* 🤖 Automated\n#### You can view, comment on, or merge this pull request online at:\nhttps://github.com/macro-inc/macro-api/pull/2457\n#### Commit Summary\n* 1575c1b add inbound poller worker\n* b51c9a4 switch connection gateway to pg frecency\n* 3c44249 use secret macro_db connection string\n#### File Changes\n(14 files)\n* **M** .github/CODEOWNERS (2)\n* **M** cloud-storage/Cargo.lock (1)\n* **M** cloud-storage/connection_gateway/Cargo.toml (3)\n* **M** cloud-storage/connection_gateway/src/context.rs (9)\n* **M** cloud-storage/connection_gateway/src/main.rs (33)\n* **M** cloud-storage/frecency/Cargo.toml (11)\n* **M** cloud-storage/frecency/src/domain/models.rs (20)\n* **M** cloud-storage/frecency/src/domain/ports.rs (6)\n* **M** cloud-storage/frecency/src/domain/services.rs (39)\n* **M** cloud-storage/frecency/src/inbound.rs (2)\n* **M** cloud-storage/frecency/src/inbound/polling_aggregator.rs (91)\n* **M** cloud-storage/frecency/src/outbound/postgres.rs (3)\n* **M** cloud-storage/infra/stacks/connection-gateway/index.ts (12)\n* **M** cloud-storage/remote_env_var/src/lib.rs (16)\n#### Patch Links:\n* https://github.com/macro-inc/macro-api/pull/2457.patch\n* https://github.com/macro-inc/macro-api/pull/2457.diff\n—\nReply to this email directly, view it on GitHub, or unsubscribe.\nYou are receiving this because your review was requested.Message ID: <macro-inc/macro-api/pull/2457@github.com>",
-              "labels": [
-                "github",
-                "CATEGORY_PERSONAL",
-                "UNREAD",
-                "IMPORTANT"
-              ],
-              "sent_at": 1761753544,
-              "thread_id": "019a30ae-2a24-78b3-9eef-e3aa7594a1e4",
-              "updated_at": 1761753548,
-              "sent_at_millis": 1761753544000_i64,
-              "sender": "notifications@github.com",
-              "user_id": "macro|hutch@macro.com",
-              "updated_at_millis": 1761753548000_i64,
-              "recipients": [
-                "macro-api@noreply.github.com"
-              ]
-            },
-            "highlight": {
-              "content": [
-                ":\n* N/A\n* 🤖 Automated\n#### You can view, comment on, or merge this pull request online at:\nhttps://<macro_em>github.com</macro_em>",
-                "to pg frecency\n* 3c44249 use secret macro_db connection string\n#### File Changes\n(14 files)\n* **M** .<macro_em>github</macro_em>",
-                "connection-gateway/index.ts (12)\n* **M** cloud-storage/remote_env_var/src/lib.rs (16)\n#### Patch Links:\n* https://<macro_em>github.com</macro_em>",
-                "/macro-inc/macro-api/pull/2457.patch\n* https://<macro_em>github.com</macro_em>/macro-inc/macro-api/pull/2457.diff\n—\nReply",
-                "to this email directly, view it on <macro_em>GitHub</macro_em>, or unsubscribe.",
-                "You are receiving this because your review was requested.Message ID: <macro-inc/macro-api/pull/2457@<macro_em>github.com</macro_em>"
-              ]
-            }
           }
         ]
       }
@@ -525,7 +204,6 @@ fn test_build_unified_search_request_content() -> anyhow::Result<()> {
     let unified_search_args = UnifiedSearchArgs {
         search_indices: vec![
             OpenSearchEntityType::Documents,
-            OpenSearchEntityType::Emails,
             OpenSearchEntityType::Channels,
             OpenSearchEntityType::Chats,
         ]
@@ -541,16 +219,6 @@ fn test_build_unified_search_request_content() -> anyhow::Result<()> {
             terms: vec!["test".to_string()],
             document_ids: vec!["id1".to_string(), "id2".to_string()],
             ids_only: false,
-            ..Default::default()
-        },
-        email_search_args: UnifiedEmailSearchArgs {
-            terms: vec!["test".to_string()],
-            thread_ids: vec!["id1".to_string(), "id2".to_string()],
-            link_ids: vec!["id1".to_string(), "id2".to_string()],
-            sender: vec!["id1".to_string(), "id2".to_string()],
-            cc: vec!["id1".to_string(), "id2".to_string()],
-            bcc: vec!["id1".to_string(), "id2".to_string()],
-            recipients: vec!["id1".to_string(), "id2".to_string()],
             ..Default::default()
         },
         channel_message_search_args: UnifiedChannelMessageSearchArgs {
@@ -569,7 +237,6 @@ fn test_build_unified_search_request_content() -> anyhow::Result<()> {
         },
         call_record_search_args: UnifiedCallRecordSearchArgs::default(),
         project_search_args: UnifiedProjectSearchArgs::default(),
-        calendar_event_search_args: UnifiedCalendarEventSearchArgs::default(),
         agent_session_search_args: Default::default(),
         cursor: SearchCursorOption::NotDone(Some(SearchMethodCursor::UpdatedAt {
             entity_id,
@@ -581,7 +248,7 @@ fn test_build_unified_search_request_content() -> anyhow::Result<()> {
 
     // Documents and chats are join-shape (has_child); compute their
     // sub-queries from the builders rather than inlining the has_child
-    // JSON. Emails and channels are flat and stay inline below.
+    // JSON. Channels are flat and stay inline below.
     let doc_query_builder =
         DocumentQueryBuilder::from(DocumentSearchArgs::from(unified_search_args.clone()));
     let doc_should = {
@@ -605,17 +272,7 @@ fn test_build_unified_search_request_content() -> anyhow::Result<()> {
         "fields": {
           "content": { "number_of_fragments": 1, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
           "document_name": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "name": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "source_names": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "subject": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "sender": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "sender_name": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "recipients": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "recipient_names": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "cc": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "cc_names": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "bcc": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "bcc_names": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" }
+          "name": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" }
         },
         "require_field_match": true,
         "max_analyzer_offset": 999999
@@ -625,155 +282,6 @@ fn test_build_unified_search_request_content() -> anyhow::Result<()> {
           "minimum_should_match": 1,
           "should": [
             doc_should,
-            {
-              "bool": {
-                "filter": [
-                  {
-                    "bool": {
-                      "minimum_should_match": 1,
-                      "should": [
-                        {
-                          "terms": {
-                            "entity_id": ["id1", "id2"]
-                          }
-                        },
-                        {
-                          "term": {
-                            "user_id": "user"
-                          }
-                        }
-                      ]
-                    }
-                  },
-                  {
-                    "term": {
-                      "_index": "emails"
-                    }
-                  },
-                  {
-                    "terms": {
-                      "link_id": ["id1", "id2"]
-                    }
-                  },
-                  {
-                    "bool": {
-                      "minimum_should_match": 1,
-                      "should": [
-                        {
-                          "wildcard": {
-                            "sender": {
-                              "case_insensitive": true,
-                              "value": "*id1*"
-                            }
-                          }
-                        },
-                        {
-                          "wildcard": {
-                            "sender": {
-                              "case_insensitive": true,
-                              "value": "*id2*"
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  },
-                  {
-                    "bool": {
-                      "minimum_should_match": 1,
-                      "should": [
-                        {
-                          "wildcard": {
-                            "cc": {
-                              "case_insensitive": true,
-                              "value": "*id1*"
-                            }
-                          }
-                        },
-                        {
-                          "wildcard": {
-                            "cc": {
-                              "case_insensitive": true,
-                              "value": "*id2*"
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  },
-                  {
-                    "bool": {
-                      "minimum_should_match": 1,
-                      "should": [
-                        {
-                          "wildcard": {
-                            "bcc": {
-                              "case_insensitive": true,
-                              "value": "*id1*"
-                            }
-                          }
-                        },
-                        {
-                          "wildcard": {
-                            "bcc": {
-                              "case_insensitive": true,
-                              "value": "*id2*"
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  },
-                  {
-                    "bool": {
-                      "minimum_should_match": 1,
-                      "should": [
-                        {
-                          "wildcard": {
-                            "recipients": {
-                              "case_insensitive": true,
-                              "value": "*id1*"
-                            }
-                          }
-                        },
-                        {
-                          "wildcard": {
-                            "recipients": {
-                              "case_insensitive": true,
-                              "value": "*id2*"
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  }
-                ],
-                "_name": "emails",
-                "must": [
-                  {
-                    "bool": {
-                      "minimum_should_match": 1,
-                      "should": [
-                        {
-                          "simple_query_string": {
-                            "default_operator": "AND",
-                            "fields": ["sender", "reply_to", "recipients", "cc", "bcc", "sender.parts", "reply_to.parts", "recipients.parts", "cc.parts", "bcc.parts"],
-                            "query": "(test | test@*)"
-                          }
-                        },
-                        {
-                          "simple_query_string": {
-                            "default_operator": "AND",
-                            "fields": ["subject", "content", "sender_name", "recipient_names", "cc_names", "bcc_names"],
-                            "query": "(test)"
-                          }
-                        }
-                      ]
-                    }
-                  }
-                ]
-              }
-            },
             {
               "bool": {
                 "filter": [
@@ -834,7 +342,6 @@ fn test_build_unified_search_request_content() -> anyhow::Result<()> {
     let unified_search_args = UnifiedSearchArgs {
         search_indices: vec![
             OpenSearchEntityType::Documents,
-            OpenSearchEntityType::Emails,
             OpenSearchEntityType::Channels,
             OpenSearchEntityType::Chats,
         ]
@@ -850,16 +357,6 @@ fn test_build_unified_search_request_content() -> anyhow::Result<()> {
             terms: vec!["test".to_string()],
             document_ids: vec!["id1".to_string(), "id2".to_string()],
             ids_only: false,
-            ..Default::default()
-        },
-        email_search_args: UnifiedEmailSearchArgs {
-            terms: vec!["test".to_string()],
-            thread_ids: vec!["id1".to_string(), "id2".to_string()],
-            link_ids: vec!["id1".to_string(), "id2".to_string()],
-            sender: vec!["id1".to_string(), "id2".to_string()],
-            cc: vec!["id1".to_string(), "id2".to_string()],
-            bcc: vec!["id1".to_string(), "id2".to_string()],
-            recipients: vec!["id1".to_string(), "id2".to_string()],
             ..Default::default()
         },
         channel_message_search_args: UnifiedChannelMessageSearchArgs {
@@ -878,7 +375,6 @@ fn test_build_unified_search_request_content() -> anyhow::Result<()> {
         },
         call_record_search_args: UnifiedCallRecordSearchArgs::default(),
         project_search_args: UnifiedProjectSearchArgs::default(),
-        calendar_event_search_args: UnifiedCalendarEventSearchArgs::default(),
         agent_session_search_args: Default::default(),
         cursor: SearchCursorOption::NotDone(Some(SearchMethodCursor::UpdatedAt {
             entity_id,
@@ -933,17 +429,7 @@ fn test_build_unified_search_request_single_index() -> anyhow::Result<()> {
         "fields": {
           "content": { "number_of_fragments": 1, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
           "document_name": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "name": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "source_names": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "subject": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "sender": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "sender_name": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "recipients": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "recipient_names": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "cc": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "cc_names": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "bcc": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" },
-          "bcc_names": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" }
+          "name": { "number_of_fragments": 0, "post_tags": ["</macro_em>"], "pre_tags": ["<macro_em>"], "type": "plain" }
         },
         "require_field_match": true,
         "max_analyzer_offset": 999999
@@ -1116,38 +602,6 @@ fn paginate_page_size_zero_terminates() {
 }
 
 #[test]
-fn calendar_source_routes_by_matched_clause_not_shape() -> anyhow::Result<()> {
-    // A calendar doc's entity_id + name + owner_id is exactly ProjectIndex's
-    // required set, so nothing in the _source distinguishes the two. The clause
-    // the hit matched does. Feeding the identical body under two clause names
-    // must produce two different variants.
-    let source = serde_json::json!({
-        "entity_id": "0197a863-0000-7000-8000-0000000000c1",
-        "name": "Standup",
-        "owner_id": "macro|user@user.com",
-        "source_link_id": "0197a863-0000-7000-8000-0000000000c2",
-        "ical_uid": "abc123@google.com",
-        "status": "confirmed",
-        "is_recurring": true,
-        "starts_at_millis": 1783000000000_i64,
-        "updated_at_millis": 1783000000000_i64
-    });
-
-    assert!(matches!(
-        UnifiedSearchIndex::from_matched(&["calendar_events".to_string()], source.clone())?,
-        UnifiedSearchIndex::CalendarEvent(_)
-    ));
-    assert!(
-        matches!(
-            UnifiedSearchIndex::from_matched(&["projects".to_string()], source)?,
-            UnifiedSearchIndex::Project(_)
-        ),
-        "the same body under a different clause must resolve to that clause's shape"
-    );
-    Ok(())
-}
-
-#[test]
 fn an_unknown_clause_is_rejected_not_guessed() {
     let source = serde_json::json!({
         "entity_id": "0197a863-0000-7000-8000-0000000000c1",
@@ -1162,39 +616,6 @@ fn an_unknown_clause_is_rejected_not_guessed() {
         UnifiedSearchIndex::from_matched(&[], source).is_err(),
         "a hit that reported no clause names at all has no discriminator"
     );
-}
-
-#[test]
-fn calendar_hit_carries_its_title_highlight() -> anyhow::Result<()> {
-    // The highlight only arrives because the indexed title field is `name`,
-    // which is in the unified request's fixed highlight field list.
-    let hits = vec![Hit {
-        index: "calendar_events_v1".to_string(),
-        matched_queries: vec!["calendar_events".to_string()],
-        score: Some(3.1),
-        source: serde_json::json!({
-            "entity_id": "0197a863-0000-7000-8000-0000000000c1",
-            "name": "Standup",
-            "owner_id": "macro|user@user.com",
-            "source_link_id": "0197a863-0000-7000-8000-0000000000c2",
-            "ical_uid": "abc123@google.com",
-            "updated_at_millis": 1783000000000_i64
-        }),
-        highlight: Some(std::collections::HashMap::from([(
-            "name".to_string(),
-            vec!["<macro_em>Standup</macro_em>".to_string()],
-        )])),
-        inner_hits: None,
-    }];
-
-    let (hits, _) = paginate_unified_hits(hits, 10);
-    assert_eq!(hits.len(), 1);
-    assert_eq!(hits[0].entity_type, SearchEntityType::CalendarEvents);
-    assert_eq!(
-        hits[0].highlight.name.as_deref(),
-        Some("<macro_em>Standup</macro_em>")
-    );
-    Ok(())
 }
 
 #[test]
@@ -1272,16 +693,6 @@ fn a_mixed_response_routes_every_entity_to_its_own_type() -> anyhow::Result<()> 
             }),
         ),
         hit(
-            "emails_v2",
-            "emails",
-            serde_json::json!({
-                "entity_id": id(5), "message_id": id(6), "sender": "a@x.com",
-                "recipients": ["b@x.com"], "cc": [], "bcc": [], "labels": [],
-                "link_id": id(7), "user_id": "macro|a", "subject": "Hi",
-                "sent_at_millis": 1_783_000_000_003_i64
-            }),
-        ),
-        hit(
             "call_records_v2",
             "call_records",
             serde_json::json!({
@@ -1297,21 +708,12 @@ fn a_mixed_response_routes_every_entity_to_its_own_type() -> anyhow::Result<()> 
                 "updated_at_millis": 1_783_000_000_005_i64
             }),
         ),
-        hit(
-            "calendar_events_v1",
-            "calendar_events",
-            serde_json::json!({
-                "entity_id": id(11), "name": "Standup", "owner_id": "macro|a",
-                "source_link_id": id(12), "ical_uid": "abc@google.com",
-                "updated_at_millis": 1_783_000_000_006_i64
-            }),
-        ),
     ];
 
     let (results, _) = paginate_unified_hits(hits, 50);
 
     // Every hit survived: none was dropped as unplaceable.
-    assert_eq!(results.len(), 7, "got {results:?}");
+    assert_eq!(results.len(), 5, "got {results:?}");
 
     let by_id: std::collections::HashMap<uuid::Uuid, SearchEntityType> = results
         .iter()
@@ -1321,10 +723,8 @@ fn a_mixed_response_routes_every_entity_to_its_own_type() -> anyhow::Result<()> 
         (1u8, SearchEntityType::Channels),
         (3, SearchEntityType::Documents),
         (4, SearchEntityType::Chats),
-        (5, SearchEntityType::Emails),
         (8, SearchEntityType::CallRecords),
         (10, SearchEntityType::Projects),
-        (11, SearchEntityType::CalendarEvents),
     ] {
         let entity_id = id(n).parse::<uuid::Uuid>()?;
         assert_eq!(
@@ -1339,10 +739,8 @@ fn a_mixed_response_routes_every_entity_to_its_own_type() -> anyhow::Result<()> 
     assert_eq!(split.channel_message.len(), 1);
     assert_eq!(split.document.len(), 1);
     assert_eq!(split.chat.len(), 1);
-    assert_eq!(split.email.len(), 1);
     assert_eq!(split.call_record.len(), 1);
     assert_eq!(split.project.len(), 1);
-    assert_eq!(split.calendar_event.len(), 1);
     Ok(())
 }
 
@@ -1366,10 +764,6 @@ fn every_searched_index_contributes_a_named_clause() -> anyhow::Result<()> {
             terms: vec!["test".to_string()],
             ..Default::default()
         },
-        email_search_args: UnifiedEmailSearchArgs {
-            terms: vec!["test".to_string()],
-            ..Default::default()
-        },
         channel_message_search_args: UnifiedChannelMessageSearchArgs {
             terms: vec!["test".to_string()],
             channel_ids: vec!["c1".to_string()],
@@ -1386,10 +780,6 @@ fn every_searched_index_contributes_a_named_clause() -> anyhow::Result<()> {
             ..Default::default()
         },
         project_search_args: UnifiedProjectSearchArgs {
-            terms: vec!["test".to_string()],
-            ..Default::default()
-        },
-        calendar_event_search_args: UnifiedCalendarEventSearchArgs {
             terms: vec!["test".to_string()],
             ..Default::default()
         },

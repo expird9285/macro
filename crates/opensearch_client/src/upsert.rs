@@ -1,10 +1,8 @@
 pub mod agent_session;
-pub mod calendar_event;
 pub mod call_record;
 pub mod channel_message;
 pub mod chat_message;
 pub mod document;
-pub mod email;
 pub mod project;
 pub mod properties;
 

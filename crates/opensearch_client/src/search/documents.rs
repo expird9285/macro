@@ -22,9 +22,9 @@ use opensearch_query_builder::{
 const PARENT_RELATION: &str = "document";
 const CHILD_RELATION: &str = "chunk";
 
-/// Minimum prefix length before we emit a `match_phrase_prefix`. Matches
-/// the email keyword-field threshold — shorter prefixes explode the term
-/// set on the analyzer and risk hitting `max_clause_count`.
+/// Minimum prefix length before we emit a `match_phrase_prefix`. Shorter
+/// prefixes explode the term set on the analyzer and risk hitting
+/// `max_clause_count`.
 const MIN_PREFIX_LEN: usize = 3;
 
 /// Cap on chunks returned per `has_child` clause inside `inner_hits`.

@@ -5,10 +5,6 @@ use crate::{
     error::{OpensearchClientError, ResponseExt},
     search::{
         builder::{SearchQueryConfig, updated_at_sort},
-        calendar_events::{
-            CalendarEventIndex, CalendarEventQueryBuilder, CalendarEventSearchArgs,
-            CalendarEventSearchConfig,
-        },
         call_records::{
             CallRecordIndex, CallRecordQueryBuilder, CallRecordSearchArgs, CallRecordSearchConfig,
             CallRecordSearchMode,
@@ -22,11 +18,10 @@ use crate::{
             DocumentIndex, DocumentQueryBuilder, DocumentSearchArgs, DocumentSearchConfig,
             DocumentSearchMode, PropertyFilterArg,
         },
-        emails::{EmailIndex, EmailQueryBuilder, EmailSearchArgs, EmailSearchConfig},
         model::{
             DefaultSearchResponse, Hit, MacroEm, SearchGotoCallRecord, SearchGotoChannel,
-            SearchGotoContent, SearchGotoEmail, SearchHit, exclude_source_content,
-            inject_fragment_size, parse_highlight_hit,
+            SearchGotoContent, SearchHit, exclude_source_content, inject_fragment_size,
+            parse_highlight_hit,
         },
         projects::{ProjectIndex, ProjectQueryBuilder, ProjectSearchArgs, ProjectSearchConfig},
         query::Keys,
@@ -64,8 +59,6 @@ pub struct UnifiedSearchArgs {
     pub search_indices: HashSet<OpenSearchEntityType>,
     /// The document search args
     pub document_search_args: UnifiedDocumentSearchArgs,
-    /// The email search args. If None, we do not search emails
-    pub email_search_args: UnifiedEmailSearchArgs,
     /// The channel message search args. If None, we do not search channel messages
     pub channel_message_search_args: UnifiedChannelMessageSearchArgs,
     /// The chat search args. If None, we do not search chats
@@ -74,8 +67,6 @@ pub struct UnifiedSearchArgs {
     pub call_record_search_args: UnifiedCallRecordSearchArgs,
     /// The project search args. If None, we do not search projects
     pub project_search_args: UnifiedProjectSearchArgs,
-    /// The calendar event search args. If None, we do not search calendar events
-    pub calendar_event_search_args: UnifiedCalendarEventSearchArgs,
 }
 
 impl From<UnifiedSearchArgs> for DocumentSearchArgs {
@@ -94,33 +85,6 @@ impl From<UnifiedSearchArgs> for DocumentSearchArgs {
             property_filters: args.document_search_args.property_filters,
             tag_option_ids: args.document_search_args.tag_option_ids,
             match_all_tags: args.document_search_args.match_all_tags,
-        }
-    }
-}
-
-impl From<UnifiedSearchArgs> for EmailSearchArgs {
-    fn from(args: UnifiedSearchArgs) -> Self {
-        EmailSearchArgs {
-            terms: args.email_search_args.terms,
-            user_id: args.user_id,
-            user_ids: args.email_search_args.user_ids,
-            page: args.page,
-            page_size: args.page_size,
-            match_type: args.match_type,
-            collapse: args.collapse,
-            ids_only: false, // Email is never ids only at the moment
-            thread_ids: args.email_search_args.thread_ids,
-            link_ids: args.email_search_args.link_ids,
-            sender: args.email_search_args.sender,
-            cc: args.email_search_args.cc,
-            bcc: args.email_search_args.bcc,
-            recipients: args.email_search_args.recipients,
-            include_labels: args.email_search_args.include_labels,
-            exclude_labels: args.email_search_args.exclude_labels,
-            importance: args.email_search_args.importance,
-            subject_only: args.email_search_args.subject_only,
-            tag_option_ids: args.email_search_args.tag_option_ids,
-            match_all_tags: args.email_search_args.match_all_tags,
         }
     }
 }
@@ -198,27 +162,6 @@ impl From<UnifiedSearchArgs> for ProjectSearchArgs {
     }
 }
 
-impl From<UnifiedSearchArgs> for CalendarEventSearchArgs {
-    fn from(args: UnifiedSearchArgs) -> Self {
-        CalendarEventSearchArgs {
-            terms: args.calendar_event_search_args.terms,
-            user_id: args.user_id,
-            page: args.page,
-            page_size: args.page_size,
-            match_type: args.match_type,
-            collapse: args.collapse,
-            ids_only: args.calendar_event_search_args.ids_only,
-            calendar_event_ids: args.calendar_event_search_args.calendar_event_ids,
-            link_ids: args.calendar_event_search_args.link_ids,
-            statuses: args.calendar_event_search_args.statuses,
-            organizer_emails: args.calendar_event_search_args.organizer_emails,
-            attendee_emails: args.calendar_event_search_args.attendee_emails,
-            tag_option_ids: args.calendar_event_search_args.tag_option_ids,
-            match_all_tags: args.calendar_event_search_args.match_all_tags,
-        }
-    }
-}
-
 #[derive(Debug, Default, Clone)]
 pub struct UnifiedChatSearchArgs {
     pub terms: Vec<String>,
@@ -237,24 +180,6 @@ pub struct UnifiedDocumentSearchArgs {
     pub sub_types: Vec<String>,
     pub mode: DocumentSearchMode,
     pub property_filters: Vec<PropertyFilterArg>,
-    pub tag_option_ids: Vec<String>,
-    pub match_all_tags: bool,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct UnifiedEmailSearchArgs {
-    pub terms: Vec<String>,
-    pub user_ids: Vec<String>,
-    pub thread_ids: Vec<String>,
-    pub link_ids: Vec<String>,
-    pub sender: Vec<String>,
-    pub cc: Vec<String>,
-    pub bcc: Vec<String>,
-    pub recipients: Vec<String>,
-    pub include_labels: Vec<String>,
-    pub exclude_labels: Vec<String>,
-    pub importance: Option<bool>,
-    pub subject_only: bool,
     pub tag_option_ids: Vec<String>,
     pub match_all_tags: bool,
 }
@@ -281,20 +206,6 @@ pub struct UnifiedCallRecordSearchArgs {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct UnifiedCalendarEventSearchArgs {
-    pub terms: Vec<String>,
-    pub calendar_event_ids: Vec<String>,
-    /// Inbox links the caller reads through delegation.
-    pub link_ids: Vec<String>,
-    pub statuses: Vec<String>,
-    pub organizer_emails: Vec<String>,
-    pub attendee_emails: Vec<String>,
-    pub ids_only: bool,
-    pub tag_option_ids: Vec<String>,
-    pub match_all_tags: bool,
-}
-
-#[derive(Debug, Default, Clone)]
 pub struct UnifiedProjectSearchArgs {
     pub terms: Vec<String>,
     pub project_ids: Vec<String>,
@@ -308,8 +219,8 @@ pub struct UnifiedProjectSearchArgs {
 /// Deliberately **not** `#[serde(untagged)]`. `_source` carries no type
 /// discriminator, so an untagged enum had to guess the entity from whichever
 /// fields happened to be present — first matching variant wins, silently — and
-/// several shapes are subsets of others: a calendar doc carries exactly the
-/// `entity_id`, `name`, and `owner_id` that a project doc requires.
+/// several shapes are subsets of others: any doc carrying the `entity_id`,
+/// `name`, and `owner_id` that a project doc requires would parse as one.
 ///
 /// Instead every entity's clause in the unified query is named after its
 /// entity, and OpenSearch reports the names a hit matched in its
@@ -322,9 +233,7 @@ pub(crate) enum UnifiedSearchIndex {
     ChannelMessage(ChannelMessageIndex),
     Document(DocumentIndex),
     Chat(ChatIndex),
-    Email(Box<EmailIndex>),
     CallRecord(CallRecordIndex),
-    CalendarEvent(CalendarEventIndex),
     Project(ProjectIndex),
 }
 
@@ -365,9 +274,7 @@ impl UnifiedSearchIndex {
             OpenSearchEntityType::Channels => Self::ChannelMessage(parse(&entity, source)?),
             OpenSearchEntityType::Documents => Self::Document(parse(&entity, source)?),
             OpenSearchEntityType::Chats => Self::Chat(parse(&entity, source)?),
-            OpenSearchEntityType::Emails => Self::Email(Box::new(parse(&entity, source)?)),
             OpenSearchEntityType::CallRecords => Self::CallRecord(parse(&entity, source)?),
-            OpenSearchEntityType::CalendarEvents => Self::CalendarEvent(parse(&entity, source)?),
             OpenSearchEntityType::Projects => Self::Project(parse(&entity, source)?),
         })
     }
@@ -379,11 +286,8 @@ pub struct SplitUnifiedSearchResponseValues {
     pub channel_message: Vec<SearchHit>,
     pub chat: Vec<SearchHit>,
     pub document: Vec<SearchHit>,
-    pub email: Vec<SearchHit>,
     pub project: Vec<SearchHit>,
     pub call_record: Vec<SearchHit>,
-    pub crm_company: Vec<SearchHit>,
-    pub calendar_event: Vec<SearchHit>,
 }
 
 pub trait SplitUnifiedSearchResponse: Iterator<Item = SearchHit> {
@@ -402,11 +306,8 @@ where
                 SearchEntityType::Channels => split.channel_message.push(item),
                 SearchEntityType::Chats => split.chat.push(item),
                 SearchEntityType::Documents => split.document.push(item),
-                SearchEntityType::Emails => split.email.push(item),
                 SearchEntityType::Projects => split.project.push(item),
                 SearchEntityType::CallRecords => split.call_record.push(item),
-                SearchEntityType::CrmCompanies => split.crm_company.push(item),
-                SearchEntityType::CalendarEvents => split.calendar_event.push(item),
             }
         }
         split
@@ -418,8 +319,8 @@ where
 /// For join-shape parents (documents, chats, call records), OpenSearch
 /// returns one parent hit per matching root with the matching children
 /// nested under `inner_hits`. Each entity's search module knows how to
-/// unpack those into child-level hits; everything else (channels,
-/// emails) takes the 1:1 conversion.
+/// unpack those into child-level hits; everything else (channels) takes
+/// the 1:1 conversion.
 fn expand_hit_into_search_hits(hit: Hit<UnifiedSearchIndex>) -> Vec<SearchHit> {
     if let UnifiedSearchIndex::AgentSession(source) = hit.source {
         return super::agent_sessions::expand(Hit {
@@ -606,36 +507,6 @@ impl From<Hit<UnifiedSearchIndex>> for SearchHit {
                 goto: None,
                 updated_at: millis_to_datetime(a.updated_at_millis),
             },
-            UnifiedSearchIndex::Email(a) => {
-                let a = *a;
-                SearchHit {
-                    entity_id: a.entity_id,
-                    entity_type: SearchEntityType::Emails,
-                    score: index.score,
-                    highlight: index
-                        .highlight
-                        .map(|h| {
-                            parse_highlight_hit(
-                                h,
-                                Keys {
-                                    title_key: EmailSearchConfig::TITLE_KEY,
-                                    content_key: EmailSearchConfig::CONTENT_KEY,
-                                },
-                            )
-                        })
-                        .unwrap_or_default(),
-                    goto: Some(SearchGotoContent::Emails(SearchGotoEmail {
-                        email_message_id: a.message_id,
-                        bcc: a.bcc,
-                        cc: a.cc,
-                        labels: a.labels,
-                        sent_at: millis_to_datetime(a.sent_at_millis),
-                        sender: a.sender,
-                        recipients: a.recipients,
-                    })),
-                    updated_at: millis_to_datetime(a.sent_at_millis),
-                }
-            }
             UnifiedSearchIndex::Chat(a) => SearchHit {
                 entity_id: a.entity_id,
                 entity_type: SearchEntityType::Chats,
@@ -648,25 +519,6 @@ impl From<Hit<UnifiedSearchIndex>> for SearchHit {
                             Keys {
                                 title_key: ChatSearchConfig::TITLE_KEY,
                                 content_key: ChatSearchConfig::CONTENT_KEY,
-                            },
-                        )
-                    })
-                    .unwrap_or_default(),
-                goto: None,
-                updated_at: millis_to_datetime(a.updated_at_millis),
-            },
-            UnifiedSearchIndex::CalendarEvent(a) => SearchHit {
-                entity_id: a.entity_id,
-                entity_type: SearchEntityType::CalendarEvents,
-                score: index.score,
-                highlight: index
-                    .highlight
-                    .map(|h| {
-                        parse_highlight_hit(
-                            h,
-                            Keys {
-                                title_key: CalendarEventSearchConfig::TITLE_KEY,
-                                content_key: CalendarEventSearchConfig::CONTENT_KEY,
                             },
                         )
                     })
@@ -766,15 +618,6 @@ fn build_unified_search_request(args: &UnifiedSearchArgs) -> Result<SearchReques
         bool_query.should(query_type.to_owned());
     }
 
-    if args.search_indices.contains(&OpenSearchEntityType::Emails) {
-        let email_search_args: EmailSearchArgs = args.clone().into();
-        let email_query_builder: EmailQueryBuilder = email_search_args.into();
-        let mut email_bool_query = email_query_builder.build_bool_query()?;
-        email_bool_query.name(OpenSearchEntityType::Emails.query_name());
-        let query_type: QueryType = email_bool_query.build().into();
-        bool_query.should(query_type.to_owned());
-    }
-
     if args
         .search_indices
         .contains(&OpenSearchEntityType::Channels)
@@ -821,19 +664,6 @@ fn build_unified_search_request(args: &UnifiedSearchArgs) -> Result<SearchReques
         bool_query.should(query_type.to_owned());
     }
 
-    if args
-        .search_indices
-        .contains(&OpenSearchEntityType::CalendarEvents)
-    {
-        let calendar_event_search_args: CalendarEventSearchArgs = args.clone().into();
-        let calendar_event_query_builder: CalendarEventQueryBuilder =
-            calendar_event_search_args.into();
-        let mut calendar_event_bool_query = calendar_event_query_builder.build_bool_query()?;
-        calendar_event_bool_query.name(OpenSearchEntityType::CalendarEvents.query_name());
-        let query_type: QueryType = calendar_event_bool_query.build().into();
-        bool_query.should(query_type.to_owned());
-    }
-
     // create the search request
     let mut search_request_builder = SearchRequestBuilder::new();
 
@@ -862,17 +692,7 @@ fn build_unified_search_request(args: &UnifiedSearchArgs) -> Result<SearchReques
         .max_analyzer_offset(super::HIGHLIGHT_MAX_ANALYZER_OFFSET)
         .field("content", em_field().number_of_fragments(1))
         .field("document_name", em_field().number_of_fragments(0))
-        .field("name", em_field().number_of_fragments(0))
-        .field("source_names", em_field().number_of_fragments(0))
-        .field("subject", em_field().number_of_fragments(0))
-        .field("sender", em_field().number_of_fragments(0))
-        .field("sender_name", em_field().number_of_fragments(0))
-        .field("recipients", em_field().number_of_fragments(0))
-        .field("recipient_names", em_field().number_of_fragments(0))
-        .field("cc", em_field().number_of_fragments(0))
-        .field("cc_names", em_field().number_of_fragments(0))
-        .field("bcc", em_field().number_of_fragments(0))
-        .field("bcc_names", em_field().number_of_fragments(0));
+        .field("name", em_field().number_of_fragments(0));
 
     search_request_builder.highlight(highlight);
 

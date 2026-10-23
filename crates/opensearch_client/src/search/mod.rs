@@ -9,12 +9,10 @@ pub(crate) const HIGHLIGHT_MAX_ANALYZER_OFFSET: u32 = 999_999;
 
 pub mod agent_sessions;
 mod builder;
-pub mod calendar_events;
 pub mod call_records;
 pub mod channels;
 pub mod chats;
 pub mod documents;
-pub mod emails;
 pub mod model;
 pub mod projects;
 mod properties;

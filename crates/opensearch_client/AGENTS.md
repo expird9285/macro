@@ -3,9 +3,8 @@
 ## What it is
 
 Part of the Search feature. Typed client for Macro's search index:
-per-entity-type upsert/delete and search for documents, emails, channel
-messages, chats, agent sessions, calendar events, call records, and
-projects.
+per-entity-type upsert/delete and search for documents, channel
+messages, chats, agent sessions, call records, and projects.
 
 ## Start here
 

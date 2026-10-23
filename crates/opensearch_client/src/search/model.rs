@@ -258,18 +258,6 @@ pub struct Highlight {
     /// The highlight match on the user (owner) of the entity
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_id: Option<String>,
-    /// The highlight match on the sender (email only)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sender: Option<String>,
-    /// The highlight match on the recipients (email only)
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub recipients: Vec<String>,
-    /// The highlight match on the cc (email only)
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub cc: Vec<String>,
-    /// The highlight match on the bcc (email only)
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub bcc: Vec<String>,
 }
 
 pub(crate) fn parse_highlight_hit(
@@ -295,36 +283,13 @@ pub(crate) fn parse_highlight_hit(
 
     Highlight {
         user_id,
-        // A calendar event found only through another copy's title has its
-        // match under `source_names`, so that stands in for the name.
         name: highlight
             .get(keys.title_key)
-            .or_else(|| highlight.get("source_names"))
             .and_then(|v| v.first())
             .map(|v| v.to_string()),
         content: highlight
             .get(keys.content_key)
             .map(|v| v.iter().map(|f| normalize_highlight_fragment(f)).collect())
-            .unwrap_or_default(),
-        sender: highlight
-            .get("sender_name")
-            .or_else(|| highlight.get("sender"))
-            .and_then(|v| v.first())
-            .map(|v| v.to_string()),
-        recipients: highlight
-            .get("recipient_names")
-            .or_else(|| highlight.get("recipients"))
-            .map(|v| v.to_vec())
-            .unwrap_or_default(),
-        cc: highlight
-            .get("cc_names")
-            .or_else(|| highlight.get("cc"))
-            .map(|v| v.to_vec())
-            .unwrap_or_default(),
-        bcc: highlight
-            .get("bcc_names")
-            .or_else(|| highlight.get("bcc"))
-            .map(|v| v.to_vec())
             .unwrap_or_default(),
     }
 }
@@ -400,24 +365,6 @@ pub struct SearchGotoChat {
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
-pub struct SearchGotoEmail {
-    /// The email message id
-    pub email_message_id: uuid::Uuid,
-    /// The bcc of the email
-    pub bcc: Vec<String>,
-    /// The cc of the email
-    pub cc: Vec<String>,
-    /// The labels of the email
-    pub labels: Vec<String>,
-    /// The sent_at timestamp of the email
-    pub sent_at: Option<chrono::DateTime<chrono::Utc>>,
-    /// The sender of the email
-    pub sender: String,
-    /// The recipients of the email
-    pub recipients: Vec<String>,
-}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct SearchGotoChannel {
     /// The channel message id
     pub channel_message_id: uuid::Uuid,
@@ -445,7 +392,6 @@ pub enum SearchGotoContent {
     AgentSessions(SearchGotoAgentSession),
     Documents(SearchGotoDocument),
     Chats(SearchGotoChat),
-    Emails(SearchGotoEmail),
     Channels(SearchGotoChannel),
     CallRecords(SearchGotoCallRecord),
     // there is no goto needed for projects

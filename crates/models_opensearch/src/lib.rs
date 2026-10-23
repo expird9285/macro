@@ -19,21 +19,15 @@ pub enum SearchIndex {
     Chats,
     /// The document alias
     Documents,
-    /// The email alias
-    Emails,
     /// The call records alias
     CallRecords,
     /// The projects alias
     Projects,
-    /// The calendar events alias
-    CalendarEvents,
 }
 
 /// All searchable entity types — the tag on a unified `SearchHit`,
-/// independent of where the hit came from. Most are backed by an
-/// OpenSearch index, but some (CrmCompanies) are Postgres-only and
-/// synthesized by name searches; those never appear in OpenSearch
-/// responses. The OpenSearch-backed subset is [`OpenSearchEntityType`].
+/// independent of where the hit came from. The OpenSearch-backed subset is
+/// [`OpenSearchEntityType`].
 #[derive(
     Debug,
     Clone,
@@ -57,16 +51,10 @@ pub enum SearchEntityType {
     Chats,
     /// The document entity type (has OpenSearch index)
     Documents,
-    /// The email entity type (has OpenSearch index)
-    Emails,
     /// The project entity type (has OpenSearch index)
     Projects,
     /// The call records entity type (has OpenSearch index)
     CallRecords,
-    /// The CRM company entity type (Postgres-only)
-    CrmCompanies,
-    /// The calendar event entity type (has OpenSearch index)
-    CalendarEvents,
 }
 
 /// `SearchEntityType` variants that have an OpenSearch index.
@@ -95,14 +83,10 @@ pub enum OpenSearchEntityType {
     Chats,
     /// The document index
     Documents,
-    /// The email index
-    Emails,
     /// The call records index
     CallRecords,
     /// The projects index
     Projects,
-    /// The calendar events index
-    CalendarEvents,
 }
 
 impl OpenSearchEntityType {
@@ -115,10 +99,8 @@ impl OpenSearchEntityType {
             Self::Channels => "channels",
             Self::Chats => "chats",
             Self::Documents => "documents",
-            Self::Emails => "emails",
             Self::CallRecords => "call_records",
             Self::Projects => "projects",
-            Self::CalendarEvents => "calendar_events",
         }
     }
 }
@@ -159,10 +141,8 @@ impl From<OpenSearchEntityType> for SearchEntityType {
             OpenSearchEntityType::Channels => SearchEntityType::Channels,
             OpenSearchEntityType::Chats => SearchEntityType::Chats,
             OpenSearchEntityType::Documents => SearchEntityType::Documents,
-            OpenSearchEntityType::Emails => SearchEntityType::Emails,
             OpenSearchEntityType::CallRecords => SearchEntityType::CallRecords,
             OpenSearchEntityType::Projects => SearchEntityType::Projects,
-            OpenSearchEntityType::CalendarEvents => SearchEntityType::CalendarEvents,
         }
     }
 }
@@ -174,10 +154,8 @@ impl From<OpenSearchEntityType> for SearchIndex {
             OpenSearchEntityType::Channels => SearchIndex::Channels,
             OpenSearchEntityType::Chats => SearchIndex::Chats,
             OpenSearchEntityType::Documents => SearchIndex::Documents,
-            OpenSearchEntityType::Emails => SearchIndex::Emails,
             OpenSearchEntityType::CallRecords => SearchIndex::CallRecords,
             OpenSearchEntityType::Projects => SearchIndex::Projects,
-            OpenSearchEntityType::CalendarEvents => SearchIndex::CalendarEvents,
         }
     }
 }
@@ -212,8 +190,8 @@ mod test {
     fn unrelated_clause_names_do_not_hide_the_entity() {
         // Naming an inner clause for debugging must not break dispatch.
         assert_eq!(
-            OpenSearchEntityType::from_matched_queries(["title_term_0", "calendar_events"]),
-            Some(OpenSearchEntityType::CalendarEvents)
+            OpenSearchEntityType::from_matched_queries(["title_term_0", "projects"]),
+            Some(OpenSearchEntityType::Projects)
         );
     }
 
@@ -222,7 +200,7 @@ mod test {
         // Two entity clauses matching one hit means the query is wrong; a
         // silent first-wins choice is what this whole mechanism replaced.
         assert_eq!(
-            OpenSearchEntityType::from_matched_queries(["projects", "calendar_events"]),
+            OpenSearchEntityType::from_matched_queries(["projects", "documents"]),
             None
         );
     }

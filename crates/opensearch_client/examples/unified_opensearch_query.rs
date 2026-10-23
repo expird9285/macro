@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use models_opensearch::OpenSearchEntityType;
 use models_search_cursor::SearchCursorOption;
-use opensearch_client::search::unified::{UnifiedEmailSearchArgs, UnifiedSearchArgs};
+use opensearch_client::search::unified::{UnifiedDocumentSearchArgs, UnifiedSearchArgs};
 
 fn main() {
     let args = UnifiedSearchArgs {
@@ -12,8 +12,8 @@ fn main() {
         match_type: "partial".to_string(),
         collapse: false,
         cursor: SearchCursorOption::NotDone(None),
-        search_indices: HashSet::from([OpenSearchEntityType::Emails]),
-        email_search_args: UnifiedEmailSearchArgs {
+        search_indices: HashSet::from([OpenSearchEntityType::Documents]),
+        document_search_args: UnifiedDocumentSearchArgs {
             terms: vec!["hello re".to_string()],
             ..Default::default()
         },
