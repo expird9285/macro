@@ -7,7 +7,6 @@ use models_search::{
     document::{
         DocumentMetadata, DocumentSearchResponseItem, DocumentSearchResponseItemWithMetadata,
     },
-    email::{EmailSearchResponseItem, EmailSearchResponseItemWithMetadata},
     project::{ProjectMetadata, ProjectSearchResponseItem, ProjectSearchResponseItemWithMetadata},
 };
 use sqlx::types::Uuid;
@@ -34,7 +33,7 @@ fn test_sort_unified_search_results() {
     // Create test UUIDs
     let doc_id = Uuid::new_v4();
     let chat_id = Uuid::new_v4();
-    let email_id = Uuid::new_v4();
+    let channel_id = Uuid::new_v4();
     let project_id = Uuid::new_v4();
     let doc2_id = Uuid::new_v4();
 
@@ -81,29 +80,8 @@ fn test_sort_unified_search_results() {
                 chat_search_results: vec![],
             },
         }),
-        // Email with updated_at = 1500 (middle)
-        UnifiedSearchResponseItem::Email(EmailSearchResponseItemWithMetadata {
-            created_at: DateTime::from_timestamp(1400, 0).unwrap(),
-            updated_at: DateTime::from_timestamp(1500, 0).unwrap(),
-            viewed_at: None,
-            snippet: None,
-            is_read: false,
-            inbox_visible: true,
-            is_draft: false,
-            is_important: false,
-            properties: None,
-            extra: EmailSearchResponseItem {
-                id: email_id,
-                name: Some("Middle Email".to_string()),
-                owner_id: "owner1".to_string(),
-                subject: Some("Email Subject".to_string()),
-                thread_id: email_id,
-                user_id: "user1".to_string(),
-                link_id: email_id,
-                email_message_search_results: vec![],
-                participants: vec![],
-            },
-        }),
+        // Channel message with updated_at = 1500 (middle)
+        channel_message_item(channel_id, Uuid::new_v4(), 1500),
         // Project with updated_at = 2000 (second newest)
         UnifiedSearchResponseItem::Project(ProjectSearchResponseItemWithMetadata {
             properties: None,
@@ -151,7 +129,7 @@ fn test_sort_unified_search_results() {
         chat_id,    // 3000 - newest
         doc2_id,    // 2500
         project_id, // 2000
-        email_id,   // 1500
+        channel_id, // 1500
         doc_id,     // 1000 - oldest
     ];
 

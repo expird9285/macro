@@ -9,8 +9,8 @@ per-entity-type search plus a unified search across them — mounted into
 ## Start here
 
 - `src/api.rs` + `src/api/search.rs`: the router; one file per entity type
-  under `src/api/search/` (`document.rs`, `email.rs`, `chat.rs`, `channel.rs`,
-  `calendar_event.rs`, `call_record.rs`, `crm_company.rs`, `project.rs`,
+  under `src/api/search/` (`document.rs`, `chat.rs`, `channel.rs`,
+  `call_record.rs`, `project.rs`,
   `agent_session.rs`), plus `unified.rs` for cross-type search.
 - `src/api/search/simple/`: a second, simpler request/response shape per type
   used by AI tools — kept in sync with the full one by hand.
@@ -28,7 +28,7 @@ per-entity-type search plus a unified search across them — mounted into
 ## Boundaries
 
 - Depends on: `opensearch_client`, `models_opensearch`, `macro_db_client`,
-  `entity_access`, `properties`, `crm`, `item_filters`.
+  `entity_access`, `properties`, `item_filters`.
 - Used by: `document_storage_service` (mounts `search_router`); called
   through `search_service_client`.
 

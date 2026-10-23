@@ -7,9 +7,8 @@ use opensearch_client::search::model::SearchHit;
 use crate::api::{
     context::SearchHandlerState,
     search::{
-        calendar_event::enrich_calendar_events, call_record::enrich_call_records,
-        channel::enrich_channel_messages, chat::enrich_chats, document::enrich_documents,
-        email::enrich_emails, project::enrich_projects, simple::SearchError,
+        call_record::enrich_call_records, channel::enrich_channel_messages, chat::enrich_chats,
+        document::enrich_documents, project::enrich_projects, simple::SearchError,
     },
 };
 
@@ -35,13 +34,6 @@ pub async fn enrich_search_response(
             Ok(response
                 .into_iter()
                 .map(UnifiedSearchResponseItem::Document)
-                .collect())
-        }
-        SearchEntityType::Emails => {
-            let response = enrich_emails(ctx, user_id, results).await?;
-            Ok(response
-                .into_iter()
-                .map(UnifiedSearchResponseItem::Email)
                 .collect())
         }
         SearchEntityType::Channels => {
@@ -72,15 +64,5 @@ pub async fn enrich_search_response(
                 .map(UnifiedSearchResponseItem::Call)
                 .collect())
         }
-        SearchEntityType::CalendarEvents => {
-            let response = enrich_calendar_events(ctx, user_id, results).await?;
-            Ok(response
-                .into_iter()
-                .map(UnifiedSearchResponseItem::CalendarEvent)
-                .collect())
-        }
-        // CRM companies are enriched separately (they need the team
-        // receipt) via `crm_company::enrich_crm_companies`.
-        SearchEntityType::CrmCompanies => Ok(vec![]),
     }
 }

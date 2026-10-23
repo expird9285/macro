@@ -43,25 +43,6 @@ pub async fn get_entity_name_and_owner(
             .fetch_one(db)
             .await?
         }
-        SearchEntityType::Emails => {
-            sqlx::query!(
-                r#"
-                SELECT
-                    e.subject,
-                    l.macro_id
-                FROM
-                    "email_messages" e
-                JOIN email_links l ON l.id = e.link_id
-                WHERE
-                    e.thread_id = $1
-                LIMIT 1
-                "#,
-                entity_id,
-            )
-            .map(|row| (row.subject, row.macro_id))
-            .fetch_one(db)
-            .await?
-        }
         SearchEntityType::Channels => {
             sqlx::query!(
                 r#"
@@ -83,12 +64,6 @@ pub async fn get_entity_name_and_owner(
             anyhow::bail!("entity type not supported");
         }
         SearchEntityType::CallRecords => {
-            anyhow::bail!("entity type not supported");
-        }
-        SearchEntityType::CrmCompanies => {
-            anyhow::bail!("entity type not supported");
-        }
-        SearchEntityType::CalendarEvents => {
             anyhow::bail!("entity type not supported");
         }
     };

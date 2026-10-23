@@ -37,7 +37,7 @@ pub(in crate::api::search) async fn enrich_chats(
             .map_err(SearchError::InternalError)?;
 
     // Fetch chat properties (e.g. tags) so rows can render and re-check
-    // them, mirroring the documents/emails enrichment.
+    // them, mirroring the documents enrichment.
     let chat_entity_refs: Vec<EntityReference> = chat_ids
         .iter()
         .map(|id| EntityReference::new(id.to_string(), EntityType::Chat))

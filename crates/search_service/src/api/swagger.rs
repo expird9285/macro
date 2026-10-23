@@ -4,8 +4,8 @@ use utoipa::OpenApi;
 use crate::api::search;
 
 use item_filters::{
-    ChannelFilters, ChatFilters, DocumentFilters, EmailFilters, EntityFilters, NotificationFilters,
-    ProjectFilters, PropertyFilter, SharedEmailFilter, TaskFilters,
+    ChannelFilters, ChatFilters, DocumentFilters, EntityFilters, NotificationFilters,
+    ProjectFilters, PropertyFilter, TaskFilters,
 };
 use model::{document::FileType, response::EmptyResponse};
 use models_search::channel::{
@@ -19,10 +19,6 @@ use models_search::chat::{
 use models_search::document::{
     DocumentSearchRequest, DocumentSearchResponse, DocumentSearchResponseItem,
     DocumentSearchResult, SimpleDocumentSearchResponse, SimpleDocumentSearchResponseItem,
-};
-use models_search::email::{
-    EmailSearchRequest, EmailSearchResponse, EmailSearchResponseItem, EmailSearchResult,
-    SimpleEmailSearchResponse, SimpleEmailSearchResponseItem,
 };
 use models_search::unified::{
     SimpleUnifiedSearchResponse, SimpleUnifiedSearchResponseItem, UnifiedSearchRequest,
@@ -61,9 +57,6 @@ use models_search::{MatchType, SearchHighlight};
                         // Chat
                         ChatSearchRequest, ChatMessageSearchResult, ChatSearchResponseItem, ChatSearchResponse,
 
-                        // Email
-                        EmailSearchRequest, EmailSearchResult, EmailSearchResponseItem, EmailSearchResponse,
-
                         // Channel
                         ChannelSearchRequest, ChannelSearchResponse, ChannelSearchResponseItem, ChannelSearchResult,
 
@@ -71,8 +64,8 @@ use models_search::{MatchType, SearchHighlight};
                         UnifiedSearchRequest, UnifiedSearchResponseItem, UnifiedSearchResponse,
 
                         // Entity filters (shared with soup)
-                        EntityFilters, DocumentFilters, ChatFilters, EmailFilters, ChannelFilters, ProjectFilters,
-                        PropertyFilter, NotificationFilters, TaskFilters, SharedEmailFilter,
+                        EntityFilters, DocumentFilters, ChatFilters, ChannelFilters, ProjectFilters,
+                        PropertyFilter, NotificationFilters, TaskFilters,
 
                         // Project
                         ProjectSearchRequest, ProjectSearchResponse, ProjectSearchResponseItem, ProjectSearchResult, ProjectSearchMetadata,
@@ -82,8 +75,6 @@ use models_search::{MatchType, SearchHighlight};
                         SimpleDocumentSearchResponseItem, SimpleDocumentSearchResponse,
                         // SimpleChat
                         SimpleChatSearchResponseItem, SimpleChatSearchResponse,
-                        // SimpleEmail
-                        SimpleEmailSearchResponseItem, SimpleEmailSearchResponse,
                         // SimpleChannel
                         SimpleChannelSearchReponseItem, SimpleChannelSearchResponse,
                         // SimpleProject

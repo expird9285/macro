@@ -1,17 +1,11 @@
 use agent_session::domain::search::AgentSessionSearchMetadataService;
 use axum::extract::FromRef;
-use entity_access::domain::service::EntityAccessServiceImpl;
-use entity_access::outbound::PgAccessRepository;
 use macro_authorization::{
     MacroAuthJwtValidator, MacroAuthorizationServiceImpl, MacroAuthorizationState,
 };
 use opensearch_client::OpensearchClient;
 use readonly_pool::ReadOnlyPool;
 use std::sync::Arc;
-
-/// Concrete entity-access service backing the team receipt extractor. Same
-/// type the parent app constructs, so its `Arc` can be passed in directly.
-pub type SearchEntityAccessService = EntityAccessServiceImpl<PgAccessRepository>;
 
 /// Concrete authorization service backing search request authentication.
 pub type SearchAuthorizationService = MacroAuthorizationServiceImpl<MacroAuthJwtValidator>;
@@ -24,18 +18,11 @@ pub struct SearchHandlerState {
     pub db: ReadOnlyPool,
     /// OpenSearch client for full-text search
     pub opensearch_client: Arc<OpensearchClient>,
-    /// Resolves the caller's team membership to mint CRM capability receipts.
-    pub entity_access_service: Arc<SearchEntityAccessService>,
     /// Authorization state used to authenticate search requests.
     pub authorization_state: MacroAuthorizationState<SearchAuthorizationService>,
     /// Agent-session domain service used after the search layer resolves its
     /// authorized session allowlist.
     pub agent_session_search_metadata: Arc<dyn AgentSessionSearchMetadataService>,
-    /// Whether calendar events participate in search. Off in deployed
-    /// environments until the calendar index has been created and backfilled;
-    /// gating here covers every caller of the search API at once, the AI
-    /// search tools included.
-    pub calendar_search_enabled: bool,
 }
 
 impl SearchHandlerState {

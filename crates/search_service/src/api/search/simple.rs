@@ -10,7 +10,6 @@ use name_search::NameSearchError;
 use opensearch_client::error::OpensearchClientError;
 
 pub(in crate::api) mod filter;
-pub(in crate::api) mod simple_calendar_event;
 pub(in crate::api) mod simple_call_record;
 pub(in crate::api) mod simple_channel;
 pub(in crate::api) mod simple_chat;
@@ -51,9 +50,6 @@ pub enum SearchError {
     #[error("searching with an invalid cursor")]
     /// Searching with an invalid cursor
     InvalidCursor,
-    /// A CRM company filter id was not a valid UUID
-    #[error("invalid crm company id: {0}")]
-    InvalidCrmCompanyId(String),
     /// An agent-session filter is not a UUID.
     #[error("invalid agent session id: {0}")]
     InvalidAgentSessionId(String),
@@ -78,7 +74,6 @@ impl IntoResponse for SearchError {
             | SearchError::InvalidQuerySize
             | SearchError::TooManyTerms
             | SearchError::InvalidCursor
-            | SearchError::InvalidCrmCompanyId(_)
             | SearchError::InvalidAgentSessionId(_)
             | SearchError::NoQueryOrTermsProvided
             | SearchError::NoChannelIds => StatusCode::BAD_REQUEST,

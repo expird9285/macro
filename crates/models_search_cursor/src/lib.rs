@@ -158,10 +158,6 @@ pub struct SearchCursor {
     pub content_cursor: SearchCursorOption,
     /// The project cursor
     pub project_name_cursor: SearchCursorOption,
-    /// The CRM company name cursor. `#[serde(default)]` so cursors minted
-    /// before CRM search existed still decode (defaults to a fresh cursor).
-    #[serde(default)]
-    pub crm_company_cursor: SearchCursorOption,
 }
 
 impl SearchCursor {
@@ -185,7 +181,6 @@ impl SearchCursor {
         self.chat_name_cursor.is_done()
             && self.content_cursor.is_done()
             && self.project_name_cursor.is_done()
-            && self.crm_company_cursor.is_done()
     }
 }
 
@@ -193,49 +188,30 @@ impl SearchCursor {
 mod test {
     use super::*;
 
-    /// A cursor minted before CRM search existed (no `crm_company_cursor`
-    /// field) must still decode, with the new field defaulting to a fresh
-    /// `NotDone(None)` rather than failing.
+    /// A cursor minted while CRM search still existed carries a
+    /// `crm_company_cursor` field. It must keep decoding, with the retired
+    /// field ignored, so a client mid-pagination across a deploy is not
+    /// rejected.
     #[test]
-    fn decodes_legacy_cursor_without_crm_field() {
-        let legacy = r#"{"document_name_cursor":"Done","chat_name_cursor":"Done","content_cursor":"Done","project_name_cursor":"Done"}"#;
+    fn decodes_cursor_with_retired_crm_field() {
+        let legacy = r#"{"chat_name_cursor":"Done","content_cursor":"Done","project_name_cursor":"Done","crm_company_cursor":{"NotDone":null}}"#;
         let encoded = BASE64.encode(legacy);
 
-        let cursor = SearchCursor::decode(&encoded).expect("legacy cursor should decode");
+        let cursor = SearchCursor::decode(&encoded).expect("cursor with the CRM field decodes");
 
-        assert!(
-            cursor.crm_company_cursor.has_more(),
-            "missing crm cursor should default to NotDone(None)"
-        );
-        // The four legacy sources are Done, but the defaulted CRM cursor is
-        // NotDone, so the whole cursor is not yet exhausted.
-        assert!(!cursor.is_exhausted());
+        assert!(cursor.is_exhausted());
     }
 
     #[test]
-    fn crm_cursor_round_trips() {
-        let cursor = SearchCursor {
-            crm_company_cursor: SearchCursorOption::Done,
-            ..Default::default()
-        };
-        let decoded = SearchCursor::decode(&cursor.encode().expect("encode")).expect("decode");
-        assert!(decoded.crm_company_cursor.is_done());
-    }
-
-    #[test]
-    fn is_exhausted_requires_crm_done() {
+    fn is_exhausted_requires_every_source_done() {
         let mut cursor = SearchCursor {
             chat_name_cursor: SearchCursorOption::Done,
             content_cursor: SearchCursorOption::Done,
             project_name_cursor: SearchCursorOption::Done,
-            crm_company_cursor: SearchCursorOption::Done,
         };
         assert!(cursor.is_exhausted());
 
-        cursor.crm_company_cursor = SearchCursorOption::NotDone(None);
-        assert!(
-            !cursor.is_exhausted(),
-            "a not-done CRM cursor must keep the aggregate cursor alive"
-        );
+        cursor.content_cursor = SearchCursorOption::NotDone(None);
+        assert!(!cursor.is_exhausted());
     }
 }

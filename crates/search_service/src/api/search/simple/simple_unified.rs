@@ -1,6 +1,5 @@
 use crate::api::search::simple::filter::FilterVariantToSearchArgs;
 
-use crate::api::search::crm_company;
 use crate::api::search::simple::simple_chat;
 use crate::api::{
     context::{SearchAuthorizationService, SearchHandlerState},
@@ -10,8 +9,6 @@ use axum::{
     extract::{self, State},
     response::Json,
 };
-use crm::domain::auth::CrmTeamReceipt;
-use entity_access::domain::models::MemberTeamRole;
 use macro_authorization::{MacroAuthorizationExtractor, UserOrInternal};
 use macro_user_id::user_id::MacroUserId;
 use model::{response::ErrorResponse, user::UserContext};
@@ -24,22 +21,11 @@ use opensearch_client::search::documents::{DocumentSearchMode, PropertyFilterArg
 use opensearch_client::search::model::SearchHit;
 use opensearch_client::search::unified::UnifiedSearchArgs;
 
-/// Whether calendar events may appear in this search.
-///
-/// The flag overrides the request, never the reverse. The AI search tools
-/// default `entityTypes` to empty — which means every type — so an environment
-/// whose calendar index has not been created and backfilled cannot rely on
-/// callers opting out.
-fn calendar_events_searchable(requested: bool, flag_enabled: bool) -> bool {
-    requested && flag_enabled
-}
-
 /// Identifies the source of a search result for cursor regeneration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SearchSource {
     ChatName,
     Content,
-    CrmCompany,
 }
 
 /// Wrapper for SearchHit that tracks its source for cursor regeneration
@@ -69,9 +55,9 @@ fn cursor_from_tagged(tagged: &TaggedSearchHit) -> Option<SearchMethodCursor> {
 
 /// Trim the merged, sorted hit list to the first `page_size` distinct entities,
 /// keeping every hit of an included entity. The page budget is entities, not
-/// hits: a content document expands to one hit per matching chunk and an email
-/// thread to one per matching message, so counting hits here lets a single
-/// chunk-heavy entity exhaust the budget and short the page.
+/// hits: a content document expands to one hit per matching chunk, so counting
+/// hits here lets a single chunk-heavy entity exhaust the budget and short the
+/// page.
 fn take_first_n_entities(combined: Vec<TaggedSearchHit>, page_size: usize) -> Vec<TaggedSearchHit> {
     let mut page_entities = std::collections::HashSet::new();
     combined
@@ -90,7 +76,7 @@ fn take_first_n_entities(combined: Vec<TaggedSearchHit>, page_size: usize) -> Ve
 }
 
 /// Count distinct entities among `hits` (multiple hits can share one entity_id —
-/// content chunks of a document, messages of an email thread).
+/// content chunks of a document).
 fn distinct_entity_count<'a>(hits: impl IntoIterator<Item = &'a SearchHit>) -> usize {
     hits.into_iter()
         .map(|h| h.entity_id)
@@ -189,7 +175,6 @@ fn to_property_filter_args(filters: &[item_filters::PropertyFilter]) -> Vec<Prop
 pub(in crate::api::search) async fn perform_unified_search(
     ctx: &SearchHandlerState,
     user_context: &UserContext,
-    crm_access: Option<&CrmTeamReceipt<MemberTeamRole>>,
     query_params: SearchPaginationParams,
     req: UnifiedSearchRequest,
 ) -> Result<
@@ -246,16 +231,10 @@ pub(in crate::api::search) async fn perform_unified_search(
     let property_filter_args = to_property_filter_args(&req.filters.property_filters);
     let tag_option_ids = req.filters.tag_option_ids.clone();
     let match_all_tags = req.filters.tag_filter_mode == item_filters::TagFilterMode::All;
-    // A tag filter keeps only the tag-indexed sources; channels and CRM drop
-    // out below (see should_include_channels), so response pages contain only
+    // A tag filter keeps only the tag-indexed sources; channels drop out
+    // below (see should_include_channels), so response pages contain only
     // rows the filter was actually applied to.
     let tags_active = !tag_option_ids.is_empty();
-
-    // CRM is opt-in: it only runs when the caller resolved a team receipt
-    // (set only when `include_crm` is true and the user has a qualifying
-    // membership). `crm_company_filters` scopes/selects within the team.
-    let crm_company_filters = req.filters.crm_company_filters.clone();
-    let should_include_crm = crm_access.is_some() && !tags_active;
 
     let search_filters = SearchEntityFilters::from(req.filters);
     let requested_sessions = search_filters
@@ -278,38 +257,27 @@ pub(in crate::api::search) async fn perform_unified_search(
         .await
         .map_err(|error| SearchError::InternalError(anyhow::anyhow!("{error}")))?;
     let channel_filters = search_filters.channel_filters;
-    let email_filters = search_filters.email_filters;
     let chat_filters = search_filters.chat_filters;
     let doc_filters = search_filters.document_filters;
     let project_filters = search_filters.project_filters;
     let call_filters = search_filters.call_filters;
-    let calendar_event_filters = search_filters.calendar_event_filters;
 
     let should_include_documents = search_filters.should_include_documents;
-    // A tag filter drops channels (and CRM, below) because they aren't
-    // tag-indexed. Every tag-indexed source — documents, chats, projects,
-    // emails, call records, calendar events — stays included and applies the
-    // filter itself.
+    // A tag filter drops channels because they aren't tag-indexed. Every
+    // tag-indexed source — documents, chats, projects, call records — stays
+    // included and applies the filter itself.
     let should_include_channels = search_filters.should_include_channels && !tags_active;
     let should_include_chats = search_filters.should_include_chats;
     let should_include_projects = search_filters.should_include_projects;
-    let should_include_emails = search_filters.should_include_emails;
     let should_include_call_records = search_filters.should_include_call_records;
-    let should_include_calendar_events = calendar_events_searchable(
-        search_filters.should_include_calendar_events,
-        ctx.calendar_search_enabled,
-    );
-    let email_terms = search_terms.clone();
 
     // Await all tasks in parallel
     let (
         mut filter_document_response,
         mut filter_channel_response,
         mut filter_chat_response,
-        mut filter_email_response,
         mut filter_project_response,
         mut filter_call_record_response,
-        mut filter_calendar_event_response,
     ) = tokio::try_join!(
         doc_filters.filter_to_search_args(
             ctx,
@@ -329,12 +297,6 @@ pub(in crate::api::search) async fn perform_unified_search(
             user_organization_id,
             should_include_chats,
         ),
-        email_filters.filter_to_search_args(
-            ctx,
-            user_id.as_ref(),
-            user_organization_id,
-            should_include_emails,
-        ),
         project_filters.filter_to_search_args(
             ctx,
             user_id.as_ref(),
@@ -346,25 +308,17 @@ pub(in crate::api::search) async fn perform_unified_search(
             user_id.as_ref(),
             user_organization_id,
             should_include_call_records,
-        ),
-        calendar_event_filters.filter_to_search_args(
-            ctx,
-            user_id.as_ref(),
-            user_organization_id,
-            should_include_calendar_events,
         )
     )
     .map_err(|e| SearchError::InternalError(anyhow::anyhow!("tokio error: {:?}", e)))?;
 
     // Set terms on each index's search args.
     //
-    // Every content index gets whitespace-split terms. Emails match each
-    // term independently across many fields ANDed inside OpenSearch;
-    // channel messages are single-doc-per-message so each token must
-    // appear in the same message via bool.must. Documents, chats, and
-    // call records are join-shape, where each term becomes a separate
-    // has_child clause ANDed via bool.must. Projects and calendar events are
-    // flat and match terms against their name/title only.
+    // Every content index gets whitespace-split terms. Channel messages are
+    // single-doc-per-message so each token must appear in the same message
+    // via bool.must. Documents, chats, and call records are join-shape,
+    // where each term becomes a separate has_child clause ANDed via
+    // bool.must. Projects are flat and match terms against their name only.
     filter_document_response.terms = search_terms.clone();
     filter_document_response.property_filters = property_filter_args;
     filter_document_response.tag_option_ids = tag_option_ids.clone();
@@ -373,34 +327,12 @@ pub(in crate::api::search) async fn perform_unified_search(
     filter_chat_response.terms = search_terms.clone();
     filter_chat_response.tag_option_ids = tag_option_ids.clone();
     filter_chat_response.match_all_tags = match_all_tags;
-    filter_email_response.terms = email_terms.clone();
-    filter_email_response.tag_option_ids = tag_option_ids.clone();
-    filter_email_response.match_all_tags = match_all_tags;
     filter_call_record_response.terms = search_terms.clone();
     filter_call_record_response.tag_option_ids = tag_option_ids.clone();
     filter_call_record_response.match_all_tags = match_all_tags;
     filter_project_response.terms = search_terms.clone();
-    filter_project_response.tag_option_ids = tag_option_ids.clone();
+    filter_project_response.tag_option_ids = tag_option_ids;
     filter_project_response.match_all_tags = match_all_tags;
-    filter_calendar_event_response.terms = search_terms.clone();
-    filter_calendar_event_response.tag_option_ids = tag_option_ids;
-    filter_calendar_event_response.match_all_tags = match_all_tags;
-
-    // Widen the email access filter to every inbox the caller can reach (their
-    // own plus delegated). Connected secondary inboxes share the owner's
-    // user_id; delegated inboxes index under their own, so collect the
-    // distinct macro_ids the caller can search.
-    if should_include_emails {
-        let inboxes =
-            email_db_client::links::get::fetch_inboxes_for_macro_id(&ctx.db, user_id.as_ref())
-                .await
-                .map_err(SearchError::InternalError)?;
-        let mut email_user_ids: Vec<String> =
-            inboxes.iter().map(|l| l.macro_id.to_string()).collect();
-        email_user_ids.sort();
-        email_user_ids.dedup();
-        filter_email_response.user_ids = email_user_ids;
-    }
 
     // Clone terms for use in name searches
     let name_search_term = terms[0].clone();
@@ -417,15 +349,9 @@ pub(in crate::api::search) async fn perform_unified_search(
         .map(|c| c.content_cursor.clone())
         .unwrap_or_default();
 
-    let crm_cursor = cursor
-        .as_ref()
-        .map(|c| c.crm_company_cursor.clone())
-        .unwrap_or_default();
-
     // Clone cursors for passing to search functions (originals needed for cursor regeneration)
     let chat_cursor_for_search = chat_cursor.clone();
     let content_cursor_for_search = content_cursor.clone();
-    let crm_cursor_for_search = crm_cursor.clone();
 
     let unified_search_args = UnifiedSearchArgs {
         agent_session_search_args: AgentSessionSearchArgs {
@@ -462,9 +388,6 @@ pub(in crate::api::search) async fn perform_unified_search(
             {
                 indices.insert(models_opensearch::OpenSearchEntityType::Chats);
             }
-            if should_include_emails {
-                indices.insert(models_opensearch::OpenSearchEntityType::Emails);
-            }
             if should_include_channels && !filter_channel_response.channel_ids.is_empty() {
                 indices.insert(models_opensearch::OpenSearchEntityType::Channels);
             }
@@ -477,28 +400,18 @@ pub(in crate::api::search) async fn perform_unified_search(
             {
                 indices.insert(models_opensearch::OpenSearchEntityType::Projects);
             }
-            // An event set narrowed to nothing would be rejected by the query
-            // builder rather than matching everything, so drop the index.
-            if should_include_calendar_events
-                && !(filter_calendar_event_response.ids_only
-                    && filter_calendar_event_response.calendar_event_ids.is_empty())
-            {
-                indices.insert(models_opensearch::OpenSearchEntityType::CalendarEvents);
-            }
             indices
         },
         document_search_args: filter_document_response.clone(),
-        email_search_args: filter_email_response.clone(),
         channel_message_search_args: filter_channel_response,
         chat_search_args: filter_chat_response.clone(),
         call_record_search_args: filter_call_record_response.clone(),
         project_search_args: filter_project_response,
-        calendar_event_search_args: filter_calendar_event_response,
     };
 
     // Call search functions in parallel for included entity types
     // search_names handles Done cursors internally by returning early
-    let (chat_results, content_results, crm_results) = tokio::join!(
+    let (chat_results, content_results) = tokio::join!(
         async {
             if should_include_chats {
                 match search_on {
@@ -525,27 +438,22 @@ pub(in crate::api::search) async fn perform_unified_search(
             }
         },
         async {
-            // Documents, email subjects, project names, call names, and
-            // calendar event titles are name-searched in OpenSearch. In Name
-            // mode keep only those indices: chats still name-search in
-            // Postgres above, and channels have no name concept. Documents
-            // match `document_name`, emails their subject, projects their
-            // `name`, calls their `name`, calendar events their `title`.
-            // Projects and calendar events have no content, so a content-only
+            // Documents, project names, and call names are name-searched in
+            // OpenSearch. In Name mode keep only those indices: chats still
+            // name-search in Postgres above, and channels have no name
+            // concept. Documents match `document_name`, projects and calls
+            // their `name`. Projects have no content, so a content-only
             // search drops them.
             let mut args = unified_search_args;
             match search_on {
                 SearchOn::Name => {
                     args.document_search_args.mode = DocumentSearchMode::Name;
                     args.call_record_search_args.mode = CallRecordSearchMode::Name;
-                    args.email_search_args.subject_only = true;
                     args.search_indices.retain(|i| {
                         *i == models_opensearch::OpenSearchEntityType::Documents
                             || *i == models_opensearch::OpenSearchEntityType::AgentSessions
-                            || *i == models_opensearch::OpenSearchEntityType::Emails
                             || *i == models_opensearch::OpenSearchEntityType::Projects
                             || *i == models_opensearch::OpenSearchEntityType::CallRecords
-                            || *i == models_opensearch::OpenSearchEntityType::CalendarEvents
                     });
                 }
                 SearchOn::NameContent => {
@@ -556,8 +464,6 @@ pub(in crate::api::search) async fn perform_unified_search(
                     args.document_search_args.mode = DocumentSearchMode::Content;
                     args.search_indices
                         .remove(&models_opensearch::OpenSearchEntityType::Projects);
-                    args.search_indices
-                        .remove(&models_opensearch::OpenSearchEntityType::CalendarEvents);
                 }
             }
             if args.search_indices.is_empty() {
@@ -568,38 +474,18 @@ pub(in crate::api::search) async fn perform_unified_search(
                 ctx.opensearch_client.search_unified(args).await
             }
         },
-        async {
-            // CRM companies are name/domain only — no content index — so
-            // they only participate under Name / NameContent.
-            match (should_include_crm, crm_access, search_on) {
-                (true, Some(access), SearchOn::Name | SearchOn::NameContent) => {
-                    crm_company::search_company_names(
-                        ctx,
-                        access,
-                        &crm_company_filters,
-                        name_search_term.clone(),
-                        page_size,
-                        crm_cursor_for_search,
-                    )
-                    .await
-                }
-                _ => Ok((vec![], SearchCursorOption::Done)),
-            }
-        },
     );
 
     // Extract results and next cursors
     let (chat_hits, chat_next_cursor) = chat_results?;
     let (content_hits, content_next_cursor) = content_results?;
-    let (crm_hits, crm_next_cursor) = crm_results?;
 
     // Track original counts before combining
     let chat_name_count = chat_hits.len();
     // Content hits are chunk-level (many per document), so the page budget counts
-    // distinct documents. Name/crm sub-searches return one row per entity, so
-    // their hit count already equals their entity count.
+    // distinct documents. The name sub-search returns one row per entity, so
+    // its hit count already equals its entity count.
     let content_count = distinct_entity_count(&content_hits);
-    let crm_count = crm_hits.len();
 
     let final_tagged = {
         // Wrap results with source tags
@@ -611,10 +497,6 @@ pub(in crate::api::search) async fn perform_unified_search(
         combined.extend(content_hits.into_iter().map(|hit| TaggedSearchHit {
             hit,
             source: SearchSource::Content,
-        }));
-        combined.extend(crm_hits.into_iter().map(|hit| TaggedSearchHit {
-            hit,
-            source: SearchSource::CrmCompany,
         }));
 
         // Sort: updated_at DESC (None to bottom), entity_id DESC as tiebreaker
@@ -645,10 +527,6 @@ pub(in crate::api::search) async fn perform_unified_search(
                 .filter(|h| h.source == SearchSource::Content)
                 .map(|h| &h.hit),
         );
-        let included_crm = final_tagged
-            .iter()
-            .filter(|h| h.source == SearchSource::CrmCompany)
-            .count();
 
         // Generate new cursors using helper function
         let new_chat_cursor = compute_next_cursor(
@@ -667,18 +545,8 @@ pub(in crate::api::search) async fn perform_unified_search(
             &content_cursor,
         );
 
-        let new_crm_cursor = compute_next_cursor(
-            &crm_next_cursor,
-            included_crm,
-            crm_count,
-            find_last_of_source(&final_tagged, SearchSource::CrmCompany),
-            &crm_cursor,
-        );
-
         // Build next cursor if any source has more results
-        let has_more = new_chat_cursor.has_more()
-            || new_content_cursor.has_more()
-            || new_crm_cursor.has_more();
+        let has_more = new_chat_cursor.has_more() || new_content_cursor.has_more();
 
         if has_more {
             let cursor = SearchCursor {
@@ -687,7 +555,6 @@ pub(in crate::api::search) async fn perform_unified_search(
                 // Projects ride the OpenSearch content cursor; the field
                 // stays only so older cursors still decode.
                 project_name_cursor: SearchCursorOption::Done,
-                crm_company_cursor: new_crm_cursor,
             };
             cursor.encode()
         } else {
@@ -733,9 +600,8 @@ pub async fn handler(
         "simple_unified_search"
     );
 
-    // CRM opt-in is wired through the unified `/search` endpoint only.
     let (results, _next_cursor) =
-        perform_unified_search(&ctx, user_context, None, query_params, req).await?;
+        perform_unified_search(&ctx, user_context, query_params, req).await?;
 
     let results = results.into_iter().map(|a| a.into()).collect();
 

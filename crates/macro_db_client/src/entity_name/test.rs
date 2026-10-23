@@ -20,16 +20,6 @@ async fn test_get_entity_name_and_owner(pool: sqlx::Pool<sqlx::Postgres>) -> any
         (Some("chat".to_string()), "macro|user@user.com".to_string())
     );
 
-    let entity_name =
-        get_entity_name_and_owner(&pool, &entity_id, &SearchEntityType::Emails).await?;
-    assert_eq!(
-        entity_name,
-        (
-            Some("subject".to_string()),
-            "macro|user@user.com".to_string()
-        )
-    );
-
     let result = get_entity_name_and_owner(&pool, &entity_id, &SearchEntityType::Projects).await;
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().to_string(), "entity type not supported");
