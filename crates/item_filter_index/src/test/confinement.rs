@@ -13,27 +13,11 @@ fn frontend_nil_exclusions_are_supported_without_indexing_deferred_entities() {
         LocalCompileOutcome::Supported(_)
     ));
 
-    // Exact forms emitted by the Email view's confine()/GraphQL translation.
+    // Exact forms emitted by the frontend's confine()/GraphQL translation.
     ast.document_filter = Some(Arc::new(Expr::val(DocumentLiteral::Id(Uuid::nil()))));
     ast.project_filter = Some(Arc::new(Expr::val(ProjectLiteral::ProjectId(Uuid::nil()))));
     ast.chat_filter = Some(Arc::new(Expr::val(ChatLiteral::ChatId(Uuid::nil()))));
-    ast.email_filter.tree = Some(Arc::new(Expr::and(
-        Expr::val(EmailLiteral::Importance(false)),
-        Expr::val(EmailLiteral::Shared(
-            item_filters::SharedEmailFilter::Exclude,
-        )),
-    )));
-    assert!(matches!(
-        mail::compile(
-            &ast,
-            request(),
-            "INBOX",
-            &[Uuid::from_u128(1)],
-            "macro|viewer@example.com"
-        )
-        .unwrap(),
-        LocalCompileOutcome::Supported(_)
-    ));
+    assert_eq!(check_soup_flat_v3(&ast, request()), Eligibility::Supported);
 }
 
 #[test]

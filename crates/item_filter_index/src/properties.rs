@@ -1,4 +1,4 @@
-//! Select-option and entity-reference filters shared by Soup and Mail.
+//! Select-option and entity-reference filters for Soup.
 //! Property snapshots are versioned independently of the immutable server capsules.
 
 use super::*;
@@ -23,11 +23,6 @@ pub fn is_property_attribute(attribute: &Token) -> bool {
     ["property-select:", "property-entity:", "property-row:"]
         .iter()
         .any(|prefix| attribute.as_str().starts_with(prefix))
-}
-
-/// A cached-Mail profile containing the same canonical message facts plus properties.
-pub fn mail_profile() -> Profile {
-    Profile::new(mail::token("soup-mail-v4"))
 }
 
 fn supported(ast: &EntityFilterAst) -> bool {
@@ -74,7 +69,7 @@ fn add_properties(
                     &mut partition.predicate,
                     PredicateExpr::None,
                 )),
-                Box::new(mail::boolean("is-favorited", true)),
+                Box::new(exact_bool(vocabulary::is_favorited(), true)),
             );
         }
     }
@@ -111,28 +106,6 @@ pub fn compile_soup(
         LocalCompileOutcome::Supported(query) => {
             add_properties(ast, query, vocabulary::profile_v6())
         }
-        unsupported => Ok(unsupported),
-    }
-}
-
-/// Compile current Mail properties while retaining readable-account and shared-grant gates.
-pub fn compile_mail(
-    ast: &EntityFilterAst,
-    request: SoupFlatRequest,
-    view: &str,
-    links: &[Uuid],
-    viewer: &str,
-) -> Result<LocalCompileOutcome, CompileError> {
-    if !supported(ast) {
-        return Ok(LocalCompileOutcome::Unsupported(
-            UnsupportedReason::GlobalProperties,
-        ));
-    }
-    let mut base = ast.clone();
-    base.properties_filter = None;
-    base.favorites_only = None;
-    match mail::compile(&base, request, view, links, viewer)? {
-        LocalCompileOutcome::Supported(query) => add_properties(ast, query, mail_profile()),
         unsupported => Ok(unsupported),
     }
 }

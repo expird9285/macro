@@ -3,15 +3,12 @@ use std::sync::Arc;
 use document_sub_type::DocumentSubType;
 use filter_ast::Expr;
 use item_filters::ast::{
-    CrmScope, EntityFilterAst,
-    calendar_event::CalendarEventLiteral,
+    EntityFilterAst,
     call::CallLiteral,
     channel::{ChannelLiteral, ChannelThreadLiteral},
     chat::ChatLiteral,
-    crm_company::CrmCompanyLiteral,
     date::DateLiteral,
     document::DocumentLiteral,
-    email::EmailLiteral,
     foreign_entity::ForeignEntityLiteral,
     project::ProjectLiteral,
     properties::{PropertiesLiteral, PropertyEntityType, PropertyMatchValue},
@@ -46,7 +43,7 @@ fn favorite_filter_requires_current_projection_and_constrains_each_partition() {
     };
     fn requires_favorite(predicate: &PredicateExpr) -> bool {
         predicate == &PredicateExpr::None
-            || predicate == &mail::boolean("is-favorited", true)
+            || predicate == &exact_bool(vocabulary::is_favorited(), true)
             || matches!(predicate, PredicateExpr::And(a, b) if requires_favorite(a) || requires_favorite(b))
     }
     for partition in &query.as_query().partitions {
@@ -59,19 +56,15 @@ fn favorite_filter_requires_current_projection_and_constrains_each_partition() {
 }
 
 fn excluded_deferred_partitions() -> EntityFilterAst {
-    let mut ast = EntityFilterAst {
-        calendar_event_filter: Some(Arc::new(Expr::val(CalendarEventLiteral::Id(Uuid::nil())))),
+    EntityFilterAst {
         channel_filter: Some(Arc::new(Expr::val(ChannelLiteral::ChannelId(Uuid::nil())))),
         channel_thread_filter: Some(Arc::new(Expr::val(ChannelThreadLiteral::ThreadId(
             Uuid::nil(),
         )))),
         call_filter: Some(Arc::new(Expr::val(CallLiteral::CallId(Uuid::nil())))),
-        crm_company_filter: Some(Arc::new(Expr::val(CrmCompanyLiteral::Id(Uuid::nil())))),
         foreign_entity_filter: Some(Arc::new(Expr::val(ForeignEntityLiteral::Id(Uuid::nil())))),
         ..EntityFilterAst::default()
-    };
-    ast.email_filter.tree = Some(Arc::new(Expr::val(EmailLiteral::ThreadId(Uuid::nil()))));
-    ast
+    }
 }
 
 fn excluded_non_document_local_partitions(ast: &mut EntityFilterAst) {
@@ -115,18 +108,15 @@ fn compiles_complete_supported_forest_after_eligibility() {
 }
 
 #[test]
-fn crm_document_literals_always_fall_back_to_the_server() {
-    use item_filters::ast::{
-        email::Email,
-        properties::{EntityRefId, PropertiesLiteral, PropertyMatchValue},
-    };
+fn entity_reference_document_literals_always_fall_back_to_the_server() {
+    use item_filters::ast::properties::EntityRefId;
     for literal in [
         DocumentLiteral::Property(PropertiesLiteral {
             property_definition_id: uuid::Uuid::from_u128(0xc),
             entity_type: None,
-            value: PropertyMatchValue::EntityRef(EntityRefId::new("company".to_string()).unwrap()),
+            value: PropertyMatchValue::EntityRef(EntityRefId::new("owner".to_string()).unwrap()),
         }),
-        DocumentLiteral::EmailAttachmentParticipant(Email::Domain("acme.com".to_string())),
+        DocumentLiteral::NameContains("renewal".into()),
     ] {
         let mut ast = excluded_deferred_partitions();
         ast.document_filter = Some(Arc::new(Expr::val(literal)));
@@ -147,8 +137,6 @@ fn crm_document_literals_always_fall_back_to_the_server() {
 #[test]
 fn production_documents_membership_literals_require_and_compile_in_v2() {
     for literal in [
-        DocumentLiteral::IsEmailAttachment(false),
-        DocumentLiteral::IsEmailAttachment(true),
         DocumentLiteral::SubType(DocumentSubType::Task),
         DocumentLiteral::SubType(DocumentSubType::Snippet),
         DocumentLiteral::SubType(DocumentSubType::Skill),
@@ -169,12 +157,12 @@ fn production_documents_membership_literals_require_and_compile_in_v2() {
 }
 
 #[test]
-fn v2_subtype_and_attachment_preserve_direct_and_or_not_shapes() {
+fn v2_subtype_preserves_direct_and_or_not_shapes() {
     let mut ast = excluded_deferred_partitions();
     ast.document_filter = Some(Arc::new(Expr::and(
         Expr::val(DocumentLiteral::SubType(DocumentSubType::Task)),
         Expr::or(
-            Expr::val(DocumentLiteral::IsEmailAttachment(true)),
+            Expr::val(DocumentLiteral::SubType(DocumentSubType::Skill)),
             Expr::is_not(Expr::val(DocumentLiteral::SubType(
                 DocumentSubType::Snippet,
             ))),
@@ -194,8 +182,8 @@ fn v2_subtype_and_attachment_preserve_direct_and_or_not_shapes() {
             }),
             Box::new(PredicateExpr::Or(
                 Box::new(PredicateExpr::Exact {
-                    attribute: vocabulary::email_attachment(),
-                    value: ExactValue::new([1]).unwrap(),
+                    attribute: vocabulary::document_sub_type(),
+                    value: ExactValue::utf8("skill").unwrap(),
                 }),
                 Box::new(PredicateExpr::Not(Box::new(PredicateExpr::Exact {
                     attribute: vocabulary::document_sub_type(),
@@ -203,22 +191,6 @@ fn v2_subtype_and_attachment_preserve_direct_and_or_not_shapes() {
                 }))),
             )),
         )
-    );
-
-    let mut ast = excluded_deferred_partitions();
-    ast.document_filter = Some(Arc::new(Expr::val(DocumentLiteral::IsEmailAttachment(
-        false,
-    ))));
-    let LocalCompileOutcome::Supported(query) = compile_soup_flat_v2(&ast, request()).unwrap()
-    else {
-        panic!("direct v2 attachment literal fell back");
-    };
-    assert_eq!(
-        query.as_query().partitions[0].predicate,
-        PredicateExpr::Exact {
-            attribute: vocabulary::email_attachment(),
-            value: ExactValue::new([0]).unwrap(),
-        }
     );
 }
 
@@ -306,7 +278,7 @@ fn v3_rejects_non_status_properties_and_unrestricted_local_partitions() {
 fn unsupported_supported_partition_literals_force_v1_and_v2_network_fallback() {
     for expression in [
         Expr::and(
-            Expr::val(DocumentLiteral::IsEmailAttachment(false)),
+            Expr::val(DocumentLiteral::SubType(DocumentSubType::Task)),
             Expr::val(DocumentLiteral::Importance(true)),
         ),
         Expr::or(
@@ -392,14 +364,6 @@ fn every_deferred_partition_must_be_proven_empty() {
     assert_eq!(
         check_soup_flat_v1(&ast, request()),
         Eligibility::Unsupported(UnsupportedReason::GlobalProperties)
-    );
-
-    let mut ast = excluded_deferred_partitions();
-    ast.email_filter.tree = None;
-    ast.email_filter.crm_scope = Some(CrmScope::Domains(vec!["example.com".to_owned()]));
-    assert_eq!(
-        check_soup_flat_v1(&ast, request()),
-        Eligibility::Unsupported(UnsupportedReason::Partition("email"))
     );
 }
 
@@ -518,40 +482,4 @@ fn a_tables_rows_compile_to_the_database_row_partition() {
         check_soup_flat_v3(&ast, request()),
         Eligibility::Unsupported(UnsupportedReason::Partition("database_row"))
     );
-}
-
-#[test]
-fn contact_queries_require_server_authorization_and_deduplication() {
-    let mut ast = excluded_deferred_partitions();
-    ast.crm_contact_filter = Some(Arc::new(Expr::val(CrmContactLiteral::Include)));
-    assert_eq!(
-        check_soup_flat_v3(&ast, request()),
-        Eligibility::Unsupported(UnsupportedReason::Partition("crmContact"))
-    );
-    ast.crm_contact_filter = Some(Arc::new(Expr::val(CrmContactLiteral::Id(Uuid::nil()))));
-    assert_eq!(check_soup_flat_v3(&ast, request()), Eligibility::Supported);
-}
-
-#[test]
-fn crm_associations_use_server_membership() {
-    use item_filters::ast::crm_association::CrmAssociation;
-    let record = CrmAssociation::Company(Uuid::from_u128(0xc0));
-    let mut ast = excluded_deferred_partitions();
-    ast.crm_association = Some(record);
-    assert_eq!(
-        check_soup_flat_v3(&ast, request()),
-        Eligibility::Unsupported(UnsupportedReason::Literal("crm_association"))
-    );
-
-    for literal in [
-        DocumentLiteral::CrmAssociated(record),
-        DocumentLiteral::NameContains("renewal".into()),
-    ] {
-        let mut ast = excluded_deferred_partitions();
-        ast.document_filter = Some(Arc::new(Expr::val(literal)));
-        assert_eq!(
-            check_soup_flat_v3(&ast, request()),
-            Eligibility::Unsupported(UnsupportedReason::Literal("document"))
-        );
-    }
 }

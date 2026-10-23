@@ -5,16 +5,12 @@ use filter_ast::Expr;
 use item_filters::ast::{
     EntityFilterAst,
     agent_session::AgentSessionLiteral,
-    calendar_event::CalendarEventLiteral,
     call::CallLiteral,
     channel::{ChannelLiteral, ChannelThreadLiteral},
     chat::ChatLiteral,
-    crm_company::CrmCompanyLiteral,
-    crm_contact::CrmContactLiteral,
     database_row::{DatabaseRowLiteral, database_rows_requested},
     date::DateLiteral,
     document::DocumentLiteral,
-    email::EmailLiteral,
     foreign_entity::ForeignEntityLiteral,
     project::ProjectLiteral,
     properties::{PropertiesLiteral, PropertyEntityType, PropertyMatchValue},
@@ -31,7 +27,6 @@ mod test;
 
 mod channels;
 mod document;
-pub mod mail;
 pub mod properties;
 
 /// Stable direct-field profile name retained for existing browser projections.
@@ -170,9 +165,16 @@ pub mod vocabulary {
         token("document-sub-type")
     }
 
-    /// Explicit document email-attachment Boolean attribute.
+    /// Legacy document email-attachment Boolean attribute. Projections still
+    /// emit it (always false) so existing capsules and profile validation stay
+    /// valid; no filter reads it.
     pub fn email_attachment() -> Token {
         token("email-attachment")
+    }
+
+    /// Viewer-relative favorite Boolean attribute.
+    pub fn is_favorited() -> Token {
+        token("is-favorited")
     }
 
     /// Viewer-relative document importance Boolean attribute.
@@ -294,11 +296,6 @@ fn check_soup_flat(
     if ast.favorites_only == Some(true) {
         return Eligibility::Unsupported(UnsupportedReason::Literal("favorites"));
     }
-    // Association membership is resolved by the server from CRM records,
-    // properties, and references that no local row carries.
-    if ast.crm_association.is_some() {
-        return Eligibility::Unsupported(UnsupportedReason::Literal("crm_association"));
-    }
     if request.has_cursor {
         return Eligibility::Unsupported(UnsupportedReason::Cursor);
     }
@@ -345,21 +342,6 @@ fn check_soup_flat(
     }
 
     for result in [
-        unsupported_partition(
-            ast.calendar_event_filter.as_deref(),
-            "calendarEvent",
-            |literal| matches!(literal, CalendarEventLiteral::Id(id) if id.is_nil()),
-        ),
-        unsupported_partition(
-            ast.email_filter.tree.as_deref(),
-            "email",
-            |literal| matches!(literal, EmailLiteral::ThreadId(id) if id.is_nil()),
-        ),
-        if ast.email_filter.crm_scope.is_some() {
-            Err(UnsupportedReason::Partition("email"))
-        } else {
-            Ok(())
-        },
         if supports_notifications {
             channels::check(ast.channel_filter.as_deref())
         } else {
@@ -380,11 +362,6 @@ fn check_soup_flat(
             |literal| matches!(literal, CallLiteral::CallId(id) if id.is_nil()),
         ),
         unsupported_partition(
-            ast.crm_company_filter.as_deref(),
-            "crmCompany",
-            |literal| matches!(literal, CrmCompanyLiteral::Id(id) if id.is_nil()),
-        ),
-        unsupported_partition(
             ast.foreign_entity_filter.as_deref(),
             "foreignEntity",
             |literal| matches!(literal, ForeignEntityLiteral::Id(id) if id.is_nil()),
@@ -402,14 +379,6 @@ fn check_soup_flat(
     // These opt-in partitions are empty when omitted. The UI's confine()
     // also excludes them with a positive nil ID. Accept only proven emptiness,
     // not arbitrary trees over partitions that have no local index.
-    if ast.crm_contact_filter.as_deref().is_some_and(|expr| {
-        !proves_none(
-            expr,
-            |literal| matches!(literal, CrmContactLiteral::Id(id) if id.is_nil()),
-        )
-    }) {
-        return Eligibility::Unsupported(UnsupportedReason::Partition("crmContact"));
-    }
     if ast.agent_session_filter.as_deref().is_some_and(|expr| {
         !proves_none(
             expr,
@@ -672,11 +641,7 @@ fn supported_document_literal_v1(literal: &DocumentLiteral) -> bool {
 }
 
 fn supported_document_literal_v2(literal: &DocumentLiteral) -> bool {
-    supported_document_literal_v1(literal)
-        || matches!(
-            literal,
-            DocumentLiteral::SubType(_) | DocumentLiteral::IsEmailAttachment(_)
-        )
+    supported_document_literal_v1(literal) || matches!(literal, DocumentLiteral::SubType(_))
 }
 
 fn supported_document_literal_v3(literal: &DocumentLiteral) -> bool {
@@ -774,16 +739,9 @@ fn compile_document_literal(
         DocumentLiteral::SubType(sub_type) if supports_v2_facts => {
             return exact_utf8(vocabulary::document_sub_type(), sub_type.to_string());
         }
-        DocumentLiteral::IsEmailAttachment(value) if supports_v2_facts => PredicateExpr::Exact {
-            attribute: vocabulary::email_attachment(),
-            value: ExactValue::new([u8::from(*value)])
-                .expect("canonical Boolean exact value is bounded"),
-        },
-        DocumentLiteral::Importance(value) if supports_v3_facts => PredicateExpr::Exact {
-            attribute: vocabulary::importance(),
-            value: ExactValue::new([u8::from(*value)])
-                .expect("canonical Boolean exact value is bounded"),
-        },
+        DocumentLiteral::Importance(value) if supports_v3_facts => {
+            exact_bool(vocabulary::importance(), *value)
+        }
         DocumentLiteral::CreatedAt(date) => date_expr(vocabulary::created_at(), date),
         DocumentLiteral::UpdatedAt(date) => date_expr(vocabulary::updated_at(), date),
         _ => unreachable!("eligibility checked document literal"),
@@ -829,6 +787,15 @@ fn compile_database_row_literal(literal: &DatabaseRowLiteral) -> PredicateExpr {
     match literal {
         DatabaseRowLiteral::TableId(id) => exact_uuid(vocabulary::table_id(), id),
         DatabaseRowLiteral::Id(id) => exact_uuid(vocabulary::id(), id),
+    }
+}
+
+/// Canonical Boolean posting shared by projection and compiler.
+pub fn exact_bool(attribute: Token, value: bool) -> PredicateExpr {
+    PredicateExpr::Exact {
+        attribute,
+        value: ExactValue::new([u8::from(value)])
+            .expect("canonical Boolean exact value is bounded"),
     }
 }
 
