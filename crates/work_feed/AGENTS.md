@@ -11,7 +11,7 @@ list of things that need the viewer's attention plus work they recently did.
 - `src/domain/policy.rs`: item membership policy — what belongs in the feed.
 - `src/domain/stacking.rs`: how related notifications collapse into one entry.
 - `src/domain/realtime.rs`: live-update signals.
-- `src/outbound/source.rs`: adapters over Soup, notifications, email, and
+- `src/outbound/source.rs`: adapters over Soup, notifications, and
   activity that supply the underlying items.
 
 ## Scope
@@ -23,7 +23,7 @@ list of things that need the viewer's attention plus work they recently did.
 ## Boundaries
 
 - Depends on: `entity_access`, `filter_ast`, `item_filters`, `notification`,
-  `model_notifications`; optional `activity`, `email`, `soup`, `soup_realtime`,
+  `model_notifications`; optional `activity`, `soup`, `soup_realtime`,
   `models_soup` (feature `outbound`).
 - Used by: `services/document_storage_service`, `crates/graphql_work_feed`,
   `crates/complete_graph`.

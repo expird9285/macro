@@ -2,14 +2,14 @@ use std::sync::Mutex;
 
 use macro_user_id::user_id::MacroUserIdStr;
 use notification::domain::models::NotificationState;
-use serde_json::json;
+use uuid::Uuid;
 
 use super::*;
 use crate::domain::{
     models::{
         WorkFeedItemType, WorkFeedMode, WorkFeedPosition, WorkFeedRevision, WorkFeedStackKind,
     },
-    ports::{MailFacts, SourcePage},
+    ports::{EntityFacts, SourcePage},
     test_support::*,
 };
 
@@ -17,8 +17,6 @@ const DOC: u128 = 0xD0;
 const OTHER_DOC: u128 = 0xD1;
 const CHANNEL: u128 = 0xC0;
 const THREAD: u128 = 0x70;
-const MAIL: u128 = 0xE0;
-const SENT_MAIL: u128 = 0xE1;
 
 /// A source serving a fixed, ordered feed of labelled candidates.
 #[derive(Default)]
@@ -156,23 +154,6 @@ impl WorkFeedNotifications for FakeNotifications {
 }
 
 #[derive(Default)]
-struct FakeMail {
-    calls: Mutex<Vec<(Uuid, bool)>>,
-}
-
-impl WorkFeedMail for FakeMail {
-    async fn set_archived(
-        &self,
-        _user: MacroUserIdStr<'static>,
-        thread_id: Uuid,
-        archived: bool,
-    ) -> Result<(), Report> {
-        self.calls.lock().unwrap().push((thread_id, archived));
-        Ok(())
-    }
-}
-
-#[derive(Default)]
 struct FakeSignals {
     calls: Mutex<Vec<Vec<Entity<'static>>>>,
 }
@@ -183,13 +164,12 @@ impl WorkFeedSignals for FakeSignals {
     }
 }
 
-type Service = WorkFeedServiceImpl<FakeSource, FakeNotifications, FakeMail, FakeSignals>;
+type Service = WorkFeedServiceImpl<FakeSource, FakeNotifications, FakeSignals>;
 
 fn service(items: Vec<SourceItem<&'static str>>, notifications: Vec<FeedNotification>) -> Service {
     WorkFeedServiceImpl::new(
         FakeSource::with(items),
         FakeNotifications::with(notifications),
-        FakeMail::default(),
         FakeSignals::default(),
     )
 }
@@ -217,39 +197,6 @@ fn candidate(
         touched_at,
         sort_at: attention_at.max(touched_at).unwrap(),
     }
-}
-
-fn mail_candidate(
-    label: &'static str,
-    id: u128,
-    attention: Option<u32>,
-    touched: Option<u32>,
-    mail: MailFacts,
-) -> SourceItem<&'static str> {
-    let mut item = candidate(
-        label,
-        entity(EntityType::EmailThread, id),
-        attention,
-        touched,
-    );
-    item.facts.mail = Some(mail);
-    item
-}
-
-fn new_email(id: u128, thread: u128, minute: u32, state: NotificationState) -> FeedNotification {
-    notification(
-        id,
-        entity(EntityType::EmailThread, thread),
-        "new_email",
-        json!({
-            "toEmail": "viewer@example.com",
-            "threadId": uuid(thread),
-            "subject": "Hello",
-            "snippet": "...",
-        }),
-        minute,
-        state,
-    )
 }
 
 fn query() -> WorkFeedQuery {
@@ -288,39 +235,16 @@ async fn page_assembles_stacked_items_in_feed_order() {
                 Some(6),
                 None,
             ),
-            mail_candidate(
-                "mail",
-                MAIL,
-                Some(4),
-                None,
-                MailFacts {
-                    inbox_visible: true,
-                    is_read: false,
-                },
-            ),
-            mail_candidate(
-                "sent",
-                SENT_MAIL,
-                None,
-                Some(3),
-                MailFacts {
-                    inbox_visible: false,
-                    is_read: true,
-                },
-            ),
         ],
         vec![
             doc_comment(1, DOC, 0xA0, 0xA0, 5),
             channel_reply(2, CHANNEL, THREAD, 0x71, 6),
-            new_email(3, MAIL, 4, NotificationState::Seen),
-            // Outside the inbox, mail attention no longer counts.
-            new_email(4, SENT_MAIL, 2, NotificationState::Unseen),
         ],
     );
 
     let page = service.page(viewer(), query()).await.unwrap();
     let labels: Vec<_> = page.entries.iter().map(|e| e.item.entity).collect();
-    assert_eq!(labels, vec!["doc", "thread", "mail", "sent"]);
+    assert_eq!(labels, vec!["doc", "thread"]);
 
     // doc-A: own work is newer, but its older comment keeps it unseen.
     let doc = &page.entries[0].item;
@@ -337,14 +261,6 @@ async fn page_assembles_stacked_items_in_feed_order() {
         WorkFeedPrimaryReason::Attention { stack: 0 }
     );
     assert_eq!(thread.stacks[0].kind, WorkFeedStackKind::ChannelThread);
-
-    // Unread mail is unseen even when its notification was seen.
-    assert_eq!(page.entries[2].item.state, WorkFeedItemState::Unseen);
-
-    let sent = &page.entries[3].item;
-    assert!(sent.notifications.is_empty());
-    assert_eq!(sent.state, WorkFeedItemState::Seen);
-    assert_eq!(sent.primary, WorkFeedPrimaryReason::OwnWork);
 
     // The thread and its channel share one notification load.
     let loads = service.notifications.loads.lock().unwrap();
@@ -371,7 +287,7 @@ async fn page_forwards_scope_and_cursor_to_the_source() {
     );
     let mut query = query();
     query.scope.mode = WorkFeedMode::Attention;
-    query.scope.types = vec![WorkFeedItemType::Email, WorkFeedItemType::ChannelThread];
+    query.scope.types = vec![WorkFeedItemType::Document, WorkFeedItemType::ChannelThread];
     query.after = Some(WorkFeedPosition {
         sort_at: at(30),
         entity_id: "x".to_string(),
@@ -382,7 +298,7 @@ async fn page_forwards_scope_and_cursor_to_the_source() {
     assert_eq!(requests[0].mode, WorkFeedMode::Attention);
     assert_eq!(
         requests[0].types,
-        vec![EntityType::EmailThread, EntityType::ChannelMessage]
+        vec![EntityType::Document, EntityType::ChannelMessage]
     );
     assert_eq!(requests[0].after.as_ref().unwrap().sort_at, at(30));
     assert!(requests[0].only.is_none());
@@ -459,7 +375,6 @@ async fn done_acknowledges_only_what_was_observed() {
         service.notifications.state_of(uuid(2)),
         NotificationState::Unseen
     );
-    assert!(outcome.receipt.archived_threads.is_empty());
     // Every session of the viewer is told the item changed.
     assert_eq!(
         *service.signals.calls.lock().unwrap(),
@@ -469,20 +384,17 @@ async fn done_acknowledges_only_what_was_observed() {
 
 #[tokio::test]
 async fn done_without_a_revision_completes_everything_current() {
-    let inbox = MailFacts {
-        inbox_visible: true,
-        is_read: true,
-    };
-    let sent = MailFacts {
-        inbox_visible: false,
-        is_read: true,
-    };
     let service = service(
         vec![
-            mail_candidate("mail", MAIL, Some(4), None, inbox),
-            mail_candidate("sent", SENT_MAIL, None, Some(3), sent),
+            candidate("doc", entity(EntityType::Document, DOC), Some(4), None),
+            candidate(
+                "worked",
+                entity(EntityType::Document, OTHER_DOC),
+                None,
+                Some(3),
+            ),
         ],
-        vec![new_email(1, MAIL, 4, NotificationState::Unseen)],
+        vec![doc_comment(1, DOC, 0xA0, 0xA0, 4)],
     );
 
     let outcome = service
@@ -490,11 +402,11 @@ async fn done_without_a_revision_completes_everything_current() {
             viewer(),
             vec![
                 WorkFeedDoneTarget {
-                    key: key(entity(EntityType::EmailThread, MAIL)),
+                    key: key(entity(EntityType::Document, DOC)),
                     revision: None,
                 },
                 WorkFeedDoneTarget {
-                    key: key(entity(EntityType::EmailThread, SENT_MAIL)),
+                    key: key(entity(EntityType::Document, OTHER_DOC)),
                     revision: None,
                 },
             ],
@@ -502,14 +414,13 @@ async fn done_without_a_revision_completes_everything_current() {
         .await
         .unwrap();
 
+    // Only the item with attention is acknowledged; the own-work item has
+    // nothing to complete and done leaves it alone.
     assert_eq!(outcome.receipt.notification_ids, vec![uuid(1)]);
-    // Only the inbox thread is archived; the sent thread is own work, which
-    // done leaves alone.
     assert_eq!(
-        *service.mail.calls.lock().unwrap(),
-        vec![(uuid(MAIL), true)]
+        service.notifications.state_of(uuid(1)),
+        NotificationState::Done
     );
-    assert_eq!(outcome.receipt.archived_threads, vec![uuid(MAIL)]);
 }
 
 #[tokio::test]
@@ -539,7 +450,6 @@ async fn done_leaves_own_work_alone() {
     assert_eq!(outcome.items, vec![doc]);
     assert!(outcome.receipt.notification_ids.is_empty());
     assert!(service.notifications.done_calls.lock().unwrap().is_empty());
-    assert!(service.mail.calls.lock().unwrap().is_empty());
 }
 
 #[tokio::test]
@@ -563,22 +473,23 @@ async fn done_on_an_item_already_gone_changes_nothing() {
 
 #[tokio::test]
 async fn undo_reverses_exactly_one_done() {
-    let inbox = MailFacts {
-        inbox_visible: true,
-        is_read: true,
-    };
     let service = service(
         vec![
             candidate("doc", entity(EntityType::Document, DOC), Some(5), Some(9)),
-            mail_candidate("mail", MAIL, Some(4), None, inbox),
+            candidate(
+                "other",
+                entity(EntityType::Document, OTHER_DOC),
+                Some(4),
+                None,
+            ),
         ],
         vec![
             doc_comment(1, DOC, 0xA0, 0xA0, 5),
-            new_email(2, MAIL, 4, NotificationState::Unseen),
+            doc_comment(2, OTHER_DOC, 0xB0, 0xB0, 4),
         ],
     );
     let doc = key(entity(EntityType::Document, DOC));
-    let mail = key(entity(EntityType::EmailThread, MAIL));
+    let other = key(entity(EntityType::Document, OTHER_DOC));
     let outcome = service
         .mark_done(
             viewer(),
@@ -588,7 +499,7 @@ async fn undo_reverses_exactly_one_done() {
                     revision: None,
                 },
                 WorkFeedDoneTarget {
-                    key: mail.clone(),
+                    key: other.clone(),
                     revision: None,
                 },
             ],
@@ -610,10 +521,6 @@ async fn undo_reverses_exactly_one_done() {
     assert_eq!(
         service.notifications.state_of(uuid(2)),
         NotificationState::Seen
-    );
-    assert_eq!(
-        *service.mail.calls.lock().unwrap(),
-        vec![(uuid(MAIL), true), (uuid(MAIL), false)]
     );
     assert_eq!(changes.len(), 2);
     assert!(

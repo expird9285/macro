@@ -1,9 +1,5 @@
 //! Feed candidates from the Soup service.
 
-use std::sync::Arc;
-
-use cowlike::CowLike;
-use email::domain::ports::EmailService;
 use models_soup::item::SoupItem;
 use rootcause::Report;
 use soup::domain::{
@@ -15,20 +11,18 @@ use soup::domain::{
 
 use crate::domain::{
     models::{WorkFeedMode, WorkFeedPosition},
-    ports::{EntityFacts, MailFacts, SourceItem, SourcePage, SourceRequest, WorkFeedSource},
+    ports::{EntityFacts, SourceItem, SourcePage, SourceRequest, WorkFeedSource},
 };
 
 /// Candidates from Soup's work feed query, hydrated as Soup items.
-pub struct SoupWorkFeedSource<S, E> {
+pub struct SoupWorkFeedSource<S> {
     soup: S,
-    email: Arc<E>,
 }
 
-impl<S, E> SoupWorkFeedSource<S, E> {
-    /// Create a source over the Soup service; the email service resolves the
-    /// viewer's readable inboxes.
-    pub fn new(soup: S, email: Arc<E>) -> Self {
-        Self { soup, email }
+impl<S> SoupWorkFeedSource<S> {
+    /// Create a source over the Soup service.
+    pub fn new(soup: S) -> Self {
+        Self { soup }
     }
 }
 
@@ -37,41 +31,23 @@ fn facts(item: &SoupItem<()>) -> EntityFacts {
     match item {
         SoupItem::ChannelThread(thread) => EntityFacts {
             thread_channel: Some(thread.channel_id),
-            mail: None,
-        },
-        SoupItem::EmailThread(thread) => EntityFacts {
-            thread_channel: None,
-            mail: Some(MailFacts {
-                inbox_visible: thread.thread.inbox_visible,
-                is_read: thread.thread.is_read,
-            }),
         },
         _ => EntityFacts::default(),
     }
 }
 
-impl<S, E> WorkFeedSource for SoupWorkFeedSource<S, E>
+impl<S> WorkFeedSource for SoupWorkFeedSource<S>
 where
     S: SoupService,
-    E: EmailService,
 {
     type Entity = SoupProjectionHydration;
 
     async fn page(&self, request: SourceRequest) -> Result<SourcePage<Self::Entity>, Report> {
-        let link_ids = self
-            .email
-            .get_inboxes_for_macro_id(request.viewer.user.copied())
-            .await
-            .map_err(|error| rootcause::report!("failed to list inboxes: {error}"))?
-            .into_iter()
-            .map(|link| link.id)
-            .collect();
         let page = self
             .soup
             .get_work_feed_page(
                 WorkFeedSoupRequest {
                     user: request.viewer.user.clone(),
-                    link_ids,
                     limit: request.limit,
                     mode: match request.mode {
                         WorkFeedMode::Work => WorkFeedSoupMode::Work,

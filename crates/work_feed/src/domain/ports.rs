@@ -18,17 +18,6 @@ use super::models::{
 pub struct EntityFacts {
     /// For a channel thread, the channel whose notifications it shares.
     pub thread_channel: Option<Uuid>,
-    /// For an email thread, its mailbox state.
-    pub mail: Option<MailFacts>,
-}
-
-/// An email thread's mailbox state.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MailFacts {
-    /// The thread is in the inbox (not archived).
-    pub inbox_visible: bool,
-    /// The thread has no unread mail.
-    pub is_read: bool,
 }
 
 /// A request for one page of hydrated candidates.
@@ -105,17 +94,6 @@ pub trait WorkFeedNotifications: Send + Sync + 'static {
         notification_ids: Vec<Uuid>,
         done: bool,
     ) -> impl Future<Output = Result<Vec<Uuid>, Report>> + Send;
-}
-
-/// Archives email threads; mail's notion of done.
-pub trait WorkFeedMail: Send + Sync + 'static {
-    /// Archive or unarchive one of the viewer's threads.
-    fn set_archived(
-        &self,
-        user: MacroUserIdStr<'static>,
-        thread_id: Uuid,
-        archived: bool,
-    ) -> impl Future<Output = Result<(), Report>> + Send;
 }
 
 /// Tells the viewer's other sessions that items changed in ways their

@@ -39,7 +39,6 @@ fn tokens_round_trip() {
     let receipt = WorkFeedDoneReceipt {
         items: vec![format!("document:{}", uuid(1))],
         notification_ids: vec![uuid(2)],
-        archived_threads: vec![uuid(3)],
     };
     assert_eq!(
         WorkFeedDoneReceipt::decode(&receipt.encode()).unwrap(),

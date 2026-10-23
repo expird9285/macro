@@ -16,11 +16,11 @@ fn no_types_means_every_type() {
 fn types_keep_request_order_without_duplicates() {
     assert_eq!(
         candidate_types(&[
-            WorkFeedItemType::Email,
+            WorkFeedItemType::Chat,
             WorkFeedItemType::Document,
-            WorkFeedItemType::Email,
+            WorkFeedItemType::Chat,
         ]),
-        vec![EntityType::EmailThread, EntityType::Document]
+        vec![EntityType::Chat, EntityType::Document]
     );
 }
 
@@ -33,7 +33,6 @@ fn signal_filter_matches_home_signal() {
         "agent sessions are opted in"
     );
     assert!(filter.initiative_filter.is_none(), "initiatives stay out");
-    assert!(filter.email_filter.tree.is_some());
     assert!(filter.channel_thread_filter.is_some());
     assert!(filter.foreign_entity_filter.is_some());
 

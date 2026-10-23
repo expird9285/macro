@@ -9,13 +9,9 @@ use std::sync::Arc;
 
 use document_sub_type::DocumentSubType;
 use filter_ast::Expr;
-use item_filters::{
-    SharedEmailFilter,
-    ast::{
-        EmailFilterAst, EntityFilterAst, agent_session::AgentSessionLiteral,
-        channel::ChannelThreadLiteral, document::DocumentLiteral, email::EmailLiteral,
-        foreign_entity::ForeignEntityLiteral,
-    },
+use item_filters::ast::{
+    EntityFilterAst, agent_session::AgentSessionLiteral, channel::ChannelThreadLiteral,
+    document::DocumentLiteral, foreign_entity::ForeignEntityLiteral,
 };
 use macro_user_id::user_id::MacroUserIdStr;
 use model_entity::EntityType;
@@ -30,8 +26,6 @@ const GITHUB_PULL_REQUEST_SOURCE: &str = "github_pull_request";
 
 /// The Signal membership filter for `user`.
 ///
-/// - Email is Signal-classified and the viewer's own (not shared) mail;
-///   Noise mail stays out even when the viewer touches it.
 /// - Channel threads include the viewer as a participant.
 /// - Pull requests include the viewer.
 /// - Agent sessions are opted in (Soup excludes them by default).
@@ -43,13 +37,6 @@ pub fn signal_filter(user: &MacroUserIdStr<'static>, include_snippets: bool) -> 
                 DocumentSubType::Snippet,
             ))))
         }),
-        email_filter: EmailFilterAst {
-            tree: Some(Arc::new(Expr::and(
-                Expr::val(EmailLiteral::Importance(true)),
-                Expr::val(EmailLiteral::Shared(SharedEmailFilter::Exclude)),
-            ))),
-            crm_scope: None,
-        },
         channel_thread_filter: Some(Arc::new(Expr::val(ChannelThreadLiteral::Participant(
             user.clone(),
         )))),

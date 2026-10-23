@@ -46,14 +46,10 @@ pub enum WorkFeedItemType {
     Chat,
     /// Projects (folders).
     Project,
-    /// Email threads.
-    Email,
     /// Channel activity outside a dedicated thread item.
     Channel,
     /// One channel thread.
     ChannelThread,
-    /// Calendar reminders.
-    CalendarEvent,
     /// GitHub pull requests.
     PullRequest,
     /// Agent sessions.
@@ -62,14 +58,12 @@ pub enum WorkFeedItemType {
 
 impl WorkFeedItemType {
     /// Every item type, the default selection.
-    pub const ALL: [WorkFeedItemType; 9] = [
+    pub const ALL: [WorkFeedItemType; 7] = [
         Self::Document,
         Self::Chat,
         Self::Project,
-        Self::Email,
         Self::Channel,
         Self::ChannelThread,
-        Self::CalendarEvent,
         Self::PullRequest,
         Self::AgentSession,
     ];
@@ -80,10 +74,8 @@ impl WorkFeedItemType {
             Self::Document => EntityType::Document,
             Self::Chat => EntityType::Chat,
             Self::Project => EntityType::Project,
-            Self::Email => EntityType::EmailThread,
             Self::Channel => EntityType::Channel,
             Self::ChannelThread => EntityType::ChannelMessage,
-            Self::CalendarEvent => EntityType::CalendarEvent,
             Self::PullRequest => EntityType::ForeignEntity,
             Self::AgentSession => EntityType::AgentSession,
         }
@@ -394,9 +386,6 @@ pub struct WorkFeedDoneReceipt {
     /// Notifications this operation moved to done.
     #[serde(rename = "n", default)]
     pub notification_ids: Vec<Uuid>,
-    /// Email threads this operation archived.
-    #[serde(rename = "e", default)]
-    pub archived_threads: Vec<Uuid>,
 }
 
 /// An undo token that does not decode.

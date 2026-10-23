@@ -7,7 +7,7 @@
 //!
 //! - **domain**: item identity, membership policy, notification stacking,
 //!   seen/done state, and the page, recompute, done and undo use cases.
-//! - **outbound**: adapters over the Soup, notification, email, activity and
+//! - **outbound**: adapters over the Soup, notification, activity and
 //!   realtime services that own the underlying data.
 
 pub mod domain;
