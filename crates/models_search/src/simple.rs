@@ -33,18 +33,6 @@ pub struct SearchGotoChat {
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone, ToSchema, JsonSchema)]
-pub struct SearchGotoEmail {
-    /// The email message id
-    pub email_message_id: uuid::Uuid,
-    pub bcc: Vec<String>,
-    pub cc: Vec<String>,
-    pub labels: Vec<String>,
-    pub sent_at: Option<DateTime<Utc>>,
-    pub sender: String,
-    pub recipients: Vec<String>,
-}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, ToSchema, JsonSchema)]
 pub struct SearchGotoChannel {
     /// The channel message id
     pub channel_message_id: uuid::Uuid,
@@ -68,7 +56,6 @@ pub enum SearchGotoContent {
     AgentSessions(crate::agent_session::SearchGotoAgentSession),
     Documents(SearchGotoDocument),
     Chats(SearchGotoChat),
-    Emails(SearchGotoEmail),
     Channels(SearchGotoChannel),
     CallRecords(SearchGotoCallRecord),
 }
@@ -89,17 +76,6 @@ impl From<opensearch_client::search::model::SearchGotoContent> for SearchGotoCon
                 SearchGotoContent::Chats(SearchGotoChat {
                     chat_message_id: a.chat_message_id,
                     role: a.role,
-                })
-            }
-            opensearch_client::search::model::SearchGotoContent::Emails(a) => {
-                SearchGotoContent::Emails(SearchGotoEmail {
-                    email_message_id: a.email_message_id,
-                    bcc: a.bcc,
-                    cc: a.cc,
-                    labels: a.labels,
-                    sent_at: a.sent_at,
-                    sender: a.sender,
-                    recipients: a.recipients,
                 })
             }
             opensearch_client::search::model::SearchGotoContent::Channels(a) => {
@@ -125,7 +101,7 @@ impl From<opensearch_client::search::model::SearchGotoContent> for SearchGotoCon
 /// Simple response item to mimic what we get back from opensearch
 #[derive(Debug, serde::Serialize, serde::Deserialize, ToSchema, JsonSchema)]
 pub struct SimpleSearchResponseItem {
-    /// ID of the chat, channel, email, or document
+    /// ID of the chat, channel, or document
     pub entity_id: uuid::Uuid,
     pub entity_type: String,
     pub score: Option<f64>,

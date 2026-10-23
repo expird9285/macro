@@ -5,17 +5,16 @@ use crate::call_record::CallRecordSearchResponseItemWithMetadata;
 use crate::channel::{ChannelMessageSearchResponseItem, ChannelNameSearchResponseItem};
 use crate::chat::ChatSearchResponseItemWithMetadata;
 use crate::document::DocumentSearchResponseItemWithMetadata;
-use crate::email::EmailSearchResponseItemWithMetadata;
 use crate::project::ProjectSearchResponseItemWithMetadata;
 use crate::{
     MatchType, SearchOn, call_record::SimpleCallRecordSearchResponseBaseItem,
     channel::SimpleChannelSearchReponseBaseItem, chat::SimpleChatSearchResponseBaseItem,
-    document::SimpleDocumentSearchResponseBaseItem, email::SimpleEmailSearchResponseBaseItem,
+    document::SimpleDocumentSearchResponseBaseItem,
     project::SimpleProjectSearchResponseBaseItem,
 };
 use item_filters::{
-    CalendarEventFilters, CallFilters, ChannelFilters, ChatFilters, DocumentFilters, EmailFilters,
-    EntityFilters, ProjectFilters, ast::document::resolve_file_types,
+    CallFilters, ChannelFilters, ChatFilters, DocumentFilters, EntityFilters, ProjectFilters,
+    ast::document::resolve_file_types,
 };
 use model_file_type::{FileAssociation, FileType};
 use schemars::JsonSchema;
@@ -29,13 +28,10 @@ pub enum UnifiedSearchIndex {
     AgentSessions,
     Documents,
     Chats,
-    Emails,
     Channels,
     Projects,
     #[serde(rename = "call_records")]
     CallRecords,
-    #[serde(rename = "calendar_events")]
-    CalendarEvents,
 }
 
 const NIL_UUID: &str = "00000000-0000-0000-0000-000000000000";
@@ -65,9 +61,6 @@ pub fn entity_filters_from_include(
     if !include.contains(&UnifiedSearchIndex::Chats) {
         filters.chat_filters.chat_ids = exclude.clone();
     }
-    if !include.contains(&UnifiedSearchIndex::Emails) {
-        filters.email_filters.email_thread_ids = exclude.clone();
-    }
     if !include.contains(&UnifiedSearchIndex::Channels) {
         filters.channel_filters.channel_ids = exclude.clone();
     }
@@ -75,10 +68,7 @@ pub fn entity_filters_from_include(
         filters.project_filters.project_ids = exclude.clone();
     }
     if !include.contains(&UnifiedSearchIndex::CallRecords) {
-        filters.call_filters.channel_ids = exclude.clone();
-    }
-    if !include.contains(&UnifiedSearchIndex::CalendarEvents) {
-        filters.calendar_event_filters.calendar_event_ids = exclude;
+        filters.call_filters.channel_ids = exclude;
     }
     filters
 }
@@ -99,13 +89,6 @@ pub struct UnifiedSearchRequest {
     /// Fields to search on (Name, Content, NameContent). Defaults to Content
     #[serde(default)]
     pub search_on: SearchOn,
-
-    /// Opt in to searching the caller's team CRM companies (name/domain).
-    /// Off by default: CRM results are only included when this is true and
-    /// the caller has a qualifying team membership. CRM has no content
-    /// index, so it is searched only under Name / NameContent.
-    #[serde(default)]
-    pub include_crm: bool,
 
     #[schemars(skip)]
     pub collapse: Option<bool>,
@@ -142,30 +125,22 @@ pub struct SearchEntityFilters {
     pub should_include_documents: bool,
     /// Whether to include chats in search results
     pub should_include_chats: bool,
-    /// Whether to include emails in search results
-    pub should_include_emails: bool,
     /// Whether to include channels in search results
     pub should_include_channels: bool,
     /// Whether to include projects in search results
     pub should_include_projects: bool,
     /// Whether to include call records in search results
     pub should_include_call_records: bool,
-    /// Whether to include calendar events in search results
-    pub should_include_calendar_events: bool,
     /// Document filters with file associations expanded
     pub document_filters: DocumentFilters,
     /// Chat filters
     pub chat_filters: ChatFilters,
-    /// Email filters
-    pub email_filters: EmailFilters,
     /// Channel filters
     pub channel_filters: ChannelFilters,
     /// Project filters
     pub project_filters: ProjectFilters,
     /// Call filters
     pub call_filters: CallFilters,
-    /// Calendar event filters
-    pub calendar_event_filters: CalendarEventFilters,
 }
 
 fn contains_nil_uuid(ids: &[String]) -> bool {
@@ -198,29 +173,21 @@ impl From<EntityFilters> for SearchEntityFilters {
         strip_nil_uuids(&mut agent_session_filters.ids);
         let mut document_filters = filters.document_filters;
         let mut chat_filters = filters.chat_filters;
-        let mut email_filters = filters.email_filters;
         let mut channel_filters = filters.channel_filters;
         let mut project_filters = filters.project_filters;
         let mut call_filters = filters.call_filters;
-        let mut calendar_event_filters = filters.calendar_event_filters;
 
         let should_include_documents = !contains_nil_uuid(&document_filters.document_ids);
         let should_include_chats = !contains_nil_uuid(&chat_filters.chat_ids);
-        let should_include_emails = !contains_nil_uuid(&email_filters.email_thread_ids);
         let should_include_channels = !contains_nil_uuid(&channel_filters.channel_ids);
         let should_include_projects = !contains_nil_uuid(&project_filters.project_ids);
         let should_include_call_records = !contains_nil_uuid(&call_filters.channel_ids);
-        let should_include_calendar_events =
-            !contains_nil_uuid(&calendar_event_filters.calendar_event_ids);
 
         strip_nil_uuids(&mut document_filters.document_ids);
         strip_nil_uuids(&mut chat_filters.chat_ids);
-        strip_nil_uuids(&mut email_filters.email_thread_ids);
-        strip_nil_uuids(&mut email_filters.recipients);
         strip_nil_uuids(&mut channel_filters.channel_ids);
         strip_nil_uuids(&mut project_filters.project_ids);
         strip_nil_uuids(&mut call_filters.channel_ids);
-        strip_nil_uuids(&mut calendar_event_filters.calendar_event_ids);
 
         document_filters.file_types = expand_file_types_for_search(document_filters.file_types);
 
@@ -229,18 +196,14 @@ impl From<EntityFilters> for SearchEntityFilters {
             agent_session_filters,
             should_include_documents,
             should_include_chats,
-            should_include_emails,
             should_include_channels,
             should_include_projects,
             should_include_call_records,
-            should_include_calendar_events,
             document_filters,
             chat_filters,
-            email_filters,
             channel_filters,
             project_filters,
             call_filters,
-            calendar_event_filters,
         }
     }
 }
@@ -250,13 +213,10 @@ impl From<EntityFilters> for SearchEntityFilters {
 pub enum UnifiedSearchResponseItem {
     Document(DocumentSearchResponseItemWithMetadata),
     Chat(ChatSearchResponseItemWithMetadata),
-    Email(EmailSearchResponseItemWithMetadata),
     ChannelMessage(ChannelMessageSearchResponseItem),
     Channel(ChannelNameSearchResponseItem),
     Project(ProjectSearchResponseItemWithMetadata),
     Call(CallRecordSearchResponseItemWithMetadata),
-    Company(crate::crm_company::CrmCompanySearchResponseItem),
-    CalendarEvent(crate::calendar_event::CalendarEventSearchResponseItemWithMetadata),
     AgentSession(crate::agent_session::AgentSessionSearchResponseItem),
 }
 
@@ -266,13 +226,10 @@ impl UnifiedSearchResponseItem {
             Self::AgentSession(item) => item.id,
             Self::Document(item) => item.extra.id,
             Self::Chat(item) => item.extra.id,
-            Self::Email(item) => item.extra.id,
             Self::ChannelMessage(item) => item.channel_id,
             Self::Channel(item) => item.channel_id,
             Self::Project(item) => item.extra.id,
             Self::Call(item) => item.extra.id,
-            Self::Company(item) => item.id,
-            Self::CalendarEvent(item) => item.extra.id,
         }
     }
     /// Get the updated_at timestamp for each item
@@ -281,13 +238,10 @@ impl UnifiedSearchResponseItem {
             Self::AgentSession(item) => Some(item.updated_at),
             Self::Document(item) => item.metadata.as_ref().map(|m| m.updated_at),
             Self::Chat(item) => item.metadata.as_ref().map(|m| m.updated_at),
-            Self::Email(item) => Some(item.updated_at),
             Self::ChannelMessage(item) => Some(item.updated_at),
             Self::Channel(item) => item.metadata.as_ref().map(|metadata| metadata.updated_at),
             Self::Project(item) => item.metadata.as_ref().map(|m| m.updated_at),
             Self::Call(item) => item.metadata.as_ref().map(|m| m.updated_at),
-            Self::Company(item) => Some(item.updated_at),
-            Self::CalendarEvent(item) => item.metadata.as_ref().map(|m| m.updated_at),
         }
     }
 }
@@ -305,11 +259,9 @@ pub struct UnifiedSearchResponse {
 pub enum SimpleUnifiedSearchResponseBaseItem<T> {
     Document(SimpleDocumentSearchResponseBaseItem<T>),
     Chat(SimpleChatSearchResponseBaseItem<T>),
-    Email(SimpleEmailSearchResponseBaseItem<T>),
     Channel(SimpleChannelSearchReponseBaseItem<T>),
     Project(SimpleProjectSearchResponseBaseItem<T>),
     Call(SimpleCallRecordSearchResponseBaseItem<T>),
-    CalendarEvent(crate::calendar_event::SimpleCalendarEventSearchResponseBaseItem<T>),
 }
 
 pub type SimpleUnifiedSearchResponseItem =

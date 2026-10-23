@@ -181,7 +181,7 @@ impl From<SearchResponseItem<ChannelSearchResult, ChannelSearchMetadata>>
 /// The document search response object
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ChannelSearchResponse {
-    /// List containing results from email threads
+    /// List containing results from channel messages
     pub results: Vec<ChannelSearchResponseItemWithMetadata>,
     /// Base64-encoded cursor for the next page; `None` when exhausted.
     #[serde(skip_serializing_if = "Option::is_none")]

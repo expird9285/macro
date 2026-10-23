@@ -1,6 +1,6 @@
 use crate::{
     channel::ChannelSearchResult, chat::ChatMessageSearchResult, document::DocumentSearchResult,
-    email::EmailSearchResult, project::ProjectSearchResult,
+    project::ProjectSearchResult,
 };
 
 /// Trait to grab the score from an item
@@ -16,12 +16,6 @@ impl HasScore for DocumentSearchResult {
 }
 
 impl HasScore for ChatMessageSearchResult {
-    fn score(&self) -> Option<f64> {
-        self.score
-    }
-}
-
-impl HasScore for EmailSearchResult {
     fn score(&self) -> Option<f64> {
         self.score
     }

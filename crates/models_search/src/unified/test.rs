@@ -50,7 +50,6 @@ fn channel_only_entity_type_filter_excludes_other_types() {
     assert!(filters.should_include_channels);
     assert!(!filters.should_include_documents);
     assert!(!filters.should_include_chats);
-    assert!(!filters.should_include_emails);
     assert!(!filters.should_include_projects);
     assert!(!filters.should_include_call_records);
 }
