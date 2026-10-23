@@ -16,11 +16,6 @@ use documents::domain::events::{
     DocumentInteractionMetadata, DocumentPurgedMetadata, DocumentSyncContentUpdatedMetadata,
     DocumentUpdatedMetadata, InteractionReason,
 };
-use email::domain::events::{
-    EmailEventOrigin, EmailTopicEvent, MessageDraftSyncedMetadata, ThreadBackfilledMetadata,
-    ThreadReadMetadata, ThreadSpamChangedMetadata, ThreadTrashedMetadata, ThreadsReindexReason,
-    ThreadsReindexRequestedMetadata,
-};
 use macro_event_broker::{Event, EventBrokerError, MacroEventCollection as _, MessageParts};
 use macro_user_id::user_id::MacroUserIdStr;
 use messages::domain::events::{
@@ -30,9 +25,7 @@ use messages::domain::events::{
 use messages::domain::models::SimpleMention;
 use model_owner::Owner;
 use projects::domain::events::{ProjectDeletedMetadata, ProjectTopicEvent};
-use properties::domain::events::{
-    EntityPropertiesClearedMetadata, EntityPropertyDeletedMetadata, EntityPropertyUpdatedMetadata,
-};
+use properties::domain::events::{EntityPropertiesClearedMetadata, EntityPropertyUpdatedMetadata};
 use uuid::Uuid;
 
 use super::*;
@@ -120,7 +113,6 @@ fn subscribes_to_all_existing_soup_source_topics() {
             "macro.documents",
             "macro.projects",
             "macro.chats",
-            "macro.email",
             "macro.channels",
             "macro.messages",
             "macro.properties",
@@ -351,44 +343,6 @@ fn task_property_updates_map_to_document_updates() {
 }
 
 #[test]
-fn deleting_or_clearing_properties_updates_the_soup_entity() {
-    let thread_id = Uuid::now_v7().to_string();
-    let deleted = PropertyTopicEvent::EntityPropertyDeleted(EntityPropertyDeletedMetadata {
-        entity_property_id: Uuid::now_v7(),
-        entity_id: thread_id.clone(),
-        entity_type: PropertyEntityType::Thread,
-        property_definition_id: Uuid::now_v7(),
-        actor_user_id: Some(user()),
-        actor: None,
-        on_behalf_of: None,
-    });
-    let company_id = Uuid::now_v7().to_string();
-    let cleared = PropertyTopicEvent::EntityPropertiesCleared(EntityPropertiesClearedMetadata {
-        entity_id: company_id.clone(),
-        entity_type: PropertyEntityType::Company,
-        actor_user_id: Some(user()),
-        actor: None,
-        on_behalf_of: None,
-    });
-
-    let deleted = patches_from_property_event(&deleted);
-    assert!(matches!(deleted[0].patch, Patch::Updated(_)));
-    assert_eq!(
-        patch_entity(&deleted[0]).entity_type,
-        EntityType::EmailThread
-    );
-    assert_eq!(patch_entity(&deleted[0]).entity_id, thread_id);
-
-    let cleared = patches_from_property_event(&cleared);
-    assert!(matches!(cleared[0].patch, Patch::Updated(_)));
-    assert_eq!(
-        patch_entity(&cleared[0]).entity_type,
-        EntityType::CrmCompany
-    );
-    assert_eq!(patch_entity(&cleared[0]).entity_id, company_id);
-}
-
-#[test]
 fn initiative_purge_cleanup_cannot_replace_the_deletion_in_either_event_order() {
     let id = Uuid::now_v7();
     let purged = InitiativeTopicEvent::Purged {
@@ -443,7 +397,7 @@ fn attributed_initiative_clears_and_other_system_clears_still_refresh_soup() {
             ..metadata.clone()
         },
         EntityPropertiesClearedMetadata {
-            entity_type: PropertyEntityType::Company,
+            entity_type: PropertyEntityType::Document,
             ..metadata
         },
     ] {
@@ -489,7 +443,14 @@ fn a_cell_edit_updates_the_database_row() {
 
 #[test]
 fn property_events_for_non_property_soup_items_are_ignored() {
-    for entity_type in [PropertyEntityType::Channel, PropertyEntityType::User] {
+    for entity_type in [
+        PropertyEntityType::Channel,
+        PropertyEntityType::User,
+        PropertyEntityType::Contact,
+        PropertyEntityType::CalendarEvent,
+        PropertyEntityType::Company,
+        PropertyEntityType::Thread,
+    ] {
         let event = PropertyTopicEvent::EntityPropertiesCleared(EntityPropertiesClearedMetadata {
             entity_id: DOCUMENT_ID.to_string(),
             entity_type,
@@ -499,119 +460,6 @@ fn property_events_for_non_property_soup_items_are_ignored() {
         });
         assert!(patches_from_property_event(&event).is_empty());
     }
-}
-
-#[test]
-fn email_state_events_map_to_updated_or_deleted_patches() {
-    let thread_id = Uuid::now_v7();
-    let read = EmailTopicEvent::ThreadRead(ThreadReadMetadata {
-        link_id: Uuid::now_v7(),
-        owner: user(),
-        actor: Some(user()),
-        thread_id,
-        is_read: true,
-        origin: EmailEventOrigin::UserAction,
-    });
-    let trashed = EmailTopicEvent::ThreadTrashed(ThreadTrashedMetadata {
-        link_id: Uuid::now_v7(),
-        owner: user(),
-        actor: Some(user()),
-        thread_id,
-        trashed: true,
-        origin: EmailEventOrigin::UserAction,
-    });
-
-    assert!(matches!(
-        patches_from_email_event(&read)[0].patch,
-        Patch::Updated(_)
-    ));
-    assert!(matches!(
-        patches_from_email_event(&trashed)[0].patch,
-        Patch::Deleted(_)
-    ));
-}
-
-#[test]
-fn new_email_events_map_to_realtime_thread_patches() {
-    let link_id = Uuid::now_v7();
-    let thread_id = Uuid::now_v7();
-    let second_thread_id = Uuid::now_v7();
-
-    let visible_draft = EmailTopicEvent::MessageDraftSynced(MessageDraftSyncedMetadata {
-        link_id,
-        owner: user(),
-        message_id: Uuid::now_v7(),
-        provider_message_id: "message-id".to_string(),
-        thread_id,
-        provider_thread_id: "thread-id".to_string(),
-        is_spam_or_trash: false,
-    });
-    let hidden_draft = EmailTopicEvent::MessageDraftSynced(MessageDraftSyncedMetadata {
-        link_id,
-        owner: user(),
-        message_id: Uuid::now_v7(),
-        provider_message_id: "hidden-message-id".to_string(),
-        thread_id,
-        provider_thread_id: "thread-id".to_string(),
-        is_spam_or_trash: true,
-    });
-    let marked_spam = EmailTopicEvent::ThreadSpamChanged(ThreadSpamChangedMetadata {
-        link_id,
-        owner: user(),
-        actor: Some(user()),
-        thread_id,
-        spam: true,
-        origin: EmailEventOrigin::UserAction,
-    });
-    let restored_from_spam = EmailTopicEvent::ThreadSpamChanged(ThreadSpamChangedMetadata {
-        link_id,
-        owner: user(),
-        actor: Some(user()),
-        thread_id,
-        spam: false,
-        origin: EmailEventOrigin::UserAction,
-    });
-    let backfilled = EmailTopicEvent::ThreadBackfilled(ThreadBackfilledMetadata {
-        link_id,
-        owner: user(),
-        thread_id,
-    });
-    let reindex_requested =
-        EmailTopicEvent::ThreadsReindexRequested(ThreadsReindexRequestedMetadata {
-            link_id,
-            owner: user(),
-            thread_ids: vec![thread_id, second_thread_id],
-            reason: ThreadsReindexReason::ContactsChanged,
-        });
-
-    assert!(matches!(
-        patches_from_email_event(&visible_draft)[0].patch,
-        Patch::Updated(_)
-    ));
-    assert!(patches_from_email_event(&hidden_draft).is_empty());
-    assert!(matches!(
-        patches_from_email_event(&marked_spam)[0].patch,
-        Patch::Deleted(_)
-    ));
-    assert!(matches!(
-        patches_from_email_event(&restored_from_spam)[0].patch,
-        Patch::Updated(_)
-    ));
-    assert!(matches!(
-        patches_from_email_event(&backfilled)[0].patch,
-        Patch::Updated(_)
-    ));
-
-    let reindex_patches = patches_from_email_event(&reindex_requested);
-    assert_eq!(reindex_patches.len(), 2);
-    assert_eq!(
-        patch_entity(&reindex_patches[0]).entity_id,
-        thread_id.to_string()
-    );
-    assert_eq!(
-        patch_entity(&reindex_patches[1]).entity_id,
-        second_thread_id.to_string()
-    );
 }
 
 fn posted(
@@ -818,8 +666,8 @@ async fn exhausted_service_retries_drop_and_commit_the_event() {
 
 #[tokio::test(start_paused = true)]
 async fn dropped_event_does_not_prevent_later_events_from_being_processed() {
-    let first_event = reindex_event(vec![Uuid::now_v7()]);
-    let next_event = reindex_event(vec![Uuid::now_v7()]);
+    let (first_event, _) = multi_patch_event(1);
+    let (next_event, _) = multi_patch_event(1);
     let service = flaky_service(MAX_NOTIFY_ATTEMPTS);
     let committed_offsets = Mutex::new(Vec::new());
 
@@ -842,21 +690,49 @@ async fn dropped_event_does_not_prevent_later_events_from_being_processed() {
     assert_eq!(*committed_offsets.lock().expect("offsets lock"), vec![0, 1]);
 }
 
-fn reindex_event(thread_ids: Vec<Uuid>) -> DeclaredMacroEvent {
-    DeclaredMacroEvent::EmailMacroEvent(EmailMacroEvent::threads_reindex_requested(
-        ThreadsReindexRequestedMetadata {
-            link_id: Uuid::now_v7(),
-            owner: user(),
-            thread_ids,
-            reason: ThreadsReindexReason::ContactsChanged,
+/// An attachment event on a channel that yields `count` patches: the channel
+/// itself followed by `count - 1` referenced documents. Returns the entity id
+/// of each patch in order. No patches (`count == 0`) is an event on a parent
+/// that is not a channel.
+fn multi_patch_event(count: usize) -> (DeclaredMacroEvent, Vec<String>) {
+    let channel_id = Uuid::now_v7();
+    let message_id = Uuid::now_v7();
+    let document_ids: Vec<Uuid> = (1..count).map(|_| Uuid::now_v7()).collect();
+    let parent = match count {
+        0 => MessageParent::Initiative(channel_id),
+        _ => MessageParent::Channel(channel_id),
+    };
+    let event = DeclaredMacroEvent::MessageMacroEvent(MessageMacroEvent::attachment_created(
+        MessageAttachmentCreatedMetadata {
+            parent,
+            message_id,
+            thread_id: None,
+            root_id: message_id,
+            actor: ChannelSender::new_from_user(user()),
+            attachments: document_ids
+                .iter()
+                .map(|document_id| MessageEventAttachment {
+                    attachment_id: Uuid::now_v7(),
+                    entity_type: "document".to_string(),
+                    entity_id: document_id.to_string(),
+                    created_at: Utc::now(),
+                })
+                .collect(),
         },
-    ))
+    ));
+    let entity_ids = match count {
+        0 => Vec::new(),
+        _ => std::iter::once(channel_id)
+            .chain(document_ids)
+            .map(|id| id.to_string())
+            .collect(),
+    };
+    (event, entity_ids)
 }
 
 #[tokio::test(start_paused = true)]
 async fn multi_patch_event_retries_only_the_failed_patch_before_committing() {
-    let thread_ids = vec![Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7()];
-    let event = reindex_event(thread_ids.clone());
+    let (event, entity_ids) = multi_patch_event(3);
     let mut service = flaky_service(0);
     service.failures.insert(2);
     let commits = AtomicUsize::new(0);
@@ -873,18 +749,22 @@ async fn multi_patch_event_retries_only_the_failed_patch_before_committing() {
         .iter()
         .map(|patch| patch_entity(patch).entity_id.as_ref())
         .collect();
-    let expected: Vec<_> = [thread_ids[0], thread_ids[1], thread_ids[1], thread_ids[2]]
-        .into_iter()
-        .map(|id| id.to_string())
-        .collect();
+    let expected: Vec<_> = [
+        &entity_ids[0],
+        &entity_ids[1],
+        &entity_ids[1],
+        &entity_ids[2],
+    ]
+    .into_iter()
+    .map(String::as_str)
+    .collect();
     assert_eq!(attempts, expected);
     assert_eq!(commits.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test(start_paused = true)]
 async fn partial_event_failure_discards_remaining_patches_and_commits() {
-    let thread_ids = vec![Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7()];
-    let event = reindex_event(thread_ids.clone());
+    let (event, entity_ids) = multi_patch_event(3);
     let mut service = flaky_service(0);
     service.failures = (2..=MAX_NOTIFY_ATTEMPTS + 1).collect();
     let commits = AtomicUsize::new(0);
@@ -901,20 +781,17 @@ async fn partial_event_failure_discards_remaining_patches_and_commits() {
     assert!(matches!(outcome, EventOutcome::Dropped));
     assert_eq!(commits.load(Ordering::SeqCst), 1);
     let patches = service.patches.lock().expect("patches lock");
-    assert_eq!(
-        patch_entity(&patches[0]).entity_id,
-        thread_ids[0].to_string()
-    );
+    assert_eq!(patch_entity(&patches[0]).entity_id, entity_ids[0]);
     assert!(
         patches[1..]
             .iter()
-            .all(|patch| { patch_entity(patch).entity_id == thread_ids[1].to_string() })
+            .all(|patch| { patch_entity(patch).entity_id == entity_ids[1] })
     );
 }
 
 #[tokio::test]
 async fn ignored_event_commits_without_notifying() {
-    let event = reindex_event(Vec::new());
+    let (event, _) = multi_patch_event(0);
     let service = flaky_service(0);
     let commits = AtomicUsize::new(0);
 
@@ -939,7 +816,7 @@ impl SoupRealtimeService for GatedService {
 
 #[tokio::test]
 async fn offset_is_committed_only_after_every_patch_finishes() {
-    let event = reindex_event(vec![Uuid::now_v7(), Uuid::now_v7()]);
+    let (event, _) = multi_patch_event(2);
     let service = GatedService(tokio::sync::Semaphore::new(0));
     let commits = AtomicUsize::new(0);
     let process = process_event(&service, &NoPullRequestSessions, &event, || {
@@ -959,7 +836,7 @@ async fn offset_is_committed_only_after_every_patch_finishes() {
 
 #[tokio::test]
 async fn cancellation_during_publication_leaves_the_event_uncommitted() {
-    let event = reindex_event(vec![Uuid::now_v7()]);
+    let (event, _) = multi_patch_event(1);
     let service = GatedService(tokio::sync::Semaphore::new(0));
     let commits = AtomicUsize::new(0);
     {
@@ -975,7 +852,7 @@ async fn cancellation_during_publication_leaves_the_event_uncommitted() {
 
 #[tokio::test(start_paused = true)]
 async fn cancellation_during_retry_backoff_leaves_the_event_uncommitted() {
-    let event = reindex_event(vec![Uuid::now_v7()]);
+    let (event, _) = multi_patch_event(1);
     let service = flaky_service(MAX_NOTIFY_ATTEMPTS);
     let commits = AtomicUsize::new(0);
     {

@@ -24,7 +24,6 @@ use channels::domain::{
 };
 use chat::domain::events::{ChatMacroEvent, ChatTopicEvent};
 use documents::domain::events::{DocumentMacroEvent, DocumentTopicEvent, InteractionReason};
-use email::domain::events::{EmailMacroEvent, EmailTopicEvent};
 use github_pull_requests::broker::{GithubPullRequestMacroEvent, GithubPullRequestTopicEvent};
 use initiative::domain::events::{InitiativeMacroEvent, InitiativeTopicEvent};
 use kafka_util::{GroupName, InitialOffset, KafkaEventConsumer};
@@ -65,7 +64,6 @@ macro_event_broker::declare_topics!(
         DocumentMacroEvent,
         ProjectMacroEvent,
         ChatMacroEvent,
-        EmailMacroEvent,
         ChannelMacroEvent,
         MessageMacroEvent,
         PropertyMacroEvent,
@@ -269,60 +267,6 @@ fn patches_from_chat_event(event: &ChatTopicEvent) -> Vec<SoupRealtimePatch> {
     updates
 }
 
-fn patches_from_email_event(event: &EmailTopicEvent) -> Vec<SoupRealtimePatch> {
-    let updated_thread = |thread_id| vec![update(EntityType::EmailThread, thread_id)];
-    let deleted_thread = |thread_id| vec![delete(EntityType::EmailThread, thread_id)];
-
-    match event {
-        EmailTopicEvent::MessageReceived(metadata) => {
-            if metadata.is_spam_or_trash {
-                Vec::new()
-            } else {
-                updated_thread(metadata.thread_id)
-            }
-        }
-        EmailTopicEvent::MessageDraftSynced(metadata) => {
-            if metadata.is_spam_or_trash {
-                Vec::new()
-            } else {
-                updated_thread(metadata.thread_id)
-            }
-        }
-        EmailTopicEvent::MessageSent(metadata) => updated_thread(metadata.thread_id),
-        EmailTopicEvent::MessageDeleted(metadata) => updated_thread(metadata.thread_id),
-        EmailTopicEvent::MessageSendQueued(metadata) => updated_thread(metadata.thread_id),
-        EmailTopicEvent::MessageSendCancelled(metadata) => updated_thread(metadata.thread_id),
-        EmailTopicEvent::ThreadArchived(metadata) => updated_thread(metadata.thread_id),
-        EmailTopicEvent::ThreadTrashed(metadata) => {
-            if metadata.trashed {
-                deleted_thread(metadata.thread_id)
-            } else {
-                updated_thread(metadata.thread_id)
-            }
-        }
-        EmailTopicEvent::ThreadRead(metadata) => updated_thread(metadata.thread_id),
-        EmailTopicEvent::ThreadStarred(metadata) => updated_thread(metadata.thread_id),
-        EmailTopicEvent::ThreadSpamChanged(metadata) => {
-            if metadata.spam {
-                deleted_thread(metadata.thread_id)
-            } else {
-                updated_thread(metadata.thread_id)
-            }
-        }
-        EmailTopicEvent::ThreadProjectChanged(metadata) => updated_thread(metadata.thread_id),
-        EmailTopicEvent::ThreadLabelsUpdated(metadata) => updated_thread(metadata.thread_id),
-        EmailTopicEvent::ThreadBackfilled(metadata) => updated_thread(metadata.thread_id),
-        EmailTopicEvent::ThreadsReindexRequested(metadata) => metadata
-            .thread_ids
-            .iter()
-            .map(|thread_id| update(EntityType::EmailThread, thread_id))
-            .collect(),
-        EmailTopicEvent::LinkConnected(_)
-        | EmailTopicEvent::LinkDisconnected(_)
-        | EmailTopicEvent::LinkReauthRequired(_) => Vec::new(),
-    }
-}
-
 fn channel_and_thread_entities(
     channel_id: impl ToString,
     message_id: impl ToString,
@@ -349,10 +293,9 @@ fn soup_entity_type_from_channel_reference(entity_type: &str) -> Option<EntityTy
         ReferencedShareItemType::Document => Some(EntityType::Document),
         ReferencedShareItemType::Chat => Some(EntityType::Chat),
         ReferencedShareItemType::Project => Some(EntityType::Project),
-        ReferencedShareItemType::EmailThread => Some(EntityType::EmailThread),
         ReferencedShareItemType::Call => Some(EntityType::Call),
-        // A shared event is previewed in place, never listed in the soup.
-        ReferencedShareItemType::CalendarEvent => None,
+        // Mail threads and calendar events are no longer Soup entities.
+        ReferencedShareItemType::EmailThread | ReferencedShareItemType::CalendarEvent => None,
         // Forms are not soup entities; a posted form renders as its card.
         ReferencedShareItemType::Form => None,
     }
@@ -488,20 +431,20 @@ fn patches_from_message_event(event: &MessageTopicEvent) -> Vec<SoupRealtimePatc
 
 fn soup_entity_type_from_property(entity_type: PropertyEntityType) -> Option<EntityType> {
     match entity_type {
-        PropertyEntityType::CalendarEvent => Some(EntityType::CalendarEvent),
         PropertyEntityType::CallRecord => Some(EntityType::Call),
         PropertyEntityType::Chat => Some(EntityType::Chat),
-        PropertyEntityType::Company => Some(EntityType::CrmCompany),
         PropertyEntityType::Document | PropertyEntityType::Task => Some(EntityType::Document),
         PropertyEntityType::Project => Some(EntityType::Project),
-        PropertyEntityType::Thread => Some(EntityType::EmailThread),
         PropertyEntityType::Initiative => Some(EntityType::Initiative),
         PropertyEntityType::DatabaseRow => Some(EntityType::DatabaseRow),
-        // Soup channels do not expose properties; users and CRM contacts are
-        // not Soup items.
-        PropertyEntityType::Channel | PropertyEntityType::User | PropertyEntityType::Contact => {
-            None
-        }
+        // Soup channels do not expose properties; users, contacts, mail
+        // threads, calendar events and companies are not Soup items.
+        PropertyEntityType::Channel
+        | PropertyEntityType::User
+        | PropertyEntityType::Contact
+        | PropertyEntityType::CalendarEvent
+        | PropertyEntityType::Company
+        | PropertyEntityType::Thread => None,
     }
 }
 
@@ -588,9 +531,6 @@ fn patches_from_event(event: &DeclaredMacroEvent) -> Vec<SoupRealtimePatch> {
             patches_from_project_event(&event.event().event)
         }
         DeclaredMacroEvent::ChatMacroEvent(event) => patches_from_chat_event(&event.event().event),
-        DeclaredMacroEvent::EmailMacroEvent(event) => {
-            patches_from_email_event(&event.event().event)
-        }
         DeclaredMacroEvent::ChannelMacroEvent(event) => {
             patches_from_channel_event(&event.event().event)
         }
