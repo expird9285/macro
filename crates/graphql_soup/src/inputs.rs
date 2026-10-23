@@ -29,8 +29,6 @@ pub struct SoupInitialInput {
     /// Simple timestamp sort. Defaults to VIEWED_AT. Frecency is intentionally
     /// not supported by this initial GraphQL adapter.
     sort_method: Option<GraphqlSimpleSortMethod>,
-    /// Email preview view used when hydrating email Soup items.
-    email_view: Option<GraphqlEmailView>,
     /// AST-shaped filters applied to each Soup entity type.
     filters: Option<GraphqlEntityFilterAst>,
     /// Direction to order the page in. Defaults to DESC.
@@ -44,8 +42,6 @@ pub struct SoupContinuationInput {
     cursor: String,
     /// Whether to return expanded Soup items. Defaults to true.
     expand: Option<bool>,
-    /// Email preview view used when hydrating email Soup items.
-    email_view: Option<GraphqlEmailView>,
     /// Direction to order the page in. Defaults to DESC.
     ///
     /// The cursor does not carry it, so re-send whatever the initial query
@@ -254,11 +250,10 @@ impl SoupInput {
     pub(crate) fn into_request(
         self,
         macro_user_id: MacroUserIdStr<'static>,
-        link_ids: Vec<Uuid>,
     ) -> async_graphql::Result<SoupRequest<EntityFilterAst>> {
         match self {
-            Self::Initial(input) => input.into_request(macro_user_id, link_ids),
-            Self::Continuation(input) => input.into_request(macro_user_id, link_ids),
+            Self::Initial(input) => input.into_request(macro_user_id),
+            Self::Continuation(input) => input.into_request(macro_user_id),
         }
     }
 }
@@ -268,7 +263,6 @@ impl SoupInitialInput {
     fn into_request(
         self,
         macro_user_id: MacroUserIdStr<'static>,
-        link_ids: Vec<Uuid>,
     ) -> async_graphql::Result<SoupRequest<EntityFilterAst>> {
         let filter = self
             .filters
@@ -289,8 +283,6 @@ impl SoupInitialInput {
             sort_direction: sort_direction(&cursor, self.sort_direction)?,
             cursor,
             user: macro_user_id,
-            email_preview_view: email_preview_view(self.email_view)?,
-            link_ids,
         })
     }
 }
@@ -300,7 +292,6 @@ impl SoupContinuationInput {
     fn into_request(
         self,
         macro_user_id: MacroUserIdStr<'static>,
-        link_ids: Vec<Uuid>,
     ) -> async_graphql::Result<SoupRequest<EntityFilterAst>> {
         // The sort tags never overlap, so at most one of these decodes.
         let notified = Base64Str::<
@@ -326,8 +317,6 @@ impl SoupContinuationInput {
             sort_direction: sort_direction(&cursor, self.sort_direction)?,
             cursor,
             user: macro_user_id,
-            email_preview_view: email_preview_view(self.email_view)?,
-            link_ids,
         })
     }
 }
@@ -355,51 +344,6 @@ fn soup_type(expand: Option<bool>) -> SoupType {
     match expand {
         Some(false) => SoupType::UnExpanded,
         Some(true) | None => SoupType::Expanded,
-    }
-}
-
-/// Convert the optional GraphQL email view into the domain representation.
-fn email_preview_view(
-    email_view: Option<GraphqlEmailView>,
-) -> async_graphql::Result<email::domain::models::PreviewView> {
-    email_view
-        .map(GraphqlEmailView::as_preview_view_str)
-        .unwrap_or("inbox")
-        .parse()
-        .map_err(async_graphql::Error::new)
-}
-
-/// GraphQL input representing the email view.
-#[derive(Enum, Copy, Clone, Eq, PartialEq)]
-enum GraphqlEmailView {
-    /// The inbox option.
-    Inbox,
-    /// The drafts option.
-    Drafts,
-    /// The sent option.
-    Sent,
-    /// The all option.
-    All,
-    /// The starred option.
-    Starred,
-    /// The important option.
-    Important,
-    /// The other option.
-    Other,
-}
-
-impl GraphqlEmailView {
-    /// Return the corresponding email preview view name.
-    fn as_preview_view_str(self) -> &'static str {
-        match self {
-            Self::Inbox => "inbox",
-            Self::Drafts => "drafts",
-            Self::Sent => "sent",
-            Self::All => "all",
-            Self::Starred => "starred",
-            Self::Important => "important",
-            Self::Other => "other",
-        }
     }
 }
 

@@ -10,38 +10,6 @@ fn test_macro_user_id() -> MacroUserIdStr<'static> {
 }
 
 #[test]
-fn maps_email_view_to_soup_request() {
-    let request = SoupInput::Initial(Box::new(SoupInitialInput {
-        limit: None,
-        expand: None,
-        sort_method: None,
-        email_view: Some(GraphqlEmailView::Sent),
-        filters: None,
-        sort_direction: None,
-    }))
-    .into_request(test_macro_user_id(), vec![])
-    .unwrap();
-
-    assert_eq!(request.email_preview_view.to_string(), "sent");
-}
-
-#[test]
-fn defaults_email_view_to_inbox() {
-    let request = SoupInput::Initial(Box::new(SoupInitialInput {
-        limit: None,
-        expand: None,
-        sort_method: None,
-        email_view: None,
-        filters: None,
-        sort_direction: None,
-    }))
-    .into_request(test_macro_user_id(), vec![])
-    .unwrap();
-
-    assert_eq!(request.email_preview_view.to_string(), "inbox");
-}
-
-#[test]
 fn maps_soup_cursor_continuation() {
     let cursor = Base64Str::encode_json(CursorWithValAndFilter {
         id: uuid::Uuid::from_u128(1),
@@ -55,15 +23,13 @@ fn maps_soup_cursor_continuation() {
     let request = SoupInput::Continuation(SoupContinuationInput {
         cursor: cursor.to_string(),
         expand: Some(false),
-        email_view: Some(GraphqlEmailView::Sent),
         sort_direction: None,
     })
-    .into_request(test_macro_user_id(), vec![])
+    .into_request(test_macro_user_id())
     .unwrap();
 
     assert_eq!(request.limit, 25);
     assert!(matches!(request.cursor, SoupQuery::Simple(_)));
-    assert_eq!(request.email_preview_view.to_string(), "sent");
     assert!(matches!(request.soup_type, SoupType::UnExpanded));
 }
 
@@ -73,11 +39,10 @@ fn maps_notified_at_to_notified_soup_request() {
         limit: Some(500),
         expand: None,
         sort_method: Some(GraphqlSimpleSortMethod::NotifiedAt),
-        email_view: None,
         filters: None,
         sort_direction: None,
     }))
-    .into_request(test_macro_user_id(), vec![])
+    .into_request(test_macro_user_id())
     .unwrap();
 
     assert_eq!(request.limit, 500);
@@ -98,10 +63,9 @@ fn continues_a_notified_cursor_as_a_notified_request() {
     let request = SoupInput::Continuation(SoupContinuationInput {
         cursor: cursor.to_string(),
         expand: None,
-        email_view: None,
         sort_direction: None,
     })
-    .into_request(test_macro_user_id(), vec![])
+    .into_request(test_macro_user_id())
     .unwrap();
 
     assert_eq!(request.limit, 500);
@@ -114,11 +78,10 @@ fn rejects_ascending_notified_at() {
         limit: None,
         expand: None,
         sort_method: Some(GraphqlSimpleSortMethod::NotifiedAt),
-        email_view: None,
         filters: None,
         sort_direction: Some(GraphqlSortDirection::Asc),
     }))
-    .into_request(test_macro_user_id(), vec![]);
+    .into_request(test_macro_user_id());
 
     assert!(result.is_err());
 }

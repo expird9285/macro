@@ -10,12 +10,10 @@ viewer pattern), which apply to every type defined here.
 
 ## Gotchas
 
-- `SoupItemLoader` (single-entity lookups, `soupUpdates` hydration) resolves
-  email threads through entity-access view receipts, the rule the REST thread
-  route applies, not through the viewer's inbox scope; Soup's email leg only
-  serves lists. A thread shared through a team's CRM, a project, or a share
-  therefore opens through `emailThread` even though it lives in a teammate's
-  inbox.
+- `SoupItemLoader` (single-entity lookups, `soupUpdates` hydration) batches
+  one filtered Soup request per user. Entity types of removed features (email
+  threads, calendar events, CRM) are not represented in Soup, so asking for
+  one is a loader error rather than an empty hydration.
 - `NOTIFIED_AT` maps to Soup's notified request, not a simple sort: `soup`
   accepts it descending only and `groupSoup` rejects it. Its continuation
   cursors carry a different sort tag, so `inputs.rs` decodes both cursor shapes.

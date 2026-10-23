@@ -12,22 +12,14 @@ pub enum GraphqlSoupEntityType {
     Chat,
     /// Project entity.
     Project,
-    /// Email thread entity.
-    EmailThread,
     /// Channel entity.
     Channel,
     /// Channel message entity.
     ChannelMessage,
     /// Call entity.
     Call,
-    /// CRM company entity.
-    CrmCompany,
-    /// CRM contact entity.
-    CrmContact,
     /// Foreign entity.
     ForeignEntity,
-    /// Calendar event entity.
-    CalendarEvent,
     /// AI coding agent session entity.
     AgentSession,
     /// Row of a Macro database table.
@@ -100,14 +92,10 @@ impl GraphqlSoupEntityType {
             EntityType::Document => Self::Document,
             EntityType::Chat => Self::Chat,
             EntityType::Project => Self::Project,
-            EntityType::EmailThread => Self::EmailThread,
             EntityType::Channel => Self::Channel,
             EntityType::ChannelMessage => Self::ChannelMessage,
             EntityType::Call => Self::Call,
-            EntityType::CrmCompany => Self::CrmCompany,
-            EntityType::CrmContact => Self::CrmContact,
             EntityType::ForeignEntity => Self::ForeignEntity,
-            EntityType::CalendarEvent => Self::CalendarEvent,
             EntityType::AgentSession => Self::AgentSession,
             EntityType::Initiative => Self::Initiative,
             EntityType::DatabaseRow => Self::DatabaseRow,
@@ -117,6 +105,11 @@ impl GraphqlSoupEntityType {
             | EntityType::StaticFile
             | EntityType::Skill
             | EntityType::ScheduledAction
+            // Removed features keep their stored entity types.
+            | EntityType::EmailThread
+            | EntityType::CalendarEvent
+            | EntityType::CrmCompany
+            | EntityType::CrmContact
             | EntityType::CrmPipeline
             | EntityType::Database
             | EntityType::Form => return None,
@@ -129,14 +122,10 @@ impl GraphqlSoupEntityType {
             Self::Document => EntityType::Document,
             Self::Chat => EntityType::Chat,
             Self::Project => EntityType::Project,
-            Self::EmailThread => EntityType::EmailThread,
             Self::Channel => EntityType::Channel,
             Self::ChannelMessage => EntityType::ChannelMessage,
             Self::Call => EntityType::Call,
-            Self::CrmCompany => EntityType::CrmCompany,
-            Self::CrmContact => EntityType::CrmContact,
             Self::ForeignEntity => EntityType::ForeignEntity,
-            Self::CalendarEvent => EntityType::CalendarEvent,
             Self::AgentSession => EntityType::AgentSession,
             Self::Initiative => EntityType::Initiative,
             Self::DatabaseRow => EntityType::DatabaseRow,

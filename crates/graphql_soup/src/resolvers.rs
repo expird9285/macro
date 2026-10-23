@@ -1,19 +1,14 @@
-use std::{collections::HashSet, future::Future, marker::PhantomData, pin::Pin, sync::Arc};
+use std::{collections::HashSet, sync::Arc};
 
 use async_graphql::Context;
 use axum::extract::FromRef;
 use axum_extra::extract::Cached;
-use email::{
-    domain::ports::EmailService,
-    inbound::axum::{axum_impls::MultiEmailLinkExtractor, previews_router::EmailRouterState},
-};
 use entity_access::{
     domain::{models::MemberTeamRole, ports::EntityAccessService},
     inbound::axum_extractors::OptionalMacroUserTeamExtractorV2,
 };
 use futures::Stream;
 use graphql_common::{extract_part, require_authorized_user};
-use graphql_email::EmailThreadMutationOutput;
 use macro_authorization::{MacroAuthorizationService, MacroAuthorizationState};
 use macro_user_id::user_id::MacroUserIdStr;
 use model_entity::EntityType;
@@ -23,10 +18,10 @@ use soup_realtime::domain::{models::Patch, ports::SoupRealtimeSubscriptionServic
 
 use crate::{
     inputs::{GroupedSoupInput, SoupInput},
-    loaders::{AgentSessionEntityLoader, PrimarySoupItemLoader, SoupItemDataLoader},
+    loaders::{AgentSessionEntityLoader, PrimarySoupItemLoader},
     objects::{
-        GraphqlSoupAgentSession, GraphqlSoupEmailThread, GraphqlSoupEntity, GroupedSoup,
-        SoupEntityEdges, SoupPage, SoupPatch,
+        GraphqlSoupAgentSession, GraphqlSoupEntity, GroupedSoup, SoupEntityEdges, SoupPage,
+        SoupPatch,
     },
 };
 
@@ -101,40 +96,6 @@ where
     ))
 }
 
-/// Resolve one email thread through the Soup item loader, whose email
-/// hydration settles access with entity access receipts: the rule the REST
-/// thread route applies, so a thread reached through a team's CRM, a project,
-/// or a share opens even though it lives in a teammate's inbox.
-///
-/// A missing or inaccessible thread is represented as `None`.
-#[tracing::instrument(
-    name = "soup.resolve_email_thread",
-    skip_all,
-    fields(thread_id = %thread_id),
-    err(Debug)
-)]
-pub async fn resolve_soup_email_thread<Edges>(
-    ctx: &Context<'_>,
-    user_id: MacroUserIdStr<'static>,
-    thread_id: uuid::Uuid,
-) -> async_graphql::Result<Option<GraphqlSoupEmailThread<Edges>>>
-where
-    Edges: SoupEntityEdges,
-{
-    let loader = ctx.data::<SoupItemDataLoader>()?;
-    let entity = EntityType::EmailThread.with_entity_string(thread_id.to_string());
-    let Some(item) = loader.load_one((user_id, entity)).await? else {
-        return Ok(None);
-    };
-
-    match GraphqlSoupEntity::<Edges>::new_with_projection(item) {
-        GraphqlSoupEntity::EmailThread(thread) => Ok(Some(thread)),
-        _ => Err(async_graphql::Error::new(
-            "Soup returned a non-email entity for an email-thread request",
-        )),
-    }
-}
-
 /// Fetch one agent session the viewer can see, through the same access
 /// filter the Soup list uses, so a session outside their grants reads as
 /// absent rather than as an error. Reads the primary: see
@@ -177,62 +138,28 @@ where
     Ok(item.map(GraphqlSoupEntity::<Edges>::new_with_projection))
 }
 
-/// Mutation-output adapter that reloads the canonical Soup email-thread object.
-pub struct SoupEmailThreadMutationOutput<Edges>(PhantomData<fn() -> Edges>);
-
-impl<Edges> EmailThreadMutationOutput for SoupEmailThreadMutationOutput<Edges>
-where
-    Edges: SoupEntityEdges,
-{
-    type Thread = GraphqlSoupEmailThread<Edges>;
-
-    fn load_email_thread<'ctx>(
-        ctx: &'ctx Context<'_>,
-        user_id: MacroUserIdStr<'static>,
-        thread_id: uuid::Uuid,
-    ) -> Pin<Box<dyn Future<Output = async_graphql::Result<Option<Self::Thread>>> + Send + 'ctx>>
-    {
-        Box::pin(async move {
-            let loader = ctx.data::<crate::EmailMutationThreadLoader>()?;
-            let Some(thread) = loader.read(user_id, thread_id).await? else {
-                return Ok(None);
-            };
-            match GraphqlSoupEntity::<Edges>::new(models_soup::item::SoupItem::EmailThread(thread))
-            {
-                GraphqlSoupEntity::EmailThread(thread) => Ok(Some(thread)),
-                _ => Err(async_graphql::Error::new("expected an email thread")),
-            }
-        })
-    }
-}
-
 /// Resolve a page of Soup items for the authenticated user: runs the lazy
 /// axum extractors against the request context, converts the GraphQL input
 /// into a Soup request, and executes it against the Soup service.
-pub async fn resolve_soup<S, E, EAS, Auth, St, Edges>(
+pub async fn resolve_soup<S, EAS, Auth, St, Edges>(
     service: &S,
     ctx: &Context<'_>,
     input: SoupInput,
 ) -> async_graphql::Result<SoupPage<Edges>>
 where
     S: SoupService,
-    E: EmailService,
     EAS: EntityAccessService,
     Auth: MacroAuthorizationService,
     St: Clone + Send + Sync + 'static,
-    EmailRouterState<E>: FromRef<St>,
     Arc<EAS>: FromRef<St>,
     MacroAuthorizationState<Auth>: FromRef<St>,
     Edges: SoupEntityEdges,
 {
     let macro_user_id = require_authorized_user::<Auth, St>(ctx).await?;
-    let Cached(MultiEmailLinkExtractor(links, _)) =
-        extract_part::<Cached<MultiEmailLinkExtractor<E, Auth>>, St>(ctx).await?;
-    let link_ids = links.into_iter().map(|link| link.id).collect();
-    let request = input.into_request(macro_user_id, link_ids)?;
+    let request = input.into_request(macro_user_id)?;
 
     // Always forward the optional team receipt: Soup uses it for all
-    // team-scoped foreign entities, not only CRM-scoped filters.
+    // team-scoped foreign entities.
     let Cached(team) = extract_part::<
         Cached<OptionalMacroUserTeamExtractorV2<MemberTeamRole, EAS, Auth>>,
         St,

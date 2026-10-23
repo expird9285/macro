@@ -5,24 +5,17 @@ use async_graphql::{
 use graphql_common::{
     GraphqlCacheDeletion, GraphqlEntity, GraphqlOwnerType, GraphqlSoupEntityType,
 };
-use graphql_email::GraphqlEmailLabel;
 use graphql_permission::GraphqlEntityPermission;
 use macro_user_id::user_id::MacroUserIdStr;
 use model_entity::Entity;
 use models_pagination::PaginatedOpaqueCursor;
 use models_soup::{
     agent_session::{AgentPullRequestState, SoupAgentSession},
-    calendar_event::SoupCalendarEvent,
     call_record::{SoupCallRecord, SoupCallRecordGuest, SoupCallRecordParticipant},
     chat::SoupChat,
     comms::{ChannelMessage, ChannelParticipant, ChannelType, SoupChannel, SoupChannelThread},
-    crm_company::SoupCrmCompany,
     database_row::SoupDatabaseRow,
     document::{SoupDocument, SoupDocumentSubType},
-    email_thread::{
-        SoupAttachment, SoupContact, SoupEnrichedEmailThreadPreview, SoupLabelListVisibility,
-        SoupLabelType, SoupMessageListVisibility,
-    },
     foreign_entity::SoupForeignEntity,
     initiative::SoupInitiative,
     item::SoupItem,
@@ -88,19 +81,6 @@ pub trait SoupEntityEdges: ObjectType + Clone + Send + Sync + 'static {
         )
     }
 
-    /// Additional fields attached only to email-thread entities.
-    type EmailThreadEdges: ObjectType + Clone + Send + Sync + 'static;
-
-    /// Construct the email-thread-specific edge object.
-    fn email_thread_edges(email_thread_id: Uuid) -> Self::EmailThreadEdges;
-
-    /// Resolve the encoded server-only Mail projection supplement.
-    fn resolve_email_cache_projection(
-        &self,
-        ctx: &Context<'_>,
-        email_thread_id: Uuid,
-    ) -> impl Future<Output = async_graphql::Result<Option<String>>> + Send;
-
     /// Additional fields attached only to initiative entities.
     type InitiativeEdges: ObjectType + Clone + Send + Sync + 'static;
 
@@ -112,12 +92,6 @@ pub trait SoupEntityEdges: ObjectType + Clone + Send + Sync + 'static {
 
     /// Construct the agent-session-specific edge object.
     fn agent_session_edges(session_id: Uuid, bot_id: Uuid) -> Self::AgentSessionEdges;
-
-    /// Additional fields attached only to CRM company and contact entities.
-    type CrmRecordEdges: ObjectType + Clone + Send + Sync + 'static;
-
-    /// Construct the CRM-record edge object for a company or contact.
-    fn crm_record_edges(record: model_entity::Entity<'static>) -> Self::CrmRecordEdges;
 
     /// Resolve properties assigned to this entity.
     fn resolve_properties(
@@ -283,15 +257,10 @@ impl<E: SoupEntityEdges> GraphqlSoupEntity<E> {
             Self::Chat(entity) => entity.2 = score,
             Self::Project(entity) => entity.2 = score,
             Self::Initiative(entity) => entity.2 = score,
-            Self::EmailThread(entity) => entity.2 = score,
             Self::Channel(entity) => entity.2 = score,
             Self::ChannelMessage(entity) => entity.2 = score,
             Self::Call(entity) => entity.2 = score,
-            Self::CrmCompany(entity) => entity.2 = score,
-            Self::CrmContact(entity) => entity.2 = score,
             Self::ForeignEntity(entity) => entity.2 = score,
-            // Calendar events carry no frecency slot; scores never target them.
-            Self::CalendarEvent(_) => {}
             Self::AgentSession(entity) => entity.2 = score,
             Self::DatabaseRow(entity) => entity.2 = score,
             Self::Reminder(entity) => match entity.0 {},
@@ -306,13 +275,9 @@ impl<E: SoupEntityEdges> GraphqlSoupEntity<E> {
             Self::Chat(_)
             | Self::Project(_)
             | Self::Initiative(_)
-            | Self::EmailThread(_)
             | Self::Channel(_)
             | Self::ChannelMessage(_)
             | Self::Call(_)
-            | Self::CalendarEvent(_)
-            | Self::CrmCompany(_)
-            | Self::CrmContact(_)
             | Self::ForeignEntity(_)
             | Self::AgentSession(_)
             | Self::DatabaseRow(_) => {}
@@ -428,20 +393,12 @@ pub enum GraphqlSoupEntity<E: SoupEntityEdges> {
     Project(GraphqlSoupProject<E>),
     /// Initiative entity, presented as a project in the frontend.
     Initiative(GraphqlSoupInitiative<E>),
-    /// Email thread entity.
-    EmailThread(GraphqlSoupEmailThread<E>),
     /// Channel entity.
     Channel(GraphqlSoupChannel<E>),
     /// Canonical channel-message entity.
     ChannelMessage(GraphqlSoupChannelMessage<E>),
     /// Call entity.
     Call(GraphqlSoupCall<E>),
-    /// Calendar event entity.
-    CalendarEvent(GraphqlSoupCalendarEvent<E>),
-    /// CRM company entity.
-    CrmCompany(GraphqlSoupCrmCompany<E>),
-    /// Team-owned CRM contact.
-    CrmContact(GraphqlSoupCrmContact<E>),
     /// Foreign entity.
     ForeignEntity(GraphqlSoupForeignEntity<E>),
     /// Agent session entity.
@@ -465,16 +422,12 @@ where
                 GraphqlSoupEntityType::Chat => GraphqlSoupChat::<E>::type_name(),
                 GraphqlSoupEntityType::Project => GraphqlSoupProject::<E>::type_name(),
                 GraphqlSoupEntityType::Initiative => GraphqlSoupInitiative::<E>::type_name(),
-                GraphqlSoupEntityType::EmailThread => GraphqlSoupEmailThread::<E>::type_name(),
                 GraphqlSoupEntityType::Channel => GraphqlSoupChannel::<E>::type_name(),
                 GraphqlSoupEntityType::ChannelMessage => {
                     GraphqlSoupChannelMessage::<E>::type_name()
                 }
                 GraphqlSoupEntityType::Call => GraphqlSoupCall::<E>::type_name(),
-                GraphqlSoupEntityType::CrmCompany => GraphqlSoupCrmCompany::<E>::type_name(),
-                GraphqlSoupEntityType::CrmContact => GraphqlSoupCrmContact::<E>::type_name(),
                 GraphqlSoupEntityType::ForeignEntity => GraphqlSoupForeignEntity::<E>::type_name(),
-                GraphqlSoupEntityType::CalendarEvent => GraphqlSoupCalendarEvent::<E>::type_name(),
                 GraphqlSoupEntityType::AgentSession => GraphqlSoupAgentSession::<E>::type_name(),
                 GraphqlSoupEntityType::DatabaseRow => GraphqlSoupDatabaseRow::<E>::type_name(),
             }
@@ -540,13 +493,6 @@ where
                 );
                 Self::Project(GraphqlSoupProject(item, edges, None))
             }
-            SoupItem::EmailThread(item) => {
-                let edges = E::from_entity(
-                    model_entity::EntityType::EmailThread
-                        .with_entity_string(item.thread.id.to_string()),
-                );
-                Self::EmailThread(GraphqlSoupEmailThread(item, edges, None))
-            }
             SoupItem::Channel(item) => {
                 let edges = E::from_entity(
                     model_entity::EntityType::Channel
@@ -563,24 +509,6 @@ where
                     model_entity::EntityType::Call.with_entity_string(item.call_id.to_string()),
                 );
                 Self::Call(GraphqlSoupCall(item, edges, None))
-            }
-            SoupItem::CalendarEvent(item) => {
-                let edges = E::from_entity(
-                    model_entity::EntityType::CalendarEvent.with_entity_string(item.id.to_string()),
-                );
-                Self::CalendarEvent(GraphqlSoupCalendarEvent(item, edges))
-            }
-            SoupItem::CrmContact(item) => {
-                let edges = E::from_entity(
-                    model_entity::EntityType::CrmContact.with_entity_string(item.id.to_string()),
-                );
-                Self::CrmContact(GraphqlSoupCrmContact(item, edges, None))
-            }
-            SoupItem::CrmCompany(item) => {
-                let edges = E::from_entity(
-                    model_entity::EntityType::CrmCompany.with_entity_string(item.id.to_string()),
-                );
-                Self::CrmCompany(GraphqlSoupCrmCompany(item, edges, None))
             }
             SoupItem::ForeignEntity(item) => {
                 let edges = E::from_entity(
@@ -601,115 +529,6 @@ where
                 Self::DatabaseRow(GraphqlSoupDatabaseRow(item, edges, None))
             }
         }
-    }
-}
-
-/// GraphQL calendar event entity.
-pub struct GraphqlSoupCalendarEvent<E: SoupEntityEdges>(SoupCalendarEvent<()>, E);
-
-/// GraphQL representation of a canonical calendar event.
-#[Object(name = "GraphqlSoupCalendarEvent")]
-impl<E> GraphqlSoupCalendarEvent<E>
-where
-    E: SoupEntityEdges,
-{
-    /// The unique identifier.
-    async fn id(&self) -> ID {
-        ID(self.0.id.to_string())
-    }
-
-    /// Canonical entity kind.
-    async fn entity_type(&self) -> GraphqlSoupEntityType {
-        GraphqlSoupEntityType::CalendarEvent
-    }
-
-    /// Opaque cache projection metadata, unavailable for this entity variant.
-    async fn cache_projection(&self) -> Option<SoupCacheProjection> {
-        None
-    }
-
-    /// User-visible display name.
-    async fn display_name(&self) -> Option<String> {
-        Some(self.0.title.clone())
-    }
-
-    /// Common calendar event metadata.
-    async fn metadata(&self) -> GraphqlEntityMetadata {
-        GraphqlEntityMetadata {
-            owner_id: Some(self.0.owner_id.clone()),
-            owner_type: Some(GraphqlOwnerType::User),
-            parent: None,
-            created_at: Some(self.0.created_at.to_rfc3339()),
-            updated_at: Some(self.0.updated_at.to_rfc3339()),
-            viewed_at: None,
-            deleted_at: None,
-        }
-    }
-
-    /// The owning Macro user.
-    async fn owner_id(&self) -> &str {
-        &self.0.owner_id
-    }
-
-    /// The event title.
-    async fn title(&self) -> &str {
-        &self.0.title
-    }
-
-    /// The event description.
-    async fn description(&self) -> Option<&str> {
-        self.0.description.as_deref()
-    }
-
-    /// The event location.
-    async fn location(&self) -> Option<&str> {
-        self.0.location.as_deref()
-    }
-
-    /// Canonical event status.
-    async fn status(&self) -> &str {
-        &self.0.status
-    }
-
-    /// Timed or all-day event span.
-    async fn time(&self) -> Json<serde_json::Value> {
-        Json(serde_json::to_value(&self.0.time).unwrap_or(serde_json::Value::Null))
-    }
-
-    /// Direct conference join URL.
-    async fn conference_url(&self) -> Option<&str> {
-        self.0.conference_url.as_deref()
-    }
-
-    /// Which conferencing system backs the join URL.
-    async fn conference_provider(&self) -> Option<&str> {
-        self.0.conference_provider.as_deref()
-    }
-
-    /// Whether the canonical source is read-only.
-    async fn is_read_only(&self) -> bool {
-        self.0.is_read_only
-    }
-
-    /// Creation timestamp.
-    async fn created_at(&self) -> String {
-        self.0.created_at.to_rfc3339()
-    }
-
-    /// Update timestamp.
-    async fn updated_at(&self) -> String {
-        self.0.updated_at.to_rfc3339()
-    }
-
-    /// The viewer's frecency score for this entity, when loaded.
-    async fn frecency_score(&self) -> Option<f64> {
-        None
-    }
-
-    #[graphql(flatten)]
-    /// Common entity edges.
-    async fn edges(&self) -> E {
-        self.1.clone()
     }
 }
 
@@ -1424,335 +1243,6 @@ where
     }
 }
 
-/// Legacy contact-keyed participant, retained for older clients during rollout.
-#[derive(SimpleObject)]
-pub struct GraphqlSoupEmailParticipant {
-    /// The referenced address-book contact's identifier.
-    id: ID,
-    /// The message-specific sender fields exposed by the legacy participant.
-    #[graphql(flatten)]
-    sender: GraphqlSoupEmailSender,
-}
-
-impl GraphqlSoupEmailParticipant {
-    /// Construct the legacy participant representation.
-    pub fn new(value: &SoupContact) -> Self {
-        Self {
-            id: ID(value.id.to_string()),
-            sender: GraphqlSoupEmailSender::new(value),
-        }
-    }
-}
-
-/// A thread-local sender with the display name from their message.
-///
-/// This is an embedded value: different messages from one contact can carry
-/// different names, so the contact ID must not normalize them into one record.
-#[derive(SimpleObject)]
-pub struct GraphqlSoupEmailSender {
-    /// The referenced address-book contact's identifier.
-    contact_id: ID,
-    /// The identifier of the link.
-    link_id: ID,
-    /// The name.
-    name: Option<String>,
-    /// The email.
-    email: Option<String>,
-    /// The sfs photo url.
-    sfs_photo_url: Option<String>,
-}
-
-impl GraphqlSoupEmailSender {
-    /// Construct a thread-local sender from the Soup model.
-    pub fn new(value: &SoupContact) -> Self {
-        Self {
-            contact_id: ID(value.id.to_string()),
-            link_id: ID(value.link_id.to_string()),
-            name: value.name.clone(),
-            email: value.email_address.clone(),
-            sfs_photo_url: value.sfs_photo_url.clone(),
-        }
-    }
-}
-
-/// GraphQL representation of the soup email attachment.
-#[derive(SimpleObject)]
-pub struct GraphqlSoupEmailAttachment {
-    /// The unique identifier.
-    id: ID,
-    /// The identifier of the message.
-    message_id: ID,
-    /// The identifier of the provider attachment.
-    provider_attachment_id: Option<String>,
-    /// The filename.
-    filename: Option<String>,
-    /// The mime type.
-    mime_type: Option<String>,
-    /// The size bytes.
-    size_bytes: Option<i64>,
-    /// The identifier of the content.
-    content_id: Option<String>,
-    /// The created timestamp in RFC 3339 format.
-    created_at: String,
-}
-
-impl GraphqlSoupEmailAttachment {
-    /// Construct a GraphQL email attachment from the Soup model.
-    pub fn new(value: &SoupAttachment) -> Self {
-        Self {
-            id: ID(value.id.to_string()),
-            message_id: ID(value.message_id.to_string()),
-            provider_attachment_id: value.provider_attachment_id.clone(),
-            filename: value.filename.clone(),
-            mime_type: value.mime_type.clone(),
-            size_bytes: value.size_bytes,
-            content_id: value.content_id.clone(),
-            created_at: value.created_at.to_rfc3339(),
-        }
-    }
-}
-
-/// GraphQL email thread entity.
-pub struct GraphqlSoupEmailThread<E: SoupEntityEdges>(
-    SoupEnrichedEmailThreadPreview<()>,
-    E,
-    Option<f64>,
-);
-
-/// GraphQL representation of the soup email thread.
-#[Object(name = "GraphqlSoupEmailThread")]
-impl<E> GraphqlSoupEmailThread<E>
-where
-    E: SoupEntityEdges,
-{
-    /// The unique identifier.
-    async fn id(&self) -> ID {
-        ID(self.0.thread.id.to_string())
-    }
-
-    /// Canonical entity kind.
-    async fn entity_type(&self) -> GraphqlSoupEntityType {
-        GraphqlSoupEntityType::EmailThread
-    }
-
-    /// Opaque server-only facts used by the offline Mail projection.
-    async fn cache_projection(
-        &self,
-        ctx: &Context<'_>,
-    ) -> async_graphql::Result<Option<SoupCacheProjection>> {
-        Ok(self
-            .1
-            .resolve_email_cache_projection(ctx, self.0.thread.id)
-            .await?
-            .map(SoupCacheProjection))
-    }
-
-    /// User-visible display name.
-    async fn display_name(&self) -> Option<String> {
-        self.0.thread.name.clone()
-    }
-
-    /// Common email-thread metadata.
-    async fn metadata(&self) -> GraphqlEntityMetadata {
-        GraphqlEntityMetadata {
-            owner_id: Some(self.0.thread.owner_id.as_ref().to_owned()),
-            owner_type: Some(GraphqlOwnerType::User),
-            parent: self
-                .0
-                .thread
-                .project_id
-                .as_ref()
-                .map(|id| graphql_entity(model_entity::EntityType::Project, id)),
-            created_at: Some(self.0.thread.created_at.to_rfc3339()),
-            updated_at: Some(self.0.thread.updated_at.to_rfc3339()),
-            viewed_at: self.0.thread.viewed_at.map(|ts| ts.to_rfc3339()),
-            deleted_at: None,
-        }
-    }
-
-    /// The identifier of the provider.
-    async fn provider_id(&self) -> Option<&str> {
-        self.0.thread.provider_id.as_deref()
-    }
-
-    /// The identifier of the owner.
-    async fn owner_id(&self) -> String {
-        self.0.thread.owner_id.as_ref().to_owned()
-    }
-
-    /// Whether the thread should appear in the inbox.
-    async fn inbox_visible(&self) -> bool {
-        self.0.thread.inbox_visible
-    }
-
-    /// The name.
-    async fn name(&self) -> Option<&str> {
-        self.0.thread.name.as_deref()
-    }
-
-    /// The snippet.
-    async fn snippet(&self) -> Option<&str> {
-        self.0.thread.snippet.as_deref()
-    }
-
-    /// The sender email.
-    async fn sender_email(&self) -> Option<&str> {
-        self.0.thread.sender_email.as_deref()
-    }
-
-    /// The sender name.
-    async fn sender_name(&self) -> Option<&str> {
-        self.0.thread.sender_name.as_deref()
-    }
-
-    /// The sender photo url.
-    async fn sender_photo_url(&self) -> Option<&str> {
-        self.0.thread.sender_photo_url.as_deref()
-    }
-
-    /// Whether the thread has been read.
-    async fn is_read(&self) -> bool {
-        self.0.thread.is_read
-    }
-
-    /// Whether the thread contains a draft.
-    async fn is_draft(&self) -> bool {
-        self.0.thread.is_draft
-    }
-
-    /// Whether the thread is marked important.
-    async fn is_important(&self) -> bool {
-        self.0.thread.is_important
-    }
-
-    /// The denormalized `email_threads.is_signal` importance classification —
-    /// the same flag the soup Importance filter evaluates, distinct from
-    /// `is_important` (Gmail's IMPORTANT label).
-    async fn is_signal(&self) -> bool {
-        self.0.thread.is_signal
-    }
-
-    /// The identifier of the project.
-    async fn project_id(&self) -> Option<ID> {
-        self.0.thread.project_id.as_ref().map(|id| ID(id.clone()))
-    }
-
-    /// Timestamp used for email thread sorting, in RFC 3339 format.
-    async fn sort_ts(&self) -> String {
-        self.0.thread.sort_ts.to_rfc3339()
-    }
-
-    /// The created timestamp in RFC 3339 format.
-    async fn created_at(&self) -> String {
-        self.0.thread.created_at.to_rfc3339()
-    }
-
-    /// The updated timestamp in RFC 3339 format.
-    async fn updated_at(&self) -> String {
-        self.0.thread.updated_at.to_rfc3339()
-    }
-
-    /// The viewed timestamp in RFC 3339 format.
-    async fn viewed_at(&self) -> Option<String> {
-        self.0.thread.viewed_at.map(|ts| ts.to_rfc3339())
-    }
-
-    /// The attachment count.
-    async fn attachment_count(&self) -> usize {
-        self.0.attachments.len()
-    }
-
-    /// The participant count.
-    async fn participant_count(&self) -> usize {
-        self.0.participants.len()
-    }
-
-    /// Legacy contact-keyed participants. Use senders for message-specific names.
-    #[graphql(deprecation = "Use senders to preserve message-specific display names.")]
-    async fn participants(&self) -> Vec<GraphqlSoupEmailParticipant> {
-        self.0
-            .participants
-            .iter()
-            .map(GraphqlSoupEmailParticipant::new)
-            .collect()
-    }
-
-    /// Senders with message-specific display names, embedded in this thread.
-    async fn senders(&self) -> Vec<GraphqlSoupEmailSender> {
-        self.0
-            .participants
-            .iter()
-            .map(GraphqlSoupEmailSender::new)
-            .collect()
-    }
-
-    /// The attachments.
-    async fn attachments(&self) -> Vec<GraphqlSoupEmailAttachment> {
-        self.0
-            .attachments
-            .iter()
-            .map(GraphqlSoupEmailAttachment::new)
-            .collect()
-    }
-
-    /// The labels.
-    async fn labels(&self) -> Vec<GraphqlEmailLabel> {
-        self.0
-            .labels
-            .iter()
-            .map(|label| {
-                GraphqlEmailLabel::new(
-                    label.id,
-                    label.link_id,
-                    label.provider_label_id.clone(),
-                    label.name.clone(),
-                    label.created_at,
-                    match label.message_list_visibility {
-                        SoupMessageListVisibility::Show => {
-                            email::domain::models::MessageListVisibility::Show
-                        }
-                        SoupMessageListVisibility::Hide => {
-                            email::domain::models::MessageListVisibility::Hide
-                        }
-                    },
-                    match label.label_list_visibility {
-                        SoupLabelListVisibility::LabelShow => {
-                            email::domain::models::LabelListVisibility::LabelShow
-                        }
-                        SoupLabelListVisibility::LabelShowIfUnread => {
-                            email::domain::models::LabelListVisibility::LabelShowIfUnread
-                        }
-                        SoupLabelListVisibility::LabelHide => {
-                            email::domain::models::LabelListVisibility::LabelHide
-                        }
-                    },
-                    match label.type_ {
-                        SoupLabelType::System => email::domain::models::LabelType::System,
-                        SoupLabelType::User => email::domain::models::LabelType::User,
-                    },
-                )
-            })
-            .collect()
-    }
-
-    #[graphql(flatten)]
-    /// The edges.
-    async fn edges(&self) -> E {
-        self.1.clone()
-    }
-
-    /// The viewer's frecency score for this entity, when loaded.
-    async fn frecency_score(&self) -> Option<f64> {
-        self.2
-    }
-
-    /// the email thread edge
-    #[graphql(flatten)]
-    async fn email_thread_edges(&self) -> E::EmailThreadEdges {
-        E::email_thread_edges(self.0.thread.id)
-    }
-}
-
 /// GraphQL channel participant.
 pub struct GraphqlSoupChannelParticipant(ChannelParticipant);
 
@@ -2330,126 +1820,10 @@ where
     }
 }
 
-pub use crm_contact::GraphqlSoupCrmContact;
-mod crm_contact;
 pub use reminder::{
     GraphqlReminderScheduleType, GraphqlSoupReminder, GraphqlSoupReminderReference,
 };
 mod reminder;
-
-/// GraphQL CRM company entity.
-pub struct GraphqlSoupCrmCompany<E: SoupEntityEdges>(SoupCrmCompany<()>, E, Option<f64>);
-
-/// GraphQL representation of the soup crm company.
-#[Object(name = "GraphqlSoupCrmCompany")]
-impl<E> GraphqlSoupCrmCompany<E>
-where
-    E: SoupEntityEdges,
-{
-    /// The unique identifier.
-    async fn id(&self) -> ID {
-        ID(self.0.id.to_string())
-    }
-
-    /// Canonical entity kind.
-    async fn entity_type(&self) -> GraphqlSoupEntityType {
-        GraphqlSoupEntityType::CrmCompany
-    }
-
-    /// Opaque cache projection metadata, unavailable for this entity variant.
-    async fn cache_projection(&self) -> Option<SoupCacheProjection> {
-        None
-    }
-
-    /// User-visible company name.
-    async fn display_name(&self) -> Option<String> {
-        self.0.name.clone()
-    }
-
-    /// Common CRM-company metadata.
-    async fn metadata(&self) -> GraphqlEntityMetadata {
-        GraphqlEntityMetadata {
-            owner_id: None,
-            owner_type: None,
-            parent: Some(graphql_entity(
-                model_entity::EntityType::Team,
-                self.0.team_id,
-            )),
-            created_at: Some(self.0.created_at.to_rfc3339()),
-            updated_at: Some(self.0.updated_at.to_rfc3339()),
-            viewed_at: self.0.viewed_at.map(|ts| ts.to_rfc3339()),
-            deleted_at: None,
-        }
-    }
-
-    /// The identifier of the team.
-    async fn team_id(&self) -> ID {
-        ID(self.0.team_id.to_string())
-    }
-
-    /// The name.
-    async fn name(&self) -> Option<&str> {
-        self.0.name.as_deref()
-    }
-
-    /// The description.
-    async fn description(&self) -> Option<&str> {
-        self.0.description.as_deref()
-    }
-
-    /// Whether email sync is enabled for this company.
-    async fn email_sync(&self) -> bool {
-        self.0.email_sync
-    }
-
-    /// Whether the company is hidden from CRM listings.
-    async fn hidden(&self) -> bool {
-        self.0.hidden
-    }
-
-    /// The created timestamp in RFC 3339 format.
-    async fn created_at(&self) -> String {
-        self.0.created_at.to_rfc3339()
-    }
-
-    /// The updated timestamp in RFC 3339 format.
-    async fn updated_at(&self) -> String {
-        self.0.updated_at.to_rfc3339()
-    }
-
-    /// The viewed timestamp in RFC 3339 format.
-    async fn viewed_at(&self) -> Option<String> {
-        self.0.viewed_at.map(|ts| ts.to_rfc3339())
-    }
-
-    /// The domains.
-    async fn domains(&self) -> Vec<String> {
-        self.0
-            .domains
-            .iter()
-            .map(|domain| domain.domain.clone())
-            .collect()
-    }
-
-    #[graphql(flatten)]
-    /// The edges.
-    async fn edges(&self) -> E {
-        self.1.clone()
-    }
-
-    /// CRM-record fields, such as the pipeline rows referencing the company.
-    #[graphql(flatten)]
-    async fn crm_record_edges(&self) -> E::CrmRecordEdges {
-        E::crm_record_edges(
-            model_entity::EntityType::CrmCompany.with_entity_string(self.0.id.to_string()),
-        )
-    }
-
-    /// The viewer's frecency score for this entity, when loaded.
-    async fn frecency_score(&self) -> Option<f64> {
-        self.2
-    }
-}
 
 /// GraphQL foreign entity.
 pub struct GraphqlSoupForeignEntity<E: SoupEntityEdges>(SoupForeignEntity, E, Option<f64>);
@@ -2595,17 +1969,13 @@ macro_rules! impl_common_interface_edges {
 }
 
 impl_common_interface_edges!(
-    GraphqlSoupCalendarEvent,
     GraphqlSoupDocument,
     GraphqlSoupChat,
     GraphqlSoupProject,
     GraphqlSoupInitiative,
-    GraphqlSoupEmailThread,
     GraphqlSoupChannel,
     GraphqlSoupChannelMessage,
     GraphqlSoupCall,
-    GraphqlSoupCrmCompany,
-    GraphqlSoupCrmContact,
     GraphqlSoupForeignEntity,
     GraphqlSoupAgentSession,
     GraphqlSoupDatabaseRow,
