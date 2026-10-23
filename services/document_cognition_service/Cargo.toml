@@ -51,7 +51,6 @@ chrono = { workspace = true }
 connection_gateway = { path = "../connection_gateway" }
 connection_gateway_client = { path = "../../crates/connection_gateway_client" }
 cookie = { workspace = true }
-crm = { path = "../../crates/crm" }
 # `ai_tools` for the toolset, `gateway` for the table-changed fan-out, and
 # `postgres` for the adapters behind the service.
 databases = { path = "../../crates/databases", features = ["ai_tools", "gateway", "postgres"] }
@@ -61,8 +60,6 @@ document_storage_service_client = { path = "../../crates/document_storage_servic
 documents = { path = "../../crates/documents", features = ["ai_tools", "attachment"] }
 doppleganger = { workspace = true }
 doppler-config = { workspace = true }
-email = { path = "../../crates/email", features = ["outbound", "attachment"] }
-email_service_client = { path = "../../crates/email_service_client" }
 entity_access = { path = "../../crates/entity_access" }
 entity_access_management = { path = "../../crates/entity_access_management" }
 entity_registry = { path = "../../crates/entity_registry/entity_registry" }
@@ -141,8 +138,6 @@ sqs_client = { path = "../../crates/sqs_client", default-features = false, featu
   "ai_projection",
   "chat",
   "document_text_extractor",
-  "email",
-  "gmail",
 ] }
 sqs_worker = { path = "../../crates/sqs_worker" }
 static_file = { path = "../../crates/static_file", features = ["attachment"] }

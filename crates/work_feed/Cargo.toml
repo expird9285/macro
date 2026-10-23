@@ -9,7 +9,6 @@ default = []
 # Adapters over the services that own the feed's data.
 outbound = [
   "dep:activity",
-  "dep:email",
   "dep:soup",
   "dep:soup_realtime",
   "dep:models_soup",
@@ -21,7 +20,6 @@ base64 = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 cowlike = { path = "../cowlike" }
 document_sub_type = { path = "../document_sub_type" }
-email = { path = "../email", default-features = false, features = ["ports"], optional = true }
 entity_access = { path = "../entity_access", default-features = false, features = ["ports"] }
 filter_ast = { path = "../filter_ast" }
 futures = { workspace = true }

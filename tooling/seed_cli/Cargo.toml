@@ -12,8 +12,6 @@ channels = { path = "../../crates/channels", default-features = false, features 
 chrono = { workspace = true }
 clap = { workspace = true }
 comms_db_client = { path = "../../crates/comms_db_client" }
-email_db_client = { path = "../../crates/email_db_client" }
-email_utils = { path = "../../crates/email_utils" }
 entity_access = { path = "../../crates/entity_access", default-features = false, features = ["outbound"] }
 entity_access_db_utils = { path = "../../crates/entity_access_db_utils" }
 fusionauth = { path = "../../crates/fusionauth" }
@@ -32,7 +30,6 @@ mockall = { workspace = true }
 model = { path = "../../crates/model" }
 model-entity = { path = "../../crates/model-entity" }
 model_owner = { path = "../../crates/model_owner" }
-models_email = { path = "../../crates/models_email" }
 models_permissions = { path = "../../crates/models_permissions" }
 models_properties = { path = "../../crates/models_properties" }
 rand = { workspace = true }

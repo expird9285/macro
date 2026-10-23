@@ -6,7 +6,7 @@ version = "0.1.0"
 
 [features]
 default = []
-scheduling = ["dep:calendar_scheduling", "outbound"]
+scheduling = ["outbound"]
 ai_tools = ["dep:ai_toolset", "dep:async-trait", "dep:anyhow", "ports"]
 # Capability impls for the unified entity-mutation router (rename, trash,
 # restore, permanent delete).
@@ -33,7 +33,6 @@ postgres = ["dep:entity_access_db_utils", "dep:serde_json", "dep:sqlx", "outboun
 base64 = { workspace = true, optional = true }
 reqwest = { workspace = true, optional = true }
 macro_tower_layers = { path = "../macro_tower_layers", optional = true }
-calendar_scheduling = { path = "../calendar_scheduling", optional = true }
 ai_toolset = { path = "../ai_toolset", optional = true }
 async-trait = { workspace = true, optional = true }
 nom = { workspace = true }

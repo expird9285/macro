@@ -10,7 +10,6 @@ consumer = [
   "dep:channels",
   "dep:chat",
   "dep:documents",
-  "dep:email",
   "dep:github_pull_requests",
   "dep:initiative",
   "dep:kafka_util",
@@ -46,7 +45,6 @@ channels = { path = "../channels", default-features = false, optional = true }
 messages = { path = "../messages", features = ["broker"] }
 chat = { path = "../chat", default-features = false, optional = true }
 documents = { path = "../documents", default-features = false, features = ["service"], optional = true }
-email = { path = "../email", default-features = false, optional = true }
 entity_access = { path = "../entity_access", default-features = false, features = ["ports"], optional = true }
 futures = { workspace = true, optional = true }
 github_pull_requests = { path = "../github_pull_requests", default-features = false, optional = true }

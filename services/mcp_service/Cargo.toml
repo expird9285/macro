@@ -34,15 +34,12 @@ call = { path = "../../crates/call", default-features = false, features = [
 channels = { path = "../../crates/channels", features = ["outbound"] }
 chat = { path = "../../crates/chat", features = ["ai_tools", "outbound"] }
 connection_gateway_client = { path = "../../crates/connection_gateway_client" }
-crm = { path = "../../crates/crm" }
 database_env_vars = { path = "../../crates/database_env_vars" }
 # `ai_tools` for the toolset, `gateway` for the table-changed fan-out, and
 # `postgres` for the adapters behind the service.
 databases = { path = "../../crates/databases", features = ["ai_tools", "gateway", "postgres"] }
 documents = { path = "../../crates/documents", features = ["ai_tools"] }
 doppler-config = { workspace = true }
-email = { path = "../../crates/email", features = ["outbound"] }
-email_service_client = { path = "../../crates/email_service_client" }
 entity_access = { path = "../../crates/entity_access" }
 entity_access_management = { path = "../../crates/entity_access_management" }
 entity_registry = { path = "../../crates/entity_registry/entity_registry" }
@@ -85,8 +82,6 @@ sqlx = { workspace = true }
 sqs_client = { path = "../../crates/sqs_client", default-features = false, features = [
   "chat",
   "document_text_extractor",
-  "email",
-  "gmail",
   "search",
 ] }
 sync_service_client = { path = "../../crates/sync_service_client" }

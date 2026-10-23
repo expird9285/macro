@@ -31,12 +31,10 @@ rate_limit = []
 return_passwordless_code = []
 
 [dependencies]
-crm = { path = "../../crates/crm", default-features = false, features = ["lookup"] }
 ai_billing = { path = "../../crates/ai_billing" }
 ai_usage = { path = "../../crates/ai_usage" }
 initiative = { path = "../../crates/initiative", default-features = false, features = ["postgres"] }
 aes-gcm = { workspace = true }
-calendar_events = { path = "../../crates/calendar_events" }
 analytics_client = { path = "../../crates/analytics_client" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -66,9 +64,7 @@ contacts = { path = "../../crates/contacts", default-features = false, features 
 cookie = { workspace = true }
 decode_jwt = { path = "../../crates/decode_jwt" }
 document_storage_service_client = { path = "../../crates/document_storage_service_client" }
-email = { path = "../../crates/email", features = ["http_client", "outbound"] }
 doppleganger = { workspace = true }
-email_db_client = { path = "../../crates/email_db_client" }
 email_validator = { path = "../../crates/email_validator" }
 entity_access = { path = "../../crates/entity_access" }
 entity_registry = { path = "../../crates/entity_registry/entity_registry", features = [
@@ -158,7 +154,6 @@ sha1 = "0.10.6"
 sha2 = { workspace = true }
 sqlx = { workspace = true }
 sqs_client = { path = "../../crates/sqs_client", default-features = false, features = [
-  "email",
   "search",
 ] }
 strum = { workspace = true }

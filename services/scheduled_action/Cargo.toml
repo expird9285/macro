@@ -34,10 +34,8 @@ bot_id = { path = "../../crates/bot_id" }
 call = { path = "../../crates/call", default-features = false, features = ["outbound"] }
 channel_sender = { path = "../../crates/channel_sender" }
 channels = { path = "../../crates/channels", default-features = false, features = ["outbound"] }
-crm = { path = "../../crates/crm", default-features = false, features = ["ports"] }
 documents = { path = "../../crates/documents", default-features = false, features = ["outbound", "ports"] }
 document_sub_type = { path = "../../crates/document_sub_type" }
-email = { path = "../../crates/email", default-features = false, features = ["outbound"] }
 entity_access_management = { path = "../../crates/entity_access_management" }
 frecency = { path = "../../crates/frecency", features = ["postgres"] }
 jev = { path = "../../crates/jev", features = ["outbound"] }

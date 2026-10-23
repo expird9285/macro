@@ -10,7 +10,6 @@ default = ["ai_tools", "outbound", "ports"]
 outbound = [
   "dep:cowlike",
   "dep:documents",
-  "dep:email",
   "dep:filter_ast",
   "dep:item_filters",
   "dep:lexical_client",
@@ -43,7 +42,6 @@ serde = { workspace = true, optional = true }
 # Outbound dependencies
 cowlike = { path = "../cowlike", optional = true }
 documents = { path = "../documents", default-features = false, features = ["ports"], optional = true }
-email = { path = "../email", default-features = false, optional = true }
 filter_ast = { path = "../filter_ast", optional = true }
 item_filters = { path = "../item_filters", optional = true }
 lexical_client = { path = "../lexical_client", optional = true }

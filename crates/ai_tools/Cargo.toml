@@ -33,8 +33,6 @@ async-trait.workspace = true
 axum = { workspace = true, features = ["macros"] }
 aws-sdk-sqs.workspace = true
 bots = { path = "../bots", default-features = false, features = ["ai_tools", "outbound"] }
-calendar_scheduling = { path = "../calendar_scheduling", features = ["ai_tools", "postgres", "calendar", "client"] }
-calendar_events = { path = "../calendar_events", features = ["ai_tools", "call-meetings", "mutation-client", "postgres"] }
 call = { path = "../call", default-features = false, features = ["ai_tools", "outbound", "ports"] }
 chat = { path = "../chat", features = ["ai_tools", "outbound"] }
 channels = { path = "../channels", features = ["ai_tools", "outbound"] }
@@ -48,12 +46,9 @@ connection_gateway_client = { path = "../connection_gateway_client" }
 contacts = { path = "../contacts", default-features = false, features = [
   "outbound",
 ] }
-crm = { path = "../crm" }
 databases = { path = "../databases", default-features = false, features = ["ai_tools", "gateway", "postgres"] }
 databases_sql = { path = "../databases_sql", features = ["ai_tools"] }
 documents = { path = "../documents", features = ["ai_tools", "attachment", "purge"] }
-email = { path = "../email", features = ["ai_schema", "ai_tools", "axum", "outbound", "s3"] }
-email_service_client = { path = "../email_service_client" }
 entity_access = { path = "../entity_access" }
 entity_access_management = { path = "../entity_access_management" }
 entity_registry = { path = "../entity_registry/entity_registry" }
@@ -83,7 +78,6 @@ model-entity = { path = "../model-entity" }
 model_notifications = { path = "../model_notifications" }
 model_owner = { path = "../model_owner" }
 models_dcs = { path = "../models_dcs" }
-models_email = { path = "../models_email" }
 models_pagination = { path = "../models_pagination" }
 models_permissions = { path = "../models_permissions" }
 notification = { path = "../notification", features = ["ai_tool"] }
@@ -103,7 +97,7 @@ projects = { path = "../projects", default-features = false, features = ["ai_too
 skills = { path = "../skills", default-features = false, features = ["ai_tools", "outbound"] }
 properties = { path = "../properties", features = ["ai_tools"] }
 soup = { path = "../soup", features = ["ai_tools", "outbound"] }
-sqs_client = { path = "../sqs_client", default-features = false, features = ["email", "gmail"] }
+sqs_client = { path = "../sqs_client", default-features = false }
 teams = { path = "../teams", default-features = false, features = ["ai_tools", "outbound"] }
 sqlx.workspace = true
 strum.workspace = true
@@ -125,7 +119,6 @@ macro_service_urls = { path = "../macro_service_urls" }
 workspace-hack = { version = "0.1", path = "../workspace-hack" }
 
 [dev-dependencies]
-calendar_scheduling = { path = "../calendar_scheduling", features = ["inbound"] }
 macro_authorization = { path = "../macro_authorization", features = ["axum"] }
 model_user = { path = "../model_user" }
 cool_asserts = "2"

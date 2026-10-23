@@ -59,11 +59,9 @@ base64 = { workspace = true }
 bots = { path = "../../crates/bots" }
 bot_id = { path = "../../crates/bot_id" }
 bytes = { workspace = true }
-calendar_events = { path = "../../crates/calendar_events", features = ["dispatch-sqs", "inbound", "mutation-client", "notify", "postgres"] }
 bzip2 = { workspace = true, default-features = false, features = [
   "libbz2-rs-sys",
 ] }
-cal = { path = "../../crates/cal", features = ["axum", "outbound"] }
 call = { path = "../../crates/call" }
 channel_bots = { path = "../../crates/channel_bots" }
 messages = { path = "../../crates/messages", features = ["annotations", "broker", "delivery", "inbound"] }
@@ -96,7 +94,6 @@ channel_labels = { path = "../../crates/channel_labels", features = [
   "inbound",
   "postgres",
 ] }
-crm = { path = "../../crates/crm" }
 databases_sql = { path = "../../crates/databases_sql", features = ["inbound"] }
 databases = { path = "../../crates/databases", features = [
   "entity_mutation",
@@ -118,8 +115,6 @@ document_sub_type = { path = "../../crates/document_sub_type" }
 documents_hex = { path = "../../crates/documents", package = "documents", features = ["purge"] }
 doppler-config = { workspace = true }
 dynamodb_client = { path = "../../crates/dynamodb_client" }
-email = { path = "../../crates/email", features = ["outbound", "ports", "gmail_senders"] }
-gmail_client = { path = "../../crates/gmail_client" }
 authentication_service_client = { path = "../../crates/authentication_service_client" }
 embedding = { path = "../../crates/embedding" }
 entity_access = { path = "../../crates/entity_access", features = [
@@ -152,9 +147,7 @@ github_pull_requests = { path = "../../crates/github_pull_requests", default-fea
   "service",
 ] }
 graphql_soup = { path = "../../crates/graphql_soup" }
-graphql_crm = { path = "../../crates/graphql_crm" }
 graphql_initiative = { path = "../../crates/graphql_initiative" }
-graphql_calendar = { path = "../../crates/graphql_calendar" }
 graphql_scheduled_action = { path = "../../crates/graphql_scheduled_action" }
 hex = { workspace = true }
 http-body-util = { workspace = true }
@@ -222,12 +215,6 @@ redis = { workspace = true, features = [
   "tokio-rustls-comp",
 ] }
 regex = { workspace = true }
-reminders = { path = "../../crates/reminders", features = [
-  "dispatch-sqs",
-  "inbound",
-  "notify",
-  "postgres",
-] }
 reqwest = { workspace = true }
 rootcause = { workspace = true }
 sha2 = { workspace = true }
@@ -257,7 +244,6 @@ soup_realtime = { path = "../../crates/soup_realtime", default-features = false,
 sqlx = { workspace = true }
 sqs_client = { path = "../../crates/sqs_client", default-features = false, features = [
   "document",
-  "email",
   "search",
 ] }
 sqs_worker = { path = "../../crates/sqs_worker" }

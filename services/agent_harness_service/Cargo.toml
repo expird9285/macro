@@ -22,7 +22,6 @@ ai_billing = { path = "../../crates/ai_billing", features = ["pg-admission"] }
 roles_and_permissions = { path = "../../crates/roles_and_permissions", default-features = false, features = ["outbound"] }
 teams = { path = "../../crates/teams", default-features = false, features = ["outbound"] }
 initiative = { path = "../../crates/initiative", default-features = false, features = ["postgres"] }
-crm = { path = "../../crates/crm", default-features = false, features = ["lookup"] }
 call = { path = "../../crates/call", default-features = false, features = ["outbound"] }
 agent_egress = { path = "../../crates/agent_egress" }
 agent_fold = { path = "../../crates/folds/agent_fold" }
