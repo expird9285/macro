@@ -404,16 +404,12 @@ async fn a_table_read_is_its_rows_and_nothing_else() {
     assert_eq!(
         serde_json::to_value(&reads[0]).unwrap(),
         serde_json::json!({
-            "calf": {"l": {"id": Uuid::nil()}},
             "df": {"l": {"id": Uuid::nil()}},
             "pf": {"l": {"pids": Uuid::nil()}},
             "cf": {"l": {"cid": Uuid::nil()}},
-            "ef": {"t": {"l": {"ThreadId": Uuid::nil()}}},
             "chanf": {"l": {"ChannelId": Uuid::nil()}},
             "cthf": {"l": {"ThreadId": Uuid::nil()}},
             "callf": {"l": {"CallId": Uuid::nil()}},
-            "ccf": {"l": {"id": Uuid::nil()}},
-            "crmf": null,
             "fef": {"l": {"id": Uuid::nil()}},
             "ghprf": null,
             "asf": null,

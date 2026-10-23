@@ -12,22 +12,18 @@ use database_sql::catalog::{Catalog, ColumnKind, PEOPLE_EMAIL, PEOPLE_ID, PEOPLE
 use database_sql::fold::{Bin, Cell, Row};
 use database_sql::run::{Page, RowSource};
 use database_sql::split::{GqlQuery, KeyHint};
-use email::domain::models::PreviewView;
 use filter_ast::Expr;
-use item_filters::ast::calendar_event::CalendarEventLiteral;
 use item_filters::ast::call::CallLiteral;
 use item_filters::ast::channel::{ChannelLiteral, ChannelThreadLiteral};
 use item_filters::ast::chat::ChatLiteral;
-use item_filters::ast::crm_company::CrmCompanyLiteral;
 use item_filters::ast::database_row::DatabaseRowLiteral;
 use item_filters::ast::document::DocumentLiteral;
-use item_filters::ast::email::EmailLiteral;
 use item_filters::ast::foreign_entity::ForeignEntityLiteral;
 use item_filters::ast::project::ProjectLiteral;
 use item_filters::ast::properties::{
     EntityRefId, PropertiesLiteral, PropertyEntityType, PropertyMatchValue,
 };
-use item_filters::ast::{EmailFilterAst, EntityFilterAst};
+use item_filters::ast::EntityFilterAst;
 use macro_user_id::user_id::MacroUserIdStr;
 use models_databases::position::PositionError;
 use models_databases::{OptionId, RowId, TableId};
@@ -266,9 +262,6 @@ where
             cursor,
             sort_direction: SoupSortDirection::Desc,
             user: self.viewer.clone(),
-            // Every other kind is excluded, so emails never come into play.
-            email_preview_view: PreviewView::default(),
-            link_ids: Vec::new(),
         };
         let page = self
             .soup
@@ -366,24 +359,16 @@ fn rows_filter(
     }
     EntityFilterAst {
         favorites_only: None,
-        crm_association: None,
-        calendar_event_filter: Some(Arc::new(Expr::val(CalendarEventLiteral::Id(Uuid::nil())))),
         document_filter: Some(Arc::new(Expr::val(DocumentLiteral::Id(Uuid::nil())))),
         project_filter: Some(Arc::new(Expr::val(ProjectLiteral::ProjectIdSelf(
             Uuid::nil(),
         )))),
         chat_filter: Some(Arc::new(Expr::val(ChatLiteral::ChatId(Uuid::nil())))),
-        email_filter: EmailFilterAst {
-            tree: Some(Arc::new(Expr::val(EmailLiteral::ThreadId(Uuid::nil())))),
-            crm_scope: None,
-        },
         channel_filter: Some(Arc::new(Expr::val(ChannelLiteral::ChannelId(Uuid::nil())))),
         channel_thread_filter: Some(Arc::new(Expr::val(ChannelThreadLiteral::ThreadId(
             Uuid::nil(),
         )))),
         call_filter: Some(Arc::new(Expr::val(CallLiteral::CallId(Uuid::nil())))),
-        crm_company_filter: Some(Arc::new(Expr::val(CrmCompanyLiteral::Id(Uuid::nil())))),
-        crm_contact_filter: None,
         foreign_entity_filter: Some(Arc::new(Expr::val(ForeignEntityLiteral::Id(Uuid::nil())))),
         github_pull_request_filter: None,
         // Reminders, agent sessions and initiatives are opt-in: left empty,
