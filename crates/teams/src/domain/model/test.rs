@@ -20,9 +20,7 @@ fn team_with_enterprise_status(enterprise: bool) -> Team {
         "Test Team".to_string(),
         "TEST_TEAM".to_string(),
         MacroUserIdStr::parse_from_str("macro|owner@example.com").unwrap(),
-        false,
-        enterprise,
-    )
+        enterprise,)
 }
 
 #[test]

@@ -23,8 +23,6 @@ pub mod invite_to_team;
 pub mod join_team;
 /// Update a team.
 pub mod patch_team;
-/// Enable / disable CRM for a team.
-pub mod patch_team_crm_settings;
 /// Move a team member's seat between paid plans.
 pub mod patch_team_member_plan;
 /// Extractor ensuring the authenticated user is premium.
@@ -118,10 +116,6 @@ where
         .route("/", get(get_team::handler::<T, Eas, Auth>))
         .route("/", patch(patch_team::handler::<T, Eas, Auth>))
         .route("/", delete(delete_team::handler::<T, Eas, Auth>))
-        .route(
-            "/crm",
-            patch(patch_team_crm_settings::handler::<T, Eas, Auth>),
-        )
         .route(
             "/auto-join-domain/toggle",
             post(toggle_auto_join_domain::handler::<T, Eas, Auth>),

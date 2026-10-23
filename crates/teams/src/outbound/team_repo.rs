@@ -105,8 +105,6 @@ impl TeamRepositoryImpl {
                 owner_id: MacroUserIdStr::parse_from_str(&row.owner_id)
                     .map_err(type_err)?
                     .into_owned(),
-                // New teams have no team_crm_settings row yet.
-                crm_enabled: false,
                 // New teams start without an auto-join domain.
                 auto_join_domain: None,
                 enterprise: row.enterprise,
@@ -125,20 +123,6 @@ impl TeamRepositoryImpl {
             &team.id,
             user_id.as_ref(),
             owner_plan as _,
-        )
-        .execute(&mut *transaction)
-        .await?;
-
-        // Seed the team's CRM settings row. `crm_enabled` defaults to
-        // FALSE — toggled on later via `PATCH /team/crm`. Created in
-        // the same tx as the team itself so the row always exists for
-        // any team that exists.
-        sqlx::query!(
-            r#"
-            INSERT INTO team_crm_settings (team_id)
-            VALUES ($1)
-            "#,
-            &team.id,
         )
         .execute(&mut *transaction)
         .await?;
@@ -1074,10 +1058,8 @@ impl TeamRepository for TeamRepositoryImpl {
             r#"
             SELECT t.id, t.name, t.slug, t.owner_id, t.auto_join_domain, t.enterprise,
                 t.allow_non_admin_invites,
-                t.default_link_share as "default_link_share: LinkShare",
-                COALESCE(tcs.crm_enabled, FALSE) AS "crm_enabled!"
+                t.default_link_share as "default_link_share: LinkShare"
             FROM team t
-            LEFT JOIN team_crm_settings tcs ON tcs.team_id = t.id
             WHERE t.id = $1
             "#,
             team_id,
@@ -1090,7 +1072,6 @@ impl TeamRepository for TeamRepositoryImpl {
                 owner_id: MacroUserIdStr::parse_from_str(&row.owner_id)
                     .map_err(type_err)?
                     .into_owned(),
-                crm_enabled: row.crm_enabled,
                 auto_join_domain: row.auto_join_domain,
                 enterprise: row.enterprise,
                 allow_non_admin_invites: row.allow_non_admin_invites,
@@ -1140,11 +1121,9 @@ impl TeamRepository for TeamRepositoryImpl {
             r#"
             SELECT t.id, t.name, t.slug, t.owner_id, t.auto_join_domain, t.enterprise,
                 t.allow_non_admin_invites,
-                t.default_link_share as "default_link_share: LinkShare",
-                COALESCE(tcs.crm_enabled, FALSE) AS "crm_enabled!"
+                t.default_link_share as "default_link_share: LinkShare"
             FROM team t
             JOIN team_user tu ON t.id = tu.team_id
-            LEFT JOIN team_crm_settings tcs ON tcs.team_id = t.id
             WHERE tu.user_id = $1
             "#,
             user_id.as_ref(),
@@ -1157,7 +1136,6 @@ impl TeamRepository for TeamRepositoryImpl {
                 owner_id: MacroUserIdStr::parse_from_str(&row.owner_id)
                     .map_err(type_err)?
                     .into_owned(),
-                crm_enabled: row.crm_enabled,
                 auto_join_domain: row.auto_join_domain,
                 enterprise: row.enterprise,
                 allow_non_admin_invites: row.allow_non_admin_invites,

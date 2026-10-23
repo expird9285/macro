@@ -34,7 +34,6 @@ use notification::domain::{models::SendNotificationRequestBuilder, service::Noti
 
 use crate::domain::{
     contacts_enqueuer::{ContactsEnqueuer, NoOpContactsEnqueuer},
-    crm_enqueuer::CrmEnqueuer,
     customer_repo::CustomerRepository,
     events::{
         OwnedEntityMetadata, TeamAutoJoinDomainToggledMetadata, TeamCreatedMetadata,
@@ -44,8 +43,8 @@ use crate::domain::{
     },
     model::{
         CreateTeamError, CustomerError, DeleteTeamError, InviteUsersToTeamError,
-        JoinTeamDirectlyError, JoinTeamError, PatchTeamCrmSettingsResponse, PatchTeamRequest,
-        RemoveTeamInviteError, RemoveUserFromAllTeamsError, RemoveUserFromTeamError,
+        JoinTeamDirectlyError, JoinTeamError, PatchTeamRequest, RemoveTeamInviteError,
+        RemoveUserFromAllTeamsError, RemoveUserFromTeamError,
         RestorePermissionsForTeamMembersError, RevokePermissionsForTeamMembersError, SeatPlan,
         SetTeamMemberPlanError, Team, TeamError, TeamInvite, TeamInviteDetails, TeamMember,
         TeamMembers, TeamRole, TeamWithMembers, ToggleAutoJoinDomainError, is_generic_email_domain,
@@ -54,7 +53,6 @@ use crate::domain::{
     open_seat_release::{NoOpOpenSeatRelease, OpenSeatRelease, SeatPlanChange, SubscriptionStart},
     owned_entity_cleanup::{OwnedEntityCleanup, UnwiredOwnedEntityCleanup, clear_team},
     team_analytics::{NoOpTeamAnalytics, TeamAnalytics, TeamAnalyticsEvent},
-    team_crm_settings_repo::TeamCrmSettingsRepository,
     team_repo::{TeamMembersService, TeamRepository, TeamService},
 };
 
@@ -90,8 +88,6 @@ pub struct TeamServiceImpl<
     CS,
     URPS,
     NI,
-    CE,
-    TCRMS,
     TA = NoOpTeamAnalytics,
     CNE = NoOpContactsEnqueuer,
     EB = NoopMacroEventBroker,
@@ -103,8 +99,6 @@ pub struct TeamServiceImpl<
     CS: ChannelService + Clone,
     URPS: UserRolesAndPermissionsService,
     NI: NotificationIngress,
-    CE: CrmEnqueuer,
-    TCRMS: TeamCrmSettingsRepository,
     TA: TeamAnalytics,
     CNE: ContactsEnqueuer,
     EB: MacroEventBroker,
@@ -121,13 +115,6 @@ pub struct TeamServiceImpl<
     user_roles_and_permissions_service: URPS,
     /// The notification ingress service
     notification_ingress: Arc<NI>,
-    /// Outbound enqueuer for the populate / depopulate CRM backfills
-    /// fired from `create_team` / `join_team` / `remove_user_from_team`.
-    /// See [`CrmEnqueuer`].
-    crm_enqueuer: CE,
-    /// Repository for the `team_crm_settings` row and the bulk CRM
-    /// teardown invoked from `set_team_crm_enabled`.
-    team_crm_settings_repository: TCRMS,
     /// Outbound port for best-effort team lifecycle analytics events.
     team_analytics: TA,
     /// Outbound port for contact connections created through team membership.
@@ -145,16 +132,14 @@ fn channel_error_to_team_error(error: ChannelMutationErr) -> TeamError {
     TeamError::StorageLayerError(error.into())
 }
 
-impl<TR, CR, CS, URPS, NI, CE, TCRMS, TA, CNE, EB, OSR, OEC> Clone
-    for TeamServiceImpl<TR, CR, CS, URPS, NI, CE, TCRMS, TA, CNE, EB, OSR, OEC>
+impl<TR, CR, CS, URPS, NI, TA, CNE, EB, OSR, OEC> Clone
+    for TeamServiceImpl<TR, CR, CS, URPS, NI, TA, CNE, EB, OSR, OEC>
 where
     TR: TeamRepository,
     CR: CustomerRepository,
     CS: ChannelService + Clone,
     URPS: UserRolesAndPermissionsService,
     NI: NotificationIngress,
-    CE: CrmEnqueuer,
-    TCRMS: TeamCrmSettingsRepository,
     TA: TeamAnalytics,
     CNE: ContactsEnqueuer,
     EB: MacroEventBroker + Clone,
@@ -168,8 +153,6 @@ where
             channel_service: self.channel_service.clone(),
             user_roles_and_permissions_service: self.user_roles_and_permissions_service.clone(),
             notification_ingress: self.notification_ingress.clone(),
-            crm_enqueuer: self.crm_enqueuer.clone(),
-            team_crm_settings_repository: self.team_crm_settings_repository.clone(),
             team_analytics: self.team_analytics.clone(),
             contacts_enqueuer: self.contacts_enqueuer.clone(),
             event_broker: self.event_broker.clone(),
@@ -179,15 +162,13 @@ where
     }
 }
 
-impl<TR, CR, CS, URPS, NI, CE, TCRMS>
+impl<TR, CR, CS, URPS, NI>
     TeamServiceImpl<
         TR,
         CR,
         CS,
         URPS,
         NI,
-        CE,
-        TCRMS,
         NoOpTeamAnalytics,
         NoOpContactsEnqueuer,
         NoopMacroEventBroker,
@@ -200,8 +181,6 @@ where
     CS: ChannelService + Clone,
     URPS: UserRolesAndPermissionsService,
     NI: NotificationIngress,
-    CE: CrmEnqueuer,
-    TCRMS: TeamCrmSettingsRepository,
 {
     /// Creates a new TeamService with no-op analytics.
     pub fn new(
@@ -210,8 +189,6 @@ where
         channel_service: CS,
         user_roles_and_permissions_service: URPS,
         notification_ingress: Arc<NI>,
-        crm_enqueuer: CE,
-        team_crm_settings_repository: TCRMS,
     ) -> Self {
         Self::new_with_analytics(
             team_repository,
@@ -219,22 +196,18 @@ where
             channel_service,
             user_roles_and_permissions_service,
             notification_ingress,
-            crm_enqueuer,
-            team_crm_settings_repository,
             NoOpTeamAnalytics,
         )
     }
 }
 
-impl<TR, CR, CS, URPS, NI, CE, TCRMS, TA>
+impl<TR, CR, CS, URPS, NI, TA>
     TeamServiceImpl<
         TR,
         CR,
         CS,
         URPS,
         NI,
-        CE,
-        TCRMS,
         TA,
         NoOpContactsEnqueuer,
         NoopMacroEventBroker,
@@ -247,8 +220,6 @@ where
     CS: ChannelService + Clone,
     URPS: UserRolesAndPermissionsService,
     NI: NotificationIngress,
-    CE: CrmEnqueuer,
-    TCRMS: TeamCrmSettingsRepository,
     TA: TeamAnalytics,
 {
     /// Creates a new TeamService with an analytics implementation.
@@ -262,8 +233,6 @@ where
         channel_service: CS,
         user_roles_and_permissions_service: URPS,
         notification_ingress: Arc<NI>,
-        crm_enqueuer: CE,
-        team_crm_settings_repository: TCRMS,
         team_analytics: TA,
     ) -> Self {
         Self {
@@ -272,8 +241,6 @@ where
             channel_service,
             user_roles_and_permissions_service,
             notification_ingress,
-            crm_enqueuer,
-            team_crm_settings_repository,
             team_analytics,
             contacts_enqueuer: NoOpContactsEnqueuer,
             event_broker: NoopMacroEventBroker,
@@ -283,16 +250,14 @@ where
     }
 }
 
-impl<TR, CR, CS, URPS, NI, CE, TCRMS, TA, CNE, EB, OSR, OEC>
-    TeamServiceImpl<TR, CR, CS, URPS, NI, CE, TCRMS, TA, CNE, EB, OSR, OEC>
+impl<TR, CR, CS, URPS, NI, TA, CNE, EB, OSR, OEC>
+    TeamServiceImpl<TR, CR, CS, URPS, NI, TA, CNE, EB, OSR, OEC>
 where
     TR: TeamRepository,
     CR: CustomerRepository,
     CS: ChannelService + Clone,
     URPS: UserRolesAndPermissionsService,
     NI: NotificationIngress,
-    CE: CrmEnqueuer,
-    TCRMS: TeamCrmSettingsRepository,
     TA: TeamAnalytics,
     CNE: ContactsEnqueuer,
     EB: MacroEventBroker,
@@ -488,21 +453,6 @@ where
             return Err(JoinTeamError::TeamError(channel_error_to_team_error(e)).into());
         }
 
-        // Best-effort: ask the email service to seed CRM tables from this
-        // user's historical sent mail, same as join_team.
-        if let Err(e) = self
-            .crm_enqueuer
-            .enqueue_populate_crm_for_user(user_id)
-            .await
-        {
-            tracing::error!(
-                error = ?e,
-                team_id = %team_id,
-                macro_id = %user_id,
-                "Failed to enqueue PopulateCrmForUser after a direct team join; CRM tables will not be seeded from sent-mail history (per-message fan-out will still cover future sends)"
-            );
-        }
-
         let teammate_ids = self.teammate_ids_except(&team_id, user_id).await;
         self.enqueue_joining_user_contacts(user_id, &teammate_ids)
             .await;
@@ -631,7 +581,7 @@ where
     pub fn with_contacts_enqueuer<CNE2>(
         self,
         contacts_enqueuer: CNE2,
-    ) -> TeamServiceImpl<TR, CR, CS, URPS, NI, CE, TCRMS, TA, CNE2, EB, OSR, OEC>
+    ) -> TeamServiceImpl<TR, CR, CS, URPS, NI, TA, CNE2, EB, OSR, OEC>
     where
         CNE2: ContactsEnqueuer,
     {
@@ -641,8 +591,6 @@ where
             channel_service: self.channel_service,
             user_roles_and_permissions_service: self.user_roles_and_permissions_service,
             notification_ingress: self.notification_ingress,
-            crm_enqueuer: self.crm_enqueuer,
-            team_crm_settings_repository: self.team_crm_settings_repository,
             team_analytics: self.team_analytics,
             contacts_enqueuer,
             event_broker: self.event_broker,
@@ -655,7 +603,7 @@ where
     pub fn with_event_broker<EB2>(
         self,
         event_broker: EB2,
-    ) -> TeamServiceImpl<TR, CR, CS, URPS, NI, CE, TCRMS, TA, CNE, EB2, OSR, OEC>
+    ) -> TeamServiceImpl<TR, CR, CS, URPS, NI, TA, CNE, EB2, OSR, OEC>
     where
         EB2: MacroEventBroker,
     {
@@ -665,8 +613,6 @@ where
             channel_service: self.channel_service,
             user_roles_and_permissions_service: self.user_roles_and_permissions_service,
             notification_ingress: self.notification_ingress,
-            crm_enqueuer: self.crm_enqueuer,
-            team_crm_settings_repository: self.team_crm_settings_repository,
             team_analytics: self.team_analytics,
             contacts_enqueuer: self.contacts_enqueuer,
             event_broker,
@@ -679,7 +625,7 @@ where
     pub fn with_open_seat_release<OSR2>(
         self,
         open_seat_release: OSR2,
-    ) -> TeamServiceImpl<TR, CR, CS, URPS, NI, CE, TCRMS, TA, CNE, EB, OSR2, OEC>
+    ) -> TeamServiceImpl<TR, CR, CS, URPS, NI, TA, CNE, EB, OSR2, OEC>
     where
         OSR2: OpenSeatRelease,
     {
@@ -689,8 +635,6 @@ where
             channel_service: self.channel_service,
             user_roles_and_permissions_service: self.user_roles_and_permissions_service,
             notification_ingress: self.notification_ingress,
-            crm_enqueuer: self.crm_enqueuer,
-            team_crm_settings_repository: self.team_crm_settings_repository,
             team_analytics: self.team_analytics,
             contacts_enqueuer: self.contacts_enqueuer,
             event_broker: self.event_broker,
@@ -704,7 +648,7 @@ where
     pub fn with_owned_entity_cleanup<OEC2>(
         self,
         owned_entity_cleanup: OEC2,
-    ) -> TeamServiceImpl<TR, CR, CS, URPS, NI, CE, TCRMS, TA, CNE, EB, OSR, OEC2>
+    ) -> TeamServiceImpl<TR, CR, CS, URPS, NI, TA, CNE, EB, OSR, OEC2>
     where
         OEC2: OwnedEntityCleanup,
     {
@@ -714,8 +658,6 @@ where
             channel_service: self.channel_service,
             user_roles_and_permissions_service: self.user_roles_and_permissions_service,
             notification_ingress: self.notification_ingress,
-            crm_enqueuer: self.crm_enqueuer,
-            team_crm_settings_repository: self.team_crm_settings_repository,
             team_analytics: self.team_analytics,
             contacts_enqueuer: self.contacts_enqueuer,
             event_broker: self.event_broker,
@@ -1045,27 +987,6 @@ where
             return Err(RemoveUserFromTeamError::OpenSeatRelease(Box::new(error)));
         }
 
-        // Best-effort: ask the email service to tear down CRM rows
-        // sourced from this user's email link. Log and swallow failures
-        // - the removal is already committed and the email-service
-        // handler is idempotent, so a missed enqueue can be retried
-        // without leaving the system in an inconsistent state. Team
-        // deletion is handled separately via the
-        // `crm_companies.team_id` FK cascade and does NOT route through
-        // this enqueuer.
-        if let Err(e) = self
-            .crm_enqueuer
-            .enqueue_depopulate_crm_for_user(&team_id, user_id)
-            .await
-        {
-            tracing::error!(
-                error = ?e,
-                team_id = %team_id,
-                macro_id = %user_id,
-                "Failed to enqueue DepopulateCrmForUser after remove_user_from_team; CRM rows owned by the removed user's link will be left in place until manual cleanup"
-            );
-        }
-
         self.track_team_analytics_event(TeamAnalyticsEvent::TeamLeft {
             team_id,
             member_id: removed_member.user_id.clone().into_owned(),
@@ -1316,16 +1237,14 @@ impl GetTeamSubscriptionError {
     }
 }
 
-impl<TR, CR, CS, URPS, NI, CE, TCRMS, TA, CNE, EB, OSR, OEC> TeamMembersService
-    for TeamServiceImpl<TR, CR, CS, URPS, NI, CE, TCRMS, TA, CNE, EB, OSR, OEC>
+impl<TR, CR, CS, URPS, NI, TA, CNE, EB, OSR, OEC> TeamMembersService
+    for TeamServiceImpl<TR, CR, CS, URPS, NI, TA, CNE, EB, OSR, OEC>
 where
     TR: TeamRepository,
     CR: CustomerRepository,
     CS: ChannelService + Clone,
     URPS: UserRolesAndPermissionsService,
     NI: NotificationIngress,
-    CE: CrmEnqueuer,
-    TCRMS: TeamCrmSettingsRepository,
     TA: TeamAnalytics,
     CNE: ContactsEnqueuer,
     EB: MacroEventBroker + Clone,
@@ -1347,16 +1266,14 @@ where
     }
 }
 
-impl<TR, CR, CS, URPS, NI, CE, TCRMS, TA, CNE, EB, OSR, OEC> TeamService
-    for TeamServiceImpl<TR, CR, CS, URPS, NI, CE, TCRMS, TA, CNE, EB, OSR, OEC>
+impl<TR, CR, CS, URPS, NI, TA, CNE, EB, OSR, OEC> TeamService
+    for TeamServiceImpl<TR, CR, CS, URPS, NI, TA, CNE, EB, OSR, OEC>
 where
     TR: TeamRepository,
     CR: CustomerRepository,
     CS: ChannelService + Clone,
     URPS: UserRolesAndPermissionsService,
     NI: NotificationIngress,
-    CE: CrmEnqueuer,
-    TCRMS: TeamCrmSettingsRepository,
     TA: TeamAnalytics,
     CNE: ContactsEnqueuer,
     EB: MacroEventBroker + Clone,
@@ -1370,11 +1287,6 @@ where
         team_name: &str,
         subscription_id: Option<&stripe::SubscriptionId>,
     ) -> Result<Team, CreateTeamError> {
-        // New teams start with `team_crm_settings.crm_enabled = false`
-        // (seeded by `team_repository.create_team`), so there's nothing
-        // for the email-backfill fan-out to populate yet. The fan-out
-        // happens later, on the disabled → enabled transition in
-        // `set_team_crm_enabled`.
         let team_slug = team_slug_from_name(team_name);
         // The owner's seat is already billed on their personal subscription;
         // the tier role the Stripe webhook stamped says at which plan.
@@ -1997,24 +1909,6 @@ where
             return Err(JoinTeamError::TeamError(channel_error_to_team_error(e)));
         }
 
-        // Best-effort: ask the email service to seed CRM tables from this
-        // user's historical sent mail. Log and swallow failures - the join
-        // is already committed and the email-service consumer is idempotent,
-        // so a missed enqueue can be retried (or covered by per-message CRM
-        // fan-out) without leaving the system in an inconsistent state.
-        if let Err(e) = self
-            .crm_enqueuer
-            .enqueue_populate_crm_for_user(user_id)
-            .await
-        {
-            tracing::error!(
-                error = ?e,
-                team_id = %team_member.team_id,
-                macro_id = %user_id,
-                "Failed to enqueue PopulateCrmForUser after join_team; CRM tables will not be seeded from sent-mail history (per-message fan-out will still cover future sends)"
-            );
-        }
-
         let teammate_ids = self
             .teammate_ids_except(&team_member.team_id, user_id)
             .await;
@@ -2510,89 +2404,6 @@ where
             .get_user_permissions(user_id)
             .await
             .map_err(|e| TeamError::StorageLayerError(e.into()))
-    }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn set_team_crm_enabled(
-        &self,
-        entity_access_receipt: EntityAccessReceipt<AdminTeamRole>,
-        enabled: bool,
-        backfill: bool,
-    ) -> Result<PatchTeamCrmSettingsResponse, TeamError> {
-        let team_id =
-            macro_uuid::string_to_uuid(&entity_access_receipt.entity().entity_id).unwrap();
-
-        if enabled {
-            // Fetch the members *before* flipping the flag so a member-list
-            // failure leaves the flag untouched - a retry will then re-run
-            // the full backfill instead of hitting the early-return below.
-            let members = if backfill {
-                self.team_repository.get_team_members(&team_id).await?
-            } else {
-                Vec::new()
-            };
-
-            let changed = self
-                .team_crm_settings_repository
-                .enable_crm(&team_id)
-                .await?;
-
-            if !changed {
-                return Ok(PatchTeamCrmSettingsResponse {
-                    enabled: true,
-                    changed: false,
-                    backfill_enqueued: 0,
-                    backfill_failed: 0,
-                });
-            }
-
-            let mut enqueued = 0usize;
-            let mut failed = 0usize;
-
-            for member in members {
-                match self
-                    .crm_enqueuer
-                    .enqueue_populate_crm_for_user(&member.user_id)
-                    .await
-                {
-                    Ok(()) => enqueued += 1,
-                    Err(e) => {
-                        failed += 1;
-                        tracing::error!(
-                            error = ?e,
-                            team_id = %team_id,
-                            macro_id = %member.user_id,
-                            "Failed to enqueue PopulateCrmForUser during team CRM enable"
-                        );
-                    }
-                }
-            }
-
-            Ok(PatchTeamCrmSettingsResponse {
-                enabled: true,
-                changed: true,
-                backfill_enqueued: enqueued,
-                backfill_failed: failed,
-            })
-        } else {
-            let was_enabled = self
-                .team_crm_settings_repository
-                .get_crm_enabled(&team_id)
-                .await?;
-
-            // Run the disable+purge unconditionally so a stale row left
-            // over from a prior failed disable still gets cleaned up.
-            self.team_crm_settings_repository
-                .disable_crm_and_purge_data(&team_id)
-                .await?;
-
-            Ok(PatchTeamCrmSettingsResponse {
-                enabled: false,
-                changed: was_enabled,
-                backfill_enqueued: 0,
-                backfill_failed: 0,
-            })
-        }
     }
 
     #[tracing::instrument(skip(self), err)]

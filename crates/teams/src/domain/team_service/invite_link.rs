@@ -11,7 +11,6 @@ use roles_and_permissions::domain::port::UserRolesAndPermissionsService;
 use super::TeamServiceImpl;
 use crate::domain::{
     contacts_enqueuer::ContactsEnqueuer,
-    crm_enqueuer::CrmEnqueuer,
     customer_repo::CustomerRepository,
     events::TeamJoinMethod,
     model::{
@@ -21,7 +20,6 @@ use crate::domain::{
     open_seat_release::OpenSeatRelease,
     owned_entity_cleanup::OwnedEntityCleanup,
     team_analytics::TeamAnalytics,
-    team_crm_settings_repo::TeamCrmSettingsRepository,
     team_repo::{TeamInviteLinkService, TeamRepository},
 };
 
@@ -34,16 +32,14 @@ fn receipt_team_and_user(
     Ok((team_id, user_id))
 }
 
-impl<TR, CR, CS, URPS, NI, CE, TCRMS, TA, CNE, EB, OSR, OEC>
-    TeamServiceImpl<TR, CR, CS, URPS, NI, CE, TCRMS, TA, CNE, EB, OSR, OEC>
+impl<TR, CR, CS, URPS, NI, TA, CNE, EB, OSR, OEC>
+    TeamServiceImpl<TR, CR, CS, URPS, NI, TA, CNE, EB, OSR, OEC>
 where
     TR: TeamRepository,
     CR: CustomerRepository,
     CS: ChannelService + Clone,
     URPS: UserRolesAndPermissionsService,
     NI: NotificationIngress,
-    CE: CrmEnqueuer,
-    TCRMS: TeamCrmSettingsRepository,
     TA: TeamAnalytics,
     CNE: ContactsEnqueuer,
     EB: MacroEventBroker,
@@ -73,16 +69,14 @@ where
     }
 }
 
-impl<TR, CR, CS, URPS, NI, CE, TCRMS, TA, CNE, EB, OSR, OEC> TeamInviteLinkService
-    for TeamServiceImpl<TR, CR, CS, URPS, NI, CE, TCRMS, TA, CNE, EB, OSR, OEC>
+impl<TR, CR, CS, URPS, NI, TA, CNE, EB, OSR, OEC> TeamInviteLinkService
+    for TeamServiceImpl<TR, CR, CS, URPS, NI, TA, CNE, EB, OSR, OEC>
 where
     TR: TeamRepository,
     CR: CustomerRepository,
     CS: ChannelService + Clone,
     URPS: UserRolesAndPermissionsService,
     NI: NotificationIngress,
-    CE: CrmEnqueuer,
-    TCRMS: TeamCrmSettingsRepository,
     TA: TeamAnalytics,
     CNE: ContactsEnqueuer,
     EB: MacroEventBroker + Clone,

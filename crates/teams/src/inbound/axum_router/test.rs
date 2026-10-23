@@ -38,7 +38,7 @@ use crate::domain::{
     model::{
         CreateTeamError, CustomerError, DeleteTeamError, InviteUsersToTeamError,
         JoinTeamByInviteLinkError, JoinTeamByInviteLinkOutcome, JoinTeamDirectlyError,
-        JoinTeamError, ManageTeamInviteLinkError, PatchTeamCrmSettingsResponse, PatchTeamRequest,
+        JoinTeamError, ManageTeamInviteLinkError, PatchTeamRequest,
         RemoveTeamInviteError, RemoveUserFromTeamError, RestorePermissionsForTeamMembersError,
         RevokePermissionsForTeamMembersError, SeatPlan, SetTeamMemberPlanError, Team, TeamError,
         TeamInvite, TeamInviteDetails, TeamInviteLinkTeam, TeamInviteLinkToken, TeamMember,
@@ -460,15 +460,6 @@ impl TeamService for FakeTeamService {
         panic!("unexpected get_team_user_permissions call")
     }
 
-    async fn set_team_crm_enabled(
-        &self,
-        _entity_access_receipt: EntityAccessReceipt<AdminTeamRole>,
-        _enabled: bool,
-        _backfill: bool,
-    ) -> Result<PatchTeamCrmSettingsResponse, TeamError> {
-        panic!("unexpected set_team_crm_enabled call")
-    }
-
     async fn toggle_auto_join_domain(
         &self,
         _entity_access_receipt: EntityAccessReceipt<AdminTeamRole>,
@@ -606,15 +597,6 @@ impl EntityAccessService for FakeEntityAccessService {
         _user_org_id: Option<i64>,
     ) -> Result<EntityPermission, AccessError> {
         panic!("unexpected get_entity_permission call")
-    }
-
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-        _entity_id: &str,
-        _entity_type: EntityType,
-    ) -> Result<(EntityPermission, uuid::Uuid, TeamRole), AccessError> {
-        panic!("unexpected get_crm_entity_permission_with_team call")
     }
 
     async fn get_users_by_entity(

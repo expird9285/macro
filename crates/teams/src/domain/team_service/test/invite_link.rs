@@ -34,8 +34,6 @@ fn service(team_repository: MockTeamRepository) -> impl TeamInviteLinkService + 
         RecordingChannelService::default(),
         MockUserRolesAndPermissionsService::default(),
         Arc::new(MockNotificationIngress::new(HashSet::new())),
-        NoOpCrmEnqueuer,
-        NoOpTeamCrmSettingsRepository,
     )
 }
 
@@ -63,9 +61,7 @@ fn acme(team_id: Uuid) -> Team {
         "Acme".to_string(),
         "ACME".to_string(),
         caller(),
-        false,
-        false,
-    )
+        false,)
 }
 
 #[tokio::test]
@@ -189,8 +185,6 @@ async fn joining_by_link_adds_the_user_and_publishes_the_join_method() {
         channels.clone(),
         MockUserRolesAndPermissionsService::default(),
         Arc::new(MockNotificationIngress::new(HashSet::new())),
-        NoOpCrmEnqueuer,
-        NoOpTeamCrmSettingsRepository,
     )
     .with_event_broker(event_broker.clone());
 

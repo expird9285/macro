@@ -269,8 +269,6 @@ fn deleting_service(
         RecordingChannelService::default(),
         MockUserRolesAndPermissionsService::default(),
         Arc::new(MockNotificationIngress::new(HashSet::new())),
-        NoOpCrmEnqueuer,
-        NoOpTeamCrmSettingsRepository,
     )
     .with_event_broker(broker.clone())
     .with_owned_entity_cleanup(cleanup.clone());
@@ -533,8 +531,6 @@ async fn delete_team_without_a_cleanup_refuses_before_billing_or_the_row() {
         RecordingChannelService::default(),
         MockUserRolesAndPermissionsService::default(),
         Arc::new(MockNotificationIngress::new(HashSet::new())),
-        NoOpCrmEnqueuer,
-        NoOpTeamCrmSettingsRepository,
     )
     .with_event_broker(broker);
 

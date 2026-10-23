@@ -310,43 +310,6 @@ pub struct TeamMembers {
     pub invited: Vec<TeamInviteDetails>,
 }
 
-/// Request body for `PATCH /team/crm`.
-#[derive(Debug, Clone, serde::Deserialize)]
-#[cfg_attr(feature = "axum", derive(utoipa::ToSchema))]
-pub struct PatchTeamCrmSettingsRequest {
-    /// The desired CRM state for the team.
-    pub enabled: bool,
-    /// On a disabled → enabled transition, whether to backfill the CRM
-    /// from members' existing email history. Ignored when disabling.
-    #[serde(default = "default_crm_backfill")]
-    #[cfg_attr(feature = "axum", schema(default = true))]
-    pub backfill: bool,
-}
-
-fn default_crm_backfill() -> bool {
-    true
-}
-
-/// Response for `PATCH /team/crm`. Reports both the resulting state
-/// and whether this call changed it; for the enable-flip case it also
-/// reports the backfill fan-out tallies.
-#[derive(Debug, Clone, serde::Serialize)]
-#[cfg_attr(feature = "axum", derive(utoipa::ToSchema))]
-pub struct PatchTeamCrmSettingsResponse {
-    /// The resulting `crm_enabled` value after the call.
-    pub enabled: bool,
-    /// True if this call flipped the value (false → true or true →
-    /// false). False if the team was already at the requested state.
-    pub changed: bool,
-    /// Number of members for whom a `PopulateCrmForUser` message was
-    /// enqueued. Non-zero only on a disabled → enabled transition;
-    /// per-user enqueue failures are logged and swallowed.
-    pub backfill_enqueued: usize,
-    /// Number of members whose enqueue failed (and was swallowed).
-    /// Non-zero only on a disabled → enabled transition.
-    pub backfill_failed: usize,
-}
-
 /// Detailed information about a team invite
 #[derive(Debug, Clone, serde::Serialize)]
 #[cfg_attr(feature = "axum", derive(utoipa::ToSchema))]
@@ -455,9 +418,6 @@ pub struct Team {
     pub(crate) slug: String,
     #[cfg_attr(feature = "axum", schema(value_type = String))]
     pub(crate) owner_id: MacroUserIdStr<'static>,
-    /// Whether the CRM is enabled for this team (from `team_crm_settings`;
-    /// `false` when no row exists).
-    pub(crate) crm_enabled: bool,
     /// The email domain new users are automatically joined to this team
     /// with, when automatic domain joining is enabled (None otherwise).
     pub(crate) auto_join_domain: Option<String>,
@@ -482,7 +442,6 @@ impl Team {
         name: String,
         slug: String,
         owner_id: MacroUserIdStr<'static>,
-        crm_enabled: bool,
         enterprise: bool,
     ) -> Self {
         Self {
@@ -490,7 +449,6 @@ impl Team {
             name,
             slug,
             owner_id,
-            crm_enabled,
             auto_join_domain: None,
             enterprise,
             allow_non_admin_invites: true,
@@ -518,11 +476,6 @@ impl Team {
     /// The owner id of the team
     pub fn owner_id(&self) -> &str {
         self.owner_id.as_ref()
-    }
-
-    /// Whether the CRM is enabled for this team
-    pub fn crm_enabled(&self) -> bool {
-        self.crm_enabled
     }
 
     /// The team's auto-join domain, when automatic domain joining is enabled
