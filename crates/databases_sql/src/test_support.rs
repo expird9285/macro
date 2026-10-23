@@ -19,7 +19,7 @@ use databases::domain::ports::DatabasesService;
 use entity_access::domain::models::{
     AccessError, AccessLevel, BotAccessScope, CallChannelInfo, EditAccessLevel, Entity,
     EntityAccessReceipt, EntityPermission, EntityType, OwnerAccessLevel, RequiredPermission,
-    TeamRole, UserTeamInfo, ViewAccessLevel,
+    UserTeamInfo, ViewAccessLevel,
 };
 use entity_access::domain::ports::EntityAccessService;
 use filter_ast::Expr;
@@ -428,14 +428,6 @@ impl EntityAccessService for FakeAccess {
         _: Option<i64>,
     ) -> Result<EntityPermission, AccessError> {
         unimplemented!("SQL only mints receipts")
-    }
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _: Option<&MacroUserId<Lowercase<'_>>>,
-        _: &str,
-        _: EntityType,
-    ) -> Result<(EntityPermission, Uuid, TeamRole), AccessError> {
-        unimplemented!("SQL never touches CRM entities")
     }
     async fn get_users_by_entity(
         &self,

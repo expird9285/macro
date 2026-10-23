@@ -113,14 +113,6 @@ impl EntityAccessService for Access {
     ) -> Result<EntityPermission, AccessError> {
         unreachable!()
     }
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _: Option<&MacroUserId<Lowercase<'_>>>,
-        _: &str,
-        _: EntityType,
-    ) -> Result<(EntityPermission, Uuid, TeamRole), AccessError> {
-        unreachable!()
-    }
     async fn get_users_by_entity(
         &self,
         _: &str,

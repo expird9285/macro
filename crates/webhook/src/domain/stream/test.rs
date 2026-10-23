@@ -3,7 +3,7 @@ use crate::domain::models::WebhookFilter;
 use chrono::Utc;
 use entity_access::domain::models::{
     AccessError, AccessLevel, BotAccessScope, BotId, CallChannelInfo, EntityAccessReceipt,
-    EntityPermission, RequiredPermission, TeamRole, UserTeamInfo,
+    EntityPermission, RequiredPermission, UserTeamInfo,
 };
 use futures::StreamExt as _;
 use macro_user_id::{lowercased::Lowercase, user_id::MacroUserId};
@@ -151,15 +151,6 @@ impl EntityAccessService for FakeAccessService {
         _entity_type: EntityType,
         _user_org_id: Option<i64>,
     ) -> Result<EntityPermission, AccessError> {
-        unimplemented!("not used by webhook event streaming")
-    }
-
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-        _entity_id: &str,
-        _entity_type: EntityType,
-    ) -> Result<(EntityPermission, Uuid, TeamRole), AccessError> {
         unimplemented!("not used by webhook event streaming")
     }
 

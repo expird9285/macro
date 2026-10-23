@@ -9,7 +9,7 @@ use axum::routing::post;
 use entity_access::domain::models::{
     AccessError, AccessLevel, BotAccessScope, BotId, CallChannelInfo, EditAccessLevel,
     EntityAccessReceipt, EntityPermission, EntityType, OwnerAccessLevel, RequiredPermission,
-    TeamRole, UserTeamInfo, ViewAccessLevel,
+    UserTeamInfo, ViewAccessLevel,
 };
 use entity_access::domain::ports::EntityAccessService;
 use macro_authorization::{
@@ -180,15 +180,6 @@ impl EntityAccessService for GrantingAccess {
         Ok(EntityPermission::AccessLevel {
             access_level: self.0,
         })
-    }
-
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-        _entity_id: &str,
-        _entity_type: EntityType,
-    ) -> Result<(EntityPermission, Uuid, TeamRole), AccessError> {
-        unimplemented!("databases are not CRM entities")
     }
 
     async fn get_users_by_entity(

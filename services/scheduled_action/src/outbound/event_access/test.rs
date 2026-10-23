@@ -1,7 +1,7 @@
 use super::*;
 use entity_access::domain::models::{
     AccessLevel, BotAccessScope, BotId, CallChannelInfo, Entity, EntityAccessReceipt,
-    EntityPermission, RequiredPermission, TeamRole, UserTeamInfo,
+    EntityPermission, RequiredPermission, UserTeamInfo,
 };
 use macro_user_id::{lowercased::Lowercase, user_id::MacroUserId};
 use macro_uuid::{Uuid, generate_uuid_v7};
@@ -76,14 +76,6 @@ impl EntityAccessService for AccessService {
         _: EntityType,
         _: Option<i64>,
     ) -> Result<EntityPermission, AccessError> {
-        unreachable!()
-    }
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _: Option<&MacroUserId<Lowercase<'_>>>,
-        _: &str,
-        _: EntityType,
-    ) -> Result<(EntityPermission, Uuid, TeamRole), AccessError> {
         unreachable!()
     }
     async fn get_users_by_entity(

@@ -5,7 +5,7 @@ use chrono::{DateTime, TimeZone, Utc};
 use entity_access::domain::models::{
     AccessError, AccessLevel, BotAccessScope, BotId, CallChannelInfo, EditAccessLevel, Entity,
     EntityAccessReceipt, EntityPermission, EntityType, OwnerAccessLevel, RequiredPermission,
-    TeamRole, UserTeamInfo, ViewAccessLevel,
+    UserTeamInfo, ViewAccessLevel,
 };
 use entity_access::domain::ports::EntityAccessService;
 use http_body_util::BodyExt;
@@ -216,15 +216,6 @@ impl EntityAccessService for FakeEntityAccessService {
         _entity_type: EntityType,
         _user_org_id: Option<i64>,
     ) -> Result<EntityPermission, AccessError> {
-        Err(AccessError::internal("test access failure"))
-    }
-
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-        _entity_id: &str,
-        _entity_type: EntityType,
-    ) -> Result<(EntityPermission, Uuid, TeamRole), AccessError> {
         Err(AccessError::internal("test access failure"))
     }
 

@@ -28,8 +28,7 @@ mod self_read_guard {
     use ai_toolset::{AsyncTool, RequestContext, ServiceContext};
     use entity_access::domain::models::{
         AccessError, AccessLevel, BotAccessScope, BotId, CallChannelInfo, Entity,
-        EntityAccessReceipt, EntityPermission, EntityType, RequiredPermission, TeamRole,
-        UserTeamInfo,
+        EntityAccessReceipt, EntityPermission, EntityType, RequiredPermission, UserTeamInfo,
     };
     use entity_access::domain::ports::EntityAccessService;
     use macro_user_id::lowercased::Lowercase;
@@ -231,15 +230,6 @@ mod self_read_guard {
             _entity_type: EntityType,
             _user_org_id: Option<i64>,
         ) -> std::result::Result<EntityPermission, AccessError> {
-            unreachable!("guard should short-circuit before checking access")
-        }
-
-        async fn get_crm_entity_permission_with_team(
-            &self,
-            _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-            _entity_id: &str,
-            _entity_type: EntityType,
-        ) -> std::result::Result<(EntityPermission, Uuid, TeamRole), AccessError> {
             unreachable!("guard should short-circuit before checking access")
         }
 
@@ -517,15 +507,6 @@ mod self_read_guard {
             Ok(EntityPermission::AccessLevel {
                 access_level: AccessLevel::Owner,
             })
-        }
-
-        async fn get_crm_entity_permission_with_team(
-            &self,
-            _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-            _entity_id: &str,
-            _entity_type: EntityType,
-        ) -> std::result::Result<(EntityPermission, Uuid, TeamRole), AccessError> {
-            unimplemented!("stub does not support CRM entity access")
         }
 
         async fn get_users_by_entity(

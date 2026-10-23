@@ -25,8 +25,7 @@ use chrono::Utc;
 use entity_access::domain::{
     models::{
         AccessError, AccessLevel, BotAccessScope, CallChannelInfo, EntityAccessReceipt,
-        EntityPermission, EntityType, MemberParticipantRole, RequiredPermission, TeamRole,
-        UserTeamInfo,
+        EntityPermission, EntityType, MemberParticipantRole, RequiredPermission, UserTeamInfo,
     },
     ports::{EntityAccessService, NoOpEntityAccessService},
 };
@@ -374,15 +373,6 @@ impl EntityAccessService for AllowingEntityAccessService {
         _entity_type: EntityType,
         _user_org_id: Option<i64>,
     ) -> Result<EntityPermission, AccessError> {
-        Err(AccessError::internal("test access failure"))
-    }
-
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-        _entity_id: &str,
-        _entity_type: EntityType,
-    ) -> Result<(EntityPermission, Uuid, TeamRole), AccessError> {
         Err(AccessError::internal("test access failure"))
     }
 

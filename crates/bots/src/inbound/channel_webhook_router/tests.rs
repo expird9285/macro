@@ -10,7 +10,6 @@ use axum::{
     http::{Request, StatusCode, header},
 };
 use channels::domain::models::Sender;
-use entity_access::domain::models::TeamRole;
 use entity_access::domain::{
     models::{
         AccessError, AccessLevel, BotAccessScope, BotId, CallChannelInfo, EntityAccessReceipt,
@@ -439,15 +438,6 @@ impl EntityAccessService for TestAccessService {
         _user_org_id: Option<i64>,
     ) -> Result<EntityPermission, AccessError> {
         Ok(EntityPermission::ChannelRole { role: self.role })
-    }
-
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-        _entity_id: &str,
-        _entity_type: EntityType,
-    ) -> Result<(EntityPermission, uuid::Uuid, TeamRole), AccessError> {
-        unimplemented!("channel webhook router tests do not support CRM entity access")
     }
 
     async fn get_users_by_entity(

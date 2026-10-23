@@ -18,7 +18,7 @@ use crate::domain::response::{
 };
 use entity_access::domain::models::{
     AccessError, BotAccessScope, BotId, CallChannelInfo, EntityAccessReceipt, EntityPermission,
-    MemberTeamRole, OwnerAccessLevel, RequiredPermission, TeamRole, UserTeamInfo, ViewAccessLevel,
+    MemberTeamRole, OwnerAccessLevel, RequiredPermission, UserTeamInfo, ViewAccessLevel,
 };
 use lexical_client::LexicalClient;
 use macro_sync_service_jwt::DocumentPermissionToken;
@@ -457,15 +457,6 @@ impl EntityAccessService for FakeEntityAccessService {
         _user_org_id: Option<i64>,
     ) -> Result<EntityPermission, AccessError> {
         panic!("unexpected get_entity_permission call")
-    }
-
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-        _entity_id: &str,
-        _entity_type: EntityType,
-    ) -> Result<(EntityPermission, Uuid, TeamRole), AccessError> {
-        panic!("unexpected get_crm_entity_permission_with_team call")
     }
 
     async fn get_users_by_entity(

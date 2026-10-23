@@ -26,7 +26,7 @@ use documents::domain::events::{
 };
 use entity_access::domain::models::{
     AccessLevel, BotAccessScope, BotId, CallChannelInfo, EntityAccessReceipt, EntityPermission,
-    RequiredPermission, TeamRole, UserTeamInfo,
+    RequiredPermission, UserTeamInfo,
 };
 use macro_user_id::{lowercased::Lowercase, user_id::MacroUserId};
 use messages::domain::events::{
@@ -144,15 +144,6 @@ impl EntityAccessService for MockAccessService {
         _entity_type: EntityType,
         _user_org_id: Option<i64>,
     ) -> Result<EntityPermission, AccessError> {
-        unimplemented!("not used by webhook event ingestion")
-    }
-
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-        _entity_id: &str,
-        _entity_type: EntityType,
-    ) -> Result<(EntityPermission, Uuid, TeamRole), AccessError> {
         unimplemented!("not used by webhook event ingestion")
     }
 

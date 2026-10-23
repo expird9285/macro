@@ -3,7 +3,7 @@ use crate::domain::error::Result as SessionResult;
 use crate::domain::ports::{AcceptedControl, QueuedControl};
 use entity_access::domain::models::{
     AccessError, AccessLevel, BotAccessScope, CallChannelInfo, EntityAccessReceipt,
-    EntityPermission, EntityType, RequiredPermission, TeamRole, UserTeamInfo,
+    EntityPermission, EntityType, RequiredPermission, UserTeamInfo,
 };
 use macro_authorization::{INTERNAL_API_KEY_HEADER, INTERNAL_MACRO_USER_ID_HEADER};
 use macro_user_id::{lowercased::Lowercase, user_id::MacroUserId};
@@ -148,15 +148,6 @@ impl EntityAccessService for FakeEntityAccessService {
             .await?
             .ok_or(AccessError::Unauthorized)?;
         Ok(EntityPermission::AccessLevel { access_level })
-    }
-
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-        _entity_id: &str,
-        _entity_type: EntityType,
-    ) -> Result<(EntityPermission, Uuid, TeamRole), AccessError> {
-        panic!("unexpected get_crm_entity_permission_with_team call")
     }
 
     async fn get_users_by_entity(

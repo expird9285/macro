@@ -13,7 +13,6 @@ use axum::{
     body::Body,
     http::{Request, StatusCode, header},
 };
-use entity_access::domain::models::TeamRole;
 use entity_access::domain::{
     models::{
         AccessError, AccessLevel, BotAccessScope, BotId, Entity, EntityAccessReceipt,
@@ -227,15 +226,6 @@ impl EntityAccessService for TestAccessService {
             AccessMode::Deny => Err(AccessError::Unauthorized),
             AccessMode::NotFound => Err(AccessError::NotFound("Channel not found")),
         }
-    }
-
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-        _entity_id: &str,
-        _entity_type: EntityType,
-    ) -> Result<(EntityPermission, uuid::Uuid, TeamRole), AccessError> {
-        unimplemented!("channels test mock does not support CRM entity access")
     }
 
     async fn get_call_channel(

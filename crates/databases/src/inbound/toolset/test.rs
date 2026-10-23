@@ -9,7 +9,7 @@ use chrono::Utc;
 use entity_access::domain::models::{
     AccessError, AccessLevel, BotAccessScope, BotId, CallChannelInfo, Entity as AccessEntity,
     EntityAccessReceipt, EntityPermission, EntityType as AccessEntityType, OwnerAccessLevel,
-    RequiredPermission, TeamRole, UserTeamInfo,
+    RequiredPermission, UserTeamInfo,
 };
 use macro_user_id::lowercased::Lowercase;
 use macro_user_id::user_id::MacroUserId;
@@ -504,15 +504,6 @@ impl EntityAccessService for FakeAccess {
         self.level
             .map(|access_level| EntityPermission::AccessLevel { access_level })
             .ok_or(AccessError::Unauthorized)
-    }
-
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-        _entity_id: &str,
-        _entity_type: AccessEntityType,
-    ) -> Result<(EntityPermission, Uuid, TeamRole), AccessError> {
-        unimplemented!("databases tools never touch CRM entities")
     }
 
     async fn get_users_by_entity(

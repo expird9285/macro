@@ -5,7 +5,7 @@ use super::*;
 use bot_id::BotId;
 use entity_access::domain::models::{
     AccessError, AccessLevel, CallChannelInfo, Entity, EntityPermission, EntityType,
-    RequiredPermission, TeamRole, UserTeamInfo,
+    RequiredPermission, UserTeamInfo,
 };
 use macro_user_id::lowercased::Lowercase;
 use macro_user_id::user_id::MacroUserId;
@@ -288,14 +288,6 @@ impl EntityAccessService for EditingAccess {
         _: EntityType,
         _: Option<i64>,
     ) -> Result<EntityPermission, AccessError> {
-        unimplemented!("the announcer only mints bot receipts")
-    }
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _: Option<&MacroUserId<Lowercase<'_>>>,
-        _: &str,
-        _: EntityType,
-    ) -> Result<(EntityPermission, Uuid, TeamRole), AccessError> {
         unimplemented!("the announcer only mints bot receipts")
     }
     async fn get_users_by_entity(

@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use chrono::{DateTime, Utc};
 use entity_access::domain::models::{
     AccessError, AccessLevel, BotAccessScope, BotId, CallChannelInfo, EntityAccessReceipt,
-    EntityPermission, EntityType, RequiredPermission, TeamRole, UserTeamInfo, ViewAccessLevel,
+    EntityPermission, EntityType, RequiredPermission, UserTeamInfo, ViewAccessLevel,
 };
 use macro_user_id::{
     lowercased::Lowercase,
@@ -699,15 +699,6 @@ impl EntityAccessService for FakeEntityAccessService {
         }
 
         Err(AccessError::Unauthorized)
-    }
-
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-        _entity_id: &str,
-        _entity_type: EntityType,
-    ) -> Result<(EntityPermission, Uuid, TeamRole), AccessError> {
-        unreachable!("foreign entities are not CRM entities")
     }
 
     async fn get_users_by_entity(

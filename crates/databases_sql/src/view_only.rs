@@ -142,19 +142,6 @@ impl<Access: EntityAccessService> EntityAccessService for ViewOnlyAccess<Access>
         Ok(capped(&permission))
     }
 
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        user_id: Option<&MacroUserId<Lowercase<'_>>>,
-        entity_id: &str,
-        entity_type: EntityType,
-    ) -> Result<(EntityPermission, Uuid, TeamRole), AccessError> {
-        let (permission, team_id, _) = self
-            .0
-            .get_crm_entity_permission_with_team(user_id, entity_id, entity_type)
-            .await?;
-        Ok((capped(&permission), team_id, TeamRole::Member))
-    }
-
     async fn get_users_by_entity(
         &self,
         entity_id: &str,

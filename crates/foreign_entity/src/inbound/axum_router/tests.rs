@@ -1,4 +1,3 @@
-use entity_access::domain::models::TeamRole;
 use std::sync::{Arc, Mutex};
 
 use axum::{
@@ -267,15 +266,6 @@ impl EntityAccessService for StubEntityAccessService {
         }
 
         Err(AccessError::Unauthorized)
-    }
-
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-        _entity_id: &str,
-        _entity_type: EntityType,
-    ) -> Result<(EntityPermission, uuid::Uuid, TeamRole), AccessError> {
-        unreachable!("identity-less internal access should bypass real access checks")
     }
 
     async fn get_users_by_entity(
