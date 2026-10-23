@@ -18,7 +18,7 @@ pub struct BackfillReceipt {
 /// One page of work produced by a [`super::ports`] source. Holding the
 /// messages and `rows_consumed` together lets the orchestrator advance its
 /// offset by the number of *rows* the source consumed even when the source
-/// batches many rows into fewer SQS messages (see the email source).
+/// batches many rows into fewer SQS messages.
 pub struct SourcePage {
     pub messages: Vec<SearchQueueMessage>,
     /// Number of source rows the page covered. Drives the orchestrator's
@@ -224,51 +224,11 @@ pub struct ProjectBackfillCursor {
     pub project_id: String,
 }
 
-/// Calendar event backfill filter. All `None` means "every event".
-///
-/// Only series masters are enumerated — recurring instances are not indexed.
-#[derive(Debug, Clone, Default, Deserialize)]
-#[serde(default)]
-pub struct CalendarEventBackfillRequest {
-    pub updated_after: Option<DateTime<Utc>>,
-    pub updated_before: Option<DateTime<Utc>>,
-    /// Override the OpenSearch target index for upserts (e.g. blue/green swap).
-    pub index_override: Option<String>,
-}
-
-/// Keyset (seek-method) pagination cursor for calendar event backfills.
-///
-/// `get_calendar_events_for_search_backfill` walks `calendar_events` in
-/// `(updated_at ASC, id ASC)` order; the cursor carries the last row's pair
-/// so the next page resumes with `WHERE (updated_at, id) > cursor`.
-/// `None` starts at the beginning.
-#[derive(Debug, Clone)]
-pub struct CalendarEventBackfillCursor {
-    pub updated_at: DateTime<Utc>,
-    pub event_id: uuid::Uuid,
-}
-
-/// Email-thread backfill filter.
-#[derive(Debug, Clone, Default, Deserialize)]
-#[serde(default)]
-pub struct EmailBackfillRequest {
-    /// Reindex exactly these threads, ignoring `since`. Pages over the given
-    /// ids rather than scanning the table, so a targeted repair costs one
-    /// primary-key lookup per page.
-    pub thread_ids: Vec<uuid::Uuid>,
-    /// Only backfill threads updated at or after this instant.
-    pub since: Option<DateTime<Utc>>,
-    pub index_override: Option<String>,
-    /// Number of thread ids grouped into each SQS batch message. `None` uses
-    /// the adapter's default.
-    pub batch_size: Option<usize>,
-}
-
 /// Property-only backfill: directly reindex every entity of one type that has
 /// property rows, refreshing the denormalized `properties` field without
 /// re-extracting content. Used after adding the field to an index's mapping.
 #[derive(Debug, Clone, Deserialize)]
 pub struct PropertiesBackfillRequest {
-    /// The property entity type to backfill (e.g. "thread").
+    /// The property entity type to backfill (e.g. "document").
     pub entity_type: String,
 }

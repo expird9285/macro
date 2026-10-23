@@ -9,21 +9,18 @@
 //! Processing is retried in-process; exhausted events are logged and dropped
 //! because their offsets are already committed.
 //!
-//! Per-entity event mapping and processing live in the [`calendar_event`],
-//! [`call`], [`channel`], [`chat`], [`document`], [`email`], [`project`], and
-//! [`property`] submodules; this module owns the poll loop, worker, retry
+//! Per-entity event mapping and processing live in the [`call`], [`channel`],
+//! [`chat`], [`document`], [`project`], and [`property`] submodules; this module owns the poll loop, worker, retry
 //! policy, and commit semantics.
 
 #![allow(clippy::enum_variant_names)]
 
 mod agent_session;
-mod calendar_event;
 mod call;
 mod channel;
 mod chat;
 mod context;
 mod document;
-mod email;
 mod message;
 mod project;
 mod property;
@@ -41,8 +38,6 @@ use std::{
 use ::agent_session::domain::events::AgentSessionLifecycleMacroEvent;
 use ::call::domain::events::CallMacroEvent;
 use ::chat::domain::events::ChatMacroEvent;
-use ::email::domain::events::EmailMacroEvent;
-use calendar_events::domain::events::CalendarMacroEvent;
 use channels::domain::broker_events::ChannelMacroEvent;
 use documents::domain::events::DocumentMacroEvent;
 use kafka_util::{GroupName, InitialOffset, KafkaEventConsumer};
@@ -61,15 +56,9 @@ use tokio::{sync::mpsc, task::JoinHandle};
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 
 use self::{
-    calendar_event::process_calendar_event,
-    call::process_call_event,
-    channel::process_channel_event,
-    chat::process_chat_event,
-    document::process_document_event,
-    email::{email_ordering_key, process_email_event},
-    message::process_message_event,
-    project::process_project_event,
-    property::process_property_event,
+    call::process_call_event, channel::process_channel_event, chat::process_chat_event,
+    document::process_document_event, message::process_message_event,
+    project::process_project_event, property::process_property_event,
 };
 
 pub(crate) use self::context::KafkaProcessingContext;
@@ -92,12 +81,10 @@ type SearchProcessingKafkaConsumer =
 macro_event_broker::declare_topics!(
     DeclaredMacroEvent:
         AgentSessionLifecycleMacroEvent,
-        CalendarMacroEvent,
         CallMacroEvent,
         ChannelMacroEvent,
         ChatMacroEvent,
         DocumentMacroEvent,
-        EmailMacroEvent,
         MessageMacroEvent,
         ProjectMacroEvent,
         PropertyMacroEvent,
@@ -184,19 +171,14 @@ where
 /// Sharding key that serializes all events mutating the same search documents.
 ///
 /// Every topic's producer key is already the entity its index actions target
-/// (calendar-event, call, channel, chat, document, project, or property-entity
-/// id), except email events, which are produced with a link-scoped key and
-/// instead shard by thread so one inbox's backlog can spread across the worker
-/// pool.
+/// (call, channel, chat, document, project, or property-entity id).
 fn ordering_key(event: &DeclaredMacroEvent) -> Cow<'_, str> {
     match event {
         DeclaredMacroEvent::AgentSessionLifecycleMacroEvent(event) => Cow::Borrowed(event.key()),
-        DeclaredMacroEvent::CalendarMacroEvent(event) => Cow::Borrowed(event.key()),
         DeclaredMacroEvent::CallMacroEvent(event) => Cow::Borrowed(event.key()),
         DeclaredMacroEvent::ChannelMacroEvent(event) => Cow::Borrowed(event.key()),
         DeclaredMacroEvent::ChatMacroEvent(event) => Cow::Borrowed(event.key()),
         DeclaredMacroEvent::DocumentMacroEvent(event) => Cow::Borrowed(event.key()),
-        DeclaredMacroEvent::EmailMacroEvent(event) => email_ordering_key(event),
         DeclaredMacroEvent::MessageMacroEvent(event) => Cow::Borrowed(event.key()),
         DeclaredMacroEvent::ProjectMacroEvent(event) => Cow::Borrowed(event.key()),
         DeclaredMacroEvent::PropertyMacroEvent(event) => Cow::Borrowed(event.key()),
@@ -286,20 +268,6 @@ async fn process_event(
         DeclaredMacroEvent::CallMacroEvent(event) => {
             process_call_event(db, opensearch_client, event, partition, offset).await
         }
-        DeclaredMacroEvent::CalendarMacroEvent(event) => {
-            if !context.calendar_search_enabled {
-                // The offset is committed either way, so a change that arrives
-                // while the flag is off is not replayed when it flips — the
-                // backfill endpoint is how an enabled environment catches up.
-                tracing::debug!(
-                    partition,
-                    offset,
-                    "calendar search is disabled; skipping calendar event"
-                );
-                return EventOutcome::Ignored;
-            }
-            process_calendar_event(context, event, partition, offset).await
-        }
         DeclaredMacroEvent::ChannelMacroEvent(event) => {
             process_channel_event(db, opensearch_client, event, partition, offset).await
         }
@@ -311,9 +279,6 @@ async fn process_event(
         }
         DeclaredMacroEvent::MessageMacroEvent(event) => {
             process_message_event(db, opensearch_client, event, partition, offset).await
-        }
-        DeclaredMacroEvent::EmailMacroEvent(event) => {
-            process_email_event(db, opensearch_client, event, partition, offset).await
         }
         DeclaredMacroEvent::ProjectMacroEvent(event) => {
             process_project_event(db, opensearch_client, event, partition, offset).await

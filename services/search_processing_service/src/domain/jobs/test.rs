@@ -128,7 +128,7 @@ async fn finish_drops_local_cancel_entry() {
         eprintln!("skipping: dynamodb-local not reachable at {LOCAL_ENDPOINT}");
         return;
     };
-    let handle = jobs.start("emails").await.expect("start");
+    let handle = jobs.start("documents").await.expect("start");
     let id = handle.id.clone();
     jobs.finish(&id, Ok(BackfillReceipt { enqueued: 0 }))
         .await

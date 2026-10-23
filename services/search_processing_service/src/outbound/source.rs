@@ -1,26 +1,21 @@
-use std::collections::HashMap;
 use std::str::FromStr;
 
 use model::document::FileType;
 use models_properties::EntityType;
 use sqlx::PgPool;
 use sqs_client::search::{
-    SearchQueueMessage, calendar_event::UpsertCalendarEvent, call::CallRecordMessage,
-    channel::ChannelMessageUpdate, chat::ChatMessage, email::EmailThreadBatchMessage,
+    SearchQueueMessage, call::CallRecordMessage, channel::ChannelMessageUpdate, chat::ChatMessage,
     project::UpsertProject,
 };
 
 use crate::config::BackfillPageSizes;
 use crate::domain::models::{
-    BackfillError, CalendarEventBackfillCursor, CalendarEventBackfillRequest, CallBackfillCursor,
-    CallBackfillRequest, ChannelBackfillCursor, ChannelBackfillRequest, ChatBackfillCursor,
-    ChatBackfillRequest, DocumentBackfillCursor, DocumentBackfillRequest, EmailBackfillRequest,
-    ProjectBackfillCursor, ProjectBackfillRequest, PropertiesBackfillRequest, PropertySourcePage,
-    SourcePage,
+    BackfillError, CallBackfillCursor, CallBackfillRequest, ChannelBackfillCursor,
+    ChannelBackfillRequest, ChatBackfillCursor, ChatBackfillRequest, DocumentBackfillCursor,
+    DocumentBackfillRequest, ProjectBackfillCursor, ProjectBackfillRequest,
+    PropertiesBackfillRequest, PropertySourcePage, SourcePage,
 };
 use crate::domain::ports::BackfillSource;
-
-const DEFAULT_EMAIL_BATCH_SIZE: usize = 50;
 
 /// Page size for the properties backfill's distinct-entity-id scan. A fixed
 /// value rather than a config knob: property rows are few and each entity is
@@ -294,72 +289,6 @@ impl BackfillSource for PgBackfillSource {
         ))
     }
 
-    async fn fetch_emails(
-        &self,
-        req: &EmailBackfillRequest,
-        offset: usize,
-    ) -> Result<SourcePage, BackfillError> {
-        let batch_size = req
-            .batch_size
-            .filter(|n| *n > 0)
-            .unwrap_or(DEFAULT_EMAIL_BATCH_SIZE);
-
-        // An explicit id list pages in memory: each page is a primary-key
-        // lookup, so a targeted repair never runs the scan-and-sort that the
-        // `since` and full variants depend on.
-        if !req.thread_ids.is_empty() {
-            let page = page_of(&req.thread_ids, offset, self.page_sizes.emails);
-            if page.is_empty() {
-                return Ok(SourcePage::empty());
-            }
-            let rows = email_db_client::threads::get::get_thread_ids_with_macro_user_id_by_ids(
-                &self.db, page,
-            )
-            .await
-            .map_err(BackfillError::Source)?;
-            // Advance by the ids consumed, not the rows found, or unknown ids
-            // would stall the drain loop on the same page forever.
-            return Ok(email_source_page(
-                rows,
-                batch_size,
-                page.len(),
-                req.index_override.as_deref(),
-            ));
-        }
-
-        let rows = match req.since {
-            Some(since) => {
-                email_db_client::threads::get::get_paginated_thread_ids_with_macro_user_id_since(
-                    &self.db,
-                    self.page_sizes.emails as i64,
-                    offset as i64,
-                    since,
-                )
-                .await
-                .map_err(BackfillError::Source)?
-            }
-            None => email_db_client::threads::get::get_paginated_thread_ids_with_macro_user_id(
-                &self.db,
-                self.page_sizes.emails as i64,
-                offset as i64,
-            )
-            .await
-            .map_err(BackfillError::Source)?,
-        };
-
-        let rows_consumed = rows.len();
-        if rows_consumed == 0 {
-            return Ok(SourcePage::empty());
-        }
-
-        Ok(email_source_page(
-            rows,
-            batch_size,
-            rows_consumed,
-            req.index_override.as_deref(),
-        ))
-    }
-
     async fn fetch_entity_properties(
         &self,
         req: &PropertiesBackfillRequest,
@@ -384,46 +313,6 @@ impl BackfillSource for PgBackfillSource {
             entity_type,
             rows_consumed,
         })
-    }
-
-    async fn fetch_calendar_events(
-        &self,
-        req: &CalendarEventBackfillRequest,
-        cursor: Option<CalendarEventBackfillCursor>,
-    ) -> Result<(SourcePage, Option<CalendarEventBackfillCursor>), BackfillError> {
-        let db_cursor = cursor.map(|c| (c.updated_at, c.event_id));
-        let batch = macro_db_client::calendar_event::get_events_for_backfill::get_calendar_events_for_search_backfill(
-            &self.db,
-            self.page_sizes.calendar_events as i64,
-            db_cursor,
-            req.updated_after,
-            req.updated_before,
-        )
-        .await
-        .map_err(BackfillError::Source)?;
-
-        let next_cursor = batch.last().map(|event| CalendarEventBackfillCursor {
-            updated_at: event.updated_at,
-            event_id: event.event_id,
-        });
-        let rows_consumed = batch.len();
-        let messages: Vec<SearchQueueMessage> = batch
-            .into_iter()
-            .map(|event| {
-                SearchQueueMessage::UpsertCalendarEvent(UpsertCalendarEvent {
-                    event_id: event.event_id.to_string(),
-                    index_override: req.index_override.clone(),
-                })
-            })
-            .collect();
-
-        Ok((
-            SourcePage {
-                messages,
-                rows_consumed,
-            },
-            next_cursor,
-        ))
     }
 
     async fn fetch_projects(
@@ -471,52 +360,6 @@ impl BackfillSource for PgBackfillSource {
             },
             next_cursor,
         ))
-    }
-}
-
-/// The `offset..offset + limit` window of `ids`, empty once the offset passes
-/// the end so the drain loop terminates.
-fn page_of(ids: &[uuid::Uuid], offset: usize, limit: usize) -> &[uuid::Uuid] {
-    let start = offset.min(ids.len());
-    let end = start.saturating_add(limit).min(ids.len());
-    &ids[start..end]
-}
-
-/// Group resolved threads by owner and chunk each owner's threads into batch
-/// messages. `rows_consumed` is what the drain loop advances its offset by.
-fn email_source_page(
-    rows: Vec<(uuid::Uuid, String)>,
-    batch_size: usize,
-    rows_consumed: usize,
-    index_override: Option<&str>,
-) -> SourcePage {
-    let mut by_user: HashMap<String, Vec<String>> = HashMap::new();
-    for (thread_id, macro_user_id) in rows {
-        by_user
-            .entry(macro_user_id)
-            .or_default()
-            .push(thread_id.to_string());
-    }
-
-    let messages: Vec<SearchQueueMessage> = by_user
-        .into_iter()
-        .flat_map(|(macro_user_id, thread_ids)| {
-            thread_ids
-                .chunks(batch_size)
-                .map(|chunk| {
-                    SearchQueueMessage::ExtractEmailThreadBatch(EmailThreadBatchMessage {
-                        thread_ids: chunk.to_vec(),
-                        macro_user_id: macro_user_id.clone(),
-                        index_override: index_override.map(str::to_string),
-                    })
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect();
-
-    SourcePage {
-        messages,
-        rows_consumed,
     }
 }
 

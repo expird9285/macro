@@ -20,11 +20,10 @@ use models_properties::EntityType;
 use sqs_client::search::SearchQueueMessage;
 
 use super::models::{
-    BackfillError, CalendarEventBackfillCursor, CalendarEventBackfillRequest, CallBackfillCursor,
-    CallBackfillRequest, ChannelBackfillCursor, ChannelBackfillRequest, ChatBackfillCursor,
-    ChatBackfillRequest, DocumentBackfillCursor, DocumentBackfillRequest, EmailBackfillRequest,
-    ProjectBackfillCursor, ProjectBackfillRequest, PropertiesBackfillRequest, PropertySourcePage,
-    SourcePage,
+    BackfillError, CallBackfillCursor, CallBackfillRequest, ChannelBackfillCursor,
+    ChannelBackfillRequest, ChatBackfillCursor, ChatBackfillRequest, DocumentBackfillCursor,
+    DocumentBackfillRequest, ProjectBackfillCursor, ProjectBackfillRequest,
+    PropertiesBackfillRequest, PropertySourcePage, SourcePage,
 };
 
 /// Publishes batches of search-event messages.
@@ -50,9 +49,8 @@ pub trait PropertyBackfillIndexer: Send + Sync + 'static {
 ///
 /// `rows_consumed` on each [`SourcePage`] is the unit the orchestrator
 /// advances by; `messages` is what gets handed to the publisher. Sources
-/// that fold many rows into fewer messages (e.g. emails batching threads
-/// per user) must report the row count separately so the loop offsets
-/// correctly.
+/// that fold many rows into fewer messages must report the row count
+/// separately so the loop offsets correctly.
 pub trait BackfillSource: Send + Sync + 'static {
     /// Calls paginate by keyset cursor (mirroring documents/chats): the
     /// implementation returns the page plus the cursor of the last row
@@ -97,12 +95,6 @@ pub trait BackfillSource: Send + Sync + 'static {
         cursor: Option<DocumentBackfillCursor>,
     ) -> impl Future<Output = Result<(SourcePage, Option<DocumentBackfillCursor>), BackfillError>> + Send;
 
-    fn fetch_emails(
-        &self,
-        req: &EmailBackfillRequest,
-        offset: usize,
-    ) -> impl Future<Output = Result<SourcePage, BackfillError>> + Send;
-
     /// Distinct entity ids holding property rows of the requested type,
     /// paginated by plain offset over `entity_properties`.
     fn fetch_entity_properties(
@@ -121,14 +113,4 @@ pub trait BackfillSource: Send + Sync + 'static {
         req: &ProjectBackfillRequest,
         cursor: Option<ProjectBackfillCursor>,
     ) -> impl Future<Output = Result<(SourcePage, Option<ProjectBackfillCursor>), BackfillError>> + Send;
-
-    /// Calendar events paginate by keyset cursor (mirroring projects): each
-    /// call returns one page plus the cursor to resume from.
-    fn fetch_calendar_events(
-        &self,
-        req: &CalendarEventBackfillRequest,
-        cursor: Option<CalendarEventBackfillCursor>,
-    ) -> impl Future<
-        Output = Result<(SourcePage, Option<CalendarEventBackfillCursor>), BackfillError>,
-    > + Send;
 }

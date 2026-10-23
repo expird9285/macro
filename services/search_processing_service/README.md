@@ -191,7 +191,6 @@ Every search-indexed entity has a POST endpoint on sps's internal surface. They 
 | Chats | `POST /internal/backfill/chats` | `{"chat_ids": [...], "user_ids": [...]}` |
 | Channels | `POST /internal/backfill/channels` | `{}` |
 | Documents | `POST /internal/backfill/documents` | `{"file_types": ["pdf"], "sub_type": "task", "created_after": "...", "created_before": "..."}` |
-| Emails | `POST /internal/backfill/emails` | `{"since": "2026-03-16T00:00:00Z", "index_override": "emails_v2", "batch_size": 100}` |
 
 ### Against dev (deployed service)
 

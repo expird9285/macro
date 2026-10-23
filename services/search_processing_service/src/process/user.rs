@@ -19,10 +19,5 @@ pub async fn remove_user_profile(
         .delete_chat_by_user_id(user_profile_id)
         .await?;
 
-    // Delete emails of user
-    opensearch_client
-        .delete_email_messages_by_user_id(user_profile_id)
-        .await?;
-
     Ok(())
 }

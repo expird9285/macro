@@ -1,10 +1,8 @@
-pub(crate) mod calendar_event;
 pub(crate) mod call;
 pub(crate) mod channel;
 pub(crate) mod chat;
 pub mod context;
 pub(crate) mod document;
-pub(crate) mod email;
 pub(crate) mod project;
 pub(crate) mod properties;
 mod user;
@@ -54,25 +52,6 @@ pub async fn process_message(
                 &ctx.db,
                 channel_id,
                 message_id,
-                message.index_override.as_deref(),
-            )
-            .await?;
-        }
-        SearchQueueMessage::ExtractEmailThreadBatch(message) => {
-            let thread_ids = message
-                .thread_ids
-                .iter()
-                .map(|thread_id| {
-                    thread_id
-                        .parse::<Uuid>()
-                        .context("failed to parse thread_id as UUID")
-                })
-                .collect::<anyhow::Result<Vec<_>>>()?;
-            email::upsert::process_upsert_thread_batch_message(
-                &ctx.opensearch_client,
-                &ctx.db,
-                &thread_ids,
-                &message.macro_user_id,
                 message.index_override.as_deref(),
             )
             .await?;
@@ -135,20 +114,6 @@ pub async fn process_message(
         }
         SearchQueueMessage::UpsertProject(message) => {
             project::upsert_project(&ctx.opensearch_client, &ctx.db, &message).await?;
-        }
-        SearchQueueMessage::UpsertCalendarEvent(message) => {
-            // Logged rather than silent: running the calendar backfill against
-            // an environment where the flag is off should say why nothing
-            // happened instead of reporting a successful no-op.
-            if ctx.calendar_search_enabled {
-                calendar_event::upsert_calendar_event(&ctx.opensearch_client, &ctx.db, &message)
-                    .await?;
-            } else {
-                tracing::info!(
-                    event_id = message.event_id,
-                    "calendar search is disabled; not indexing calendar event"
-                );
-            }
         }
     }
 

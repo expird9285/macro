@@ -15,18 +15,16 @@ use tokio_util::sync::CancellationToken;
 
 use super::jobs::JobProgress;
 use super::models::{
-    BackfillError, BackfillReceipt, CalendarEventBackfillRequest, CallBackfillRequest,
-    ChannelBackfillRequest, ChatBackfillRequest, DocumentBackfillRequest, EmailBackfillRequest,
-    ProjectBackfillRequest, PropertiesBackfillRequest, PropertySourcePage, SourcePage,
+    BackfillError, BackfillReceipt, CallBackfillRequest, ChannelBackfillRequest,
+    ChatBackfillRequest, DocumentBackfillRequest, ProjectBackfillRequest,
+    PropertiesBackfillRequest, PropertySourcePage, SourcePage,
 };
 use super::ports::{BackfillSource, PropertyBackfillIndexer, SearchEventPublisher};
 
 /// Drive a source by repeatedly calling `fetch(cursor)`, publishing each
 /// page's messages, and stopping when the source reports zero rows
-/// consumed. Identical loop shape to [`drain_source`] but the state
-/// advanced between pages is an opaque cursor returned by the fetcher
-/// rather than an integer offset — used by entities (documents) that
-/// paginate by sort-key.
+/// consumed. The state advanced between pages is an opaque cursor returned by
+/// the fetcher — used by entities (documents) that paginate by sort-key.
 async fn drain_source_with_cursor<C, Fut, P>(
     publisher: &P,
     progress: &JobProgress,
@@ -93,12 +91,6 @@ pub trait BackfillService: Send + Sync + 'static {
         progress: Arc<JobProgress>,
         cancel: CancellationToken,
     ) -> impl Future<Output = Result<BackfillReceipt, BackfillError>> + Send;
-    fn backfill_emails(
-        &self,
-        req: EmailBackfillRequest,
-        progress: Arc<JobProgress>,
-        cancel: CancellationToken,
-    ) -> impl Future<Output = Result<BackfillReceipt, BackfillError>> + Send;
     fn backfill_entity_properties(
         &self,
         req: PropertiesBackfillRequest,
@@ -108,12 +100,6 @@ pub trait BackfillService: Send + Sync + 'static {
     fn backfill_projects(
         &self,
         req: ProjectBackfillRequest,
-        progress: Arc<JobProgress>,
-        cancel: CancellationToken,
-    ) -> impl Future<Output = Result<BackfillReceipt, BackfillError>> + Send;
-    fn backfill_calendar_events(
-        &self,
-        req: CalendarEventBackfillRequest,
         progress: Arc<JobProgress>,
         cancel: CancellationToken,
     ) -> impl Future<Output = Result<BackfillReceipt, BackfillError>> + Send;
@@ -138,46 +124,6 @@ where
             property_indexer,
         }
     }
-}
-
-/// Drive a source by repeatedly calling `fetch(offset)`, publishing each
-/// page's messages, and stopping when the source reports zero rows consumed.
-/// Offset advances by `rows_consumed`, *not* by message count — sources are
-/// free to fold many rows into a smaller batch of messages (see the email
-/// path) without confusing the loop into re-reading rows.
-///
-/// Checks `cancel` at the top of each iteration so a shutdown signal stops
-/// the drain between pages instead of mid-publish; the receipt that comes
-/// back reflects the rows actually enqueued before cancellation.
-async fn drain_source<Fut, P>(
-    publisher: &P,
-    progress: &JobProgress,
-    cancel: &CancellationToken,
-    fetch: impl Fn(usize) -> Fut,
-) -> Result<BackfillReceipt, BackfillError>
-where
-    Fut: Future<Output = Result<SourcePage, BackfillError>>,
-    P: SearchEventPublisher,
-{
-    let mut offset = 0usize;
-    let mut enqueued = 0usize;
-
-    loop {
-        if cancel.is_cancelled() {
-            tracing::info!(enqueued, "backfill cancelled between pages");
-            break;
-        }
-        let page = fetch(offset).await?;
-        if page.rows_consumed == 0 {
-            break;
-        }
-        publisher.publish(page.messages).await?;
-        enqueued += page.rows_consumed;
-        offset += page.rows_consumed;
-        progress.add(page.rows_consumed).await;
-    }
-
-    Ok(BackfillReceipt { enqueued })
 }
 
 /// Drain typed property pages with a bounded number of direct reindexes.
@@ -284,18 +230,6 @@ where
         .await
     }
 
-    async fn backfill_emails(
-        &self,
-        req: EmailBackfillRequest,
-        progress: Arc<JobProgress>,
-        cancel: CancellationToken,
-    ) -> Result<BackfillReceipt, BackfillError> {
-        drain_source(&self.publisher, &progress, &cancel, |offset| {
-            self.source.fetch_emails(&req, offset)
-        })
-        .await
-    }
-
     async fn backfill_entity_properties(
         &self,
         req: PropertiesBackfillRequest,
@@ -316,18 +250,6 @@ where
     ) -> Result<BackfillReceipt, BackfillError> {
         drain_source_with_cursor(&self.publisher, &progress, &cancel, |cursor| {
             self.source.fetch_projects(&req, cursor)
-        })
-        .await
-    }
-
-    async fn backfill_calendar_events(
-        &self,
-        req: CalendarEventBackfillRequest,
-        progress: Arc<JobProgress>,
-        cancel: CancellationToken,
-    ) -> Result<BackfillReceipt, BackfillError> {
-        drain_source_with_cursor(&self.publisher, &progress, &cancel, |cursor| {
-            self.source.fetch_calendar_events(&req, cursor)
         })
         .await
     }

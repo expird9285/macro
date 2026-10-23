@@ -3,7 +3,7 @@
 ## What it is
 
 Powers Search: a hexagonal service owning the search-event pipeline. Indexes
-calls, agent sessions, documents, emails, and other entities into
+calls, agent sessions, documents, and other entities into
 OpenSearch, and exposes backfill HTTP routes for each.
 
 ## Start here
@@ -21,7 +21,7 @@ OpenSearch, and exposes backfill HTTP routes for each.
 
 ## Scope
 
-- Owns: OpenSearch indexing for calls, agent sessions, documents, emails,
+- Owns: OpenSearch indexing for calls, agent sessions, documents,
   channels, and other search entities; their Kafka/SQS ingestion and HTTP
   backfill routes.
 - Not here: OpenSearch client/index mapping primitives → `crates/opensearch_client`;
