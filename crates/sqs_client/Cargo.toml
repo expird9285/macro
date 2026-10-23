@@ -14,33 +14,23 @@ default = [
   "convert",
   "document",
   "document_text_extractor",
-  "email",
-  "gmail",
   "organization_retention",
   "search",
-  "sfs_delete",
-  "sfs_uploader",
   "upload_extractor",
 ]
 document = []
 document_text_extractor = []
-email = ["uuid", "models_email", "dep:email", "gmail"]
-gmail = ["model", "models_email", "uuid"]
 organization_retention = []
 search = ["chrono", "model", "uuid", "futures"]
-sfs_delete = []
-sfs_uploader = []
 upload_extractor = []
 
 [dependencies]
 anyhow = { workspace = true }
 aws-sdk-sqs = { workspace = true }
 chrono = { workspace = true, optional = true }
-email = { path = "../email", features = ["ports"], optional = true }
 model = { path = "../model", optional = true }
 models_ai_projection = { path = "../models_ai_projection", optional = true }
 s3_key = { path = "../s3_key" }
-models_email = { path = "../models_email", optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 strum = { workspace = true, features = ["derive"] }

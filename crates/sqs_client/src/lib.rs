@@ -18,12 +18,6 @@ pub mod document;
 #[cfg(feature = "document_text_extractor")]
 pub mod document_text_extractor;
 
-#[cfg(feature = "email")]
-pub mod email;
-
-#[cfg(feature = "gmail")]
-pub mod gmail;
-
 #[cfg(feature = "organization_retention")]
 mod organization_retention;
 
@@ -72,28 +66,8 @@ pub struct SQS {
     upload_extractor_queue: Option<String>,
     #[cfg(feature = "convert")]
     convert_queue: Option<String>,
-    #[cfg(feature = "gmail")]
-    gmail_inbox_sync_queue: Option<String>,
-    #[cfg(feature = "gmail")]
-    gmail_inbox_sync_retry_queue: Option<String>,
-    #[cfg(feature = "gmail")]
-    gmail_ops_queue: Option<String>,
-    #[cfg(feature = "gmail")]
-    gmail_ops_retry_queue: Option<String>,
-    #[cfg(feature = "email")]
-    link_manager_queue: Option<String>,
-    #[cfg(feature = "email")]
-    email_scheduled_queue: Option<String>,
-    #[cfg(feature = "email")]
-    email_backfill_queue: Option<String>,
-    #[cfg(feature = "email")]
-    email_crm_cleanup_queue: Option<String>,
     #[cfg(feature = "search")]
     search_event_queue: Option<String>,
-    #[cfg(feature = "sfs_uploader")]
-    email_sfs_uploader_queue: Option<String>,
-    #[cfg(feature = "sfs_delete")]
-    email_sfs_delete_queue: Option<String>,
 }
 
 impl SQS {
@@ -114,28 +88,8 @@ impl SQS {
             upload_extractor_queue: None,
             #[cfg(feature = "convert")]
             convert_queue: None,
-            #[cfg(feature = "gmail")]
-            gmail_inbox_sync_queue: None,
-            #[cfg(feature = "gmail")]
-            gmail_inbox_sync_retry_queue: None,
-            #[cfg(feature = "gmail")]
-            gmail_ops_queue: None,
-            #[cfg(feature = "gmail")]
-            gmail_ops_retry_queue: None,
-            #[cfg(feature = "email")]
-            link_manager_queue: None,
-            #[cfg(feature = "email")]
-            email_scheduled_queue: None,
-            #[cfg(feature = "email")]
-            email_backfill_queue: None,
-            #[cfg(feature = "email")]
-            email_crm_cleanup_queue: None,
             #[cfg(feature = "search")]
             search_event_queue: None,
-            #[cfg(feature = "sfs_uploader")]
-            email_sfs_uploader_queue: None,
-            #[cfg(feature = "sfs_delete")]
-            email_sfs_delete_queue: None,
         }
     }
 }

@@ -1,12 +1,10 @@
 use crate::{
     SQS,
     search::{
-        calendar_event::UpsertCalendarEvent,
         call::{CallRecordMessage, RemoveCallRecord},
         channel::ChannelMessageUpdate,
         chat::ChatMessage,
         document::SearchExtractorMessage,
-        email::EmailThreadBatchMessage,
         project::UpsertProject,
     },
 };
@@ -15,12 +13,10 @@ use aws_sdk_sqs::{self as sqs, types::SendMessageBatchRequestEntry};
 use futures::StreamExt;
 use strum::Display;
 
-pub mod calendar_event;
 pub mod call;
 pub mod channel;
 pub mod chat;
 pub mod document;
-pub mod email;
 pub mod project;
 
 use crate::{MAX_BATCH_SIZE, PrimaryId};
@@ -76,8 +72,6 @@ pub enum SearchQueueMessage {
     // Chat
     /// SQS backfill work-queue contract for reconciling a chat message.
     ChatMessage(ChatMessage),
-    // Email backfills
-    ExtractEmailThreadBatch(EmailThreadBatchMessage),
     // Channel
     ChannelMessageUpdate(ChannelMessageUpdate),
     // Call
@@ -85,8 +79,6 @@ pub enum SearchQueueMessage {
     RemoveCallRecord(RemoveCallRecord),
     // Project
     UpsertProject(UpsertProject),
-    // Calendar
-    UpsertCalendarEvent(UpsertCalendarEvent),
 
     // User
     RemoveUserProfile(String),
@@ -99,9 +91,6 @@ impl PrimaryId for SearchQueueMessage {
             SearchQueueMessage::ExtractSync(message) => message.document_id.clone(),
             // The message id keeps entries unique within an SQS batch.
             SearchQueueMessage::ChatMessage(message) => message.message_id.clone(),
-            SearchQueueMessage::ExtractEmailThreadBatch(message) => {
-                message.thread_ids.first().cloned().unwrap_or_default()
-            }
             SearchQueueMessage::ChannelMessageUpdate(message) => message.message_id.clone(),
             SearchQueueMessage::CallRecord(message) => message.call_id.clone(),
             SearchQueueMessage::RemoveCallRecord(message) => format!(
@@ -110,7 +99,6 @@ impl PrimaryId for SearchQueueMessage {
                 message.call_id.clone().unwrap_or_default()
             ),
             SearchQueueMessage::UpsertProject(message) => message.project_id.clone(),
-            SearchQueueMessage::UpsertCalendarEvent(message) => message.event_id.clone(),
 
             SearchQueueMessage::RemoveUserProfile(message) => message.clone(),
         }
@@ -125,8 +113,6 @@ impl SearchQueueMessage {
             SearchQueueMessage::ExtractSync(_) => Operation::ExtractSync,
             // Chat
             SearchQueueMessage::ChatMessage(_) => Operation::ExtractText,
-            // Email backfills
-            SearchQueueMessage::ExtractEmailThreadBatch(_) => Operation::ExtractText,
             // Channels
             SearchQueueMessage::ChannelMessageUpdate(_) => Operation::ExtractText,
             // Calls
@@ -134,8 +120,6 @@ impl SearchQueueMessage {
             SearchQueueMessage::RemoveCallRecord(_) => Operation::Remove,
             // Projects
             SearchQueueMessage::UpsertProject(_) => Operation::UpdateMetadata,
-            // Calendar
-            SearchQueueMessage::UpsertCalendarEvent(_) => Operation::UpdateMetadata,
             // Users
             SearchQueueMessage::RemoveUserProfile(_) => Operation::Remove,
         }
