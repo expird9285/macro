@@ -1,4 +1,3 @@
-use crate::domain::models::TeamRole;
 use std::sync::{Arc, Mutex};
 
 use axum::{
@@ -168,15 +167,6 @@ impl EntityAccessService for FakeEntityAccessService {
                 organization_id,
             });
         Ok(self.permission)
-    }
-
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-        _entity_id: &str,
-        _entity_type: EntityType,
-    ) -> Result<(EntityPermission, Uuid, TeamRole), AccessError> {
-        panic!("unexpected get_crm_entity_permission_with_team call")
     }
 
     async fn get_users_by_entity(

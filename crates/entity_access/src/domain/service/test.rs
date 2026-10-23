@@ -25,10 +25,6 @@ struct MockRepo {
     document_access: Arc<Mutex<Option<AccessLevel>>>,
     chat_access: Arc<Mutex<Option<AccessLevel>>>,
     project_access: Arc<Mutex<Option<AccessLevel>>>,
-    thread_access: Arc<Mutex<Option<AccessLevel>>>,
-    calendar_event_access: Arc<Mutex<Option<AccessLevel>>>,
-    thread_access_calls: Arc<AtomicUsize>,
-    owned_email_thread_ids: Arc<Mutex<Vec<Uuid>>>,
     call_access: Arc<Mutex<Option<AccessLevel>>>,
     agent_session_access: Arc<Mutex<Option<AccessLevel>>>,
     initiative_access: Arc<Mutex<Option<AccessLevel>>>,
@@ -36,8 +32,6 @@ struct MockRepo {
     accessible_scheduled_action_ids: Arc<Mutex<Vec<Uuid>>>,
     agent_session_parent: Arc<Mutex<Option<AgentSessionParent>>>,
     agent_session_exists: Arc<Mutex<bool>>,
-    pipeline_access: Arc<Mutex<Option<AccessLevel>>>,
-    pipeline_access_list: Arc<Mutex<Vec<(Uuid, AccessLevel)>>>,
     database_access: Arc<Mutex<Option<AccessLevel>>>,
     database_access_list: Arc<Mutex<Vec<(Uuid, AccessLevel)>>>,
     database_row_access: Arc<Mutex<Option<AccessLevel>>>,
@@ -55,17 +49,12 @@ struct MockRepo {
     team_channel_role_calls: Arc<AtomicUsize>,
     foreign_entity_access: Arc<Mutex<bool>>,
     team_foreign_entity_access: Arc<Mutex<bool>>,
-    crm_company_access: Arc<Mutex<Option<AccessLevel>>>,
-    crm_contact_access: Arc<Mutex<Option<AccessLevel>>>,
-    team_crm_company_access: Arc<Mutex<Option<CrmEntityAccess>>>,
-    team_crm_contact_access: Arc<Mutex<Option<CrmEntityAccess>>>,
     channel_membership: Arc<Mutex<Vec<Uuid>>>,
     channel_role: Arc<Mutex<ChannelRoleResult>>,
     last_channel_role_request: Arc<Mutex<Option<(String, Option<i64>)>>>,
     document_users: Arc<Mutex<Vec<MacroUserIdStr<'static>>>>,
     chat_users: Arc<Mutex<Vec<MacroUserIdStr<'static>>>>,
     project_users: Arc<Mutex<Vec<MacroUserIdStr<'static>>>>,
-    thread_users: Arc<Mutex<Vec<MacroUserIdStr<'static>>>>,
     agent_session_users: Arc<Mutex<Vec<MacroUserIdStr<'static>>>>,
     database_users: Arc<Mutex<Vec<MacroUserIdStr<'static>>>>,
     database_row_database: Arc<Mutex<Option<Uuid>>>,
@@ -81,10 +70,6 @@ impl MockRepo {
             document_access: Arc::new(Mutex::new(None)),
             chat_access: Arc::new(Mutex::new(None)),
             project_access: Arc::new(Mutex::new(None)),
-            thread_access: Arc::new(Mutex::new(None)),
-            calendar_event_access: Arc::new(Mutex::new(None)),
-            thread_access_calls: Arc::new(AtomicUsize::new(0)),
-            owned_email_thread_ids: Arc::new(Mutex::new(Vec::new())),
             call_access: Arc::new(Mutex::new(None)),
             agent_session_access: Arc::new(Mutex::new(None)),
             initiative_access: Arc::new(Mutex::new(None)),
@@ -94,8 +79,6 @@ impl MockRepo {
             // Existing by default: the interesting half of these tests is who
             // may see a session, not whether it is there.
             agent_session_exists: Arc::new(Mutex::new(true)),
-            pipeline_access: Arc::default(),
-            pipeline_access_list: Arc::default(),
             database_access: Arc::new(Mutex::new(None)),
             database_access_list: Arc::new(Mutex::new(Vec::new())),
             database_row_access: Arc::new(Mutex::new(None)),
@@ -113,17 +96,12 @@ impl MockRepo {
             team_channel_role_calls: Arc::new(AtomicUsize::new(0)),
             foreign_entity_access: Arc::new(Mutex::new(false)),
             team_foreign_entity_access: Arc::new(Mutex::new(false)),
-            crm_company_access: Arc::new(Mutex::new(None)),
-            crm_contact_access: Arc::new(Mutex::new(None)),
-            team_crm_company_access: Arc::new(Mutex::new(None)),
-            team_crm_contact_access: Arc::new(Mutex::new(None)),
             channel_membership: Arc::new(Mutex::new(vec![])),
             channel_role: Arc::new(Mutex::new(ChannelRoleResult::NotFound)),
             last_channel_role_request: Arc::new(Mutex::new(None)),
             document_users: Arc::new(Mutex::new(vec![])),
             chat_users: Arc::new(Mutex::new(vec![])),
             project_users: Arc::new(Mutex::new(vec![])),
-            thread_users: Arc::new(Mutex::new(vec![])),
             agent_session_users: Arc::new(Mutex::new(Vec::new())),
             database_users: Arc::new(Mutex::new(vec![])),
             database_row_database: Arc::default(),
@@ -146,16 +124,6 @@ impl MockRepo {
 
     fn with_project_access(mut self, level: AccessLevel) -> Self {
         self.project_access = Arc::new(Mutex::new(Some(level)));
-        self
-    }
-
-    fn with_thread_access(mut self, level: AccessLevel) -> Self {
-        self.thread_access = Arc::new(Mutex::new(Some(level)));
-        self
-    }
-
-    fn with_owned_email_thread_ids(mut self, ids: Vec<Uuid>) -> Self {
-        self.owned_email_thread_ids = Arc::new(Mutex::new(ids));
         self
     }
 
@@ -247,27 +215,7 @@ impl MockRepo {
     }
 
     #[allow(dead_code)]
-    fn with_crm_company_access(mut self, level: AccessLevel) -> Self {
-        self.crm_company_access = Arc::new(Mutex::new(Some(level)));
-        self
-    }
-
     #[allow(dead_code)]
-    fn with_crm_contact_access(mut self, level: AccessLevel) -> Self {
-        self.crm_contact_access = Arc::new(Mutex::new(Some(level)));
-        self
-    }
-
-    fn with_team_crm_company_access(mut self, access: CrmEntityAccess) -> Self {
-        self.team_crm_company_access = Arc::new(Mutex::new(Some(access)));
-        self
-    }
-
-    fn with_team_crm_contact_access(mut self, access: CrmEntityAccess) -> Self {
-        self.team_crm_contact_access = Arc::new(Mutex::new(Some(access)));
-        self
-    }
-
     fn with_channel_membership(mut self, channels: Vec<Uuid>) -> Self {
         self.channel_membership = Arc::new(Mutex::new(channels));
         self
@@ -300,11 +248,6 @@ impl MockRepo {
 
     fn with_project_users(mut self, users: Vec<MacroUserIdStr<'static>>) -> Self {
         self.project_users = Arc::new(Mutex::new(users));
-        self
-    }
-
-    fn with_thread_users(mut self, users: Vec<MacroUserIdStr<'static>>) -> Self {
-        self.thread_users = Arc::new(Mutex::new(users));
         self
     }
 
@@ -355,36 +298,6 @@ impl AccessRepository for MockRepo {
         Ok(*self.project_access.lock().await)
     }
 
-    async fn get_thread_access(
-        &self,
-        _thread_id: &str,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-    ) -> Result<Option<AccessLevel>, AccessError> {
-        self.thread_access_calls.fetch_add(1, Ordering::SeqCst);
-        Ok(*self.thread_access.lock().await)
-    }
-
-    async fn get_calendar_event_access(
-        &self,
-        _event_id: &str,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-    ) -> Result<Option<AccessLevel>, AccessError> {
-        Ok(*self.calendar_event_access.lock().await)
-    }
-
-    async fn get_owned_email_thread_ids(
-        &self,
-        thread_ids: &[Uuid],
-        _user_id: &MacroUserId<Lowercase<'_>>,
-    ) -> Result<Vec<Uuid>, AccessError> {
-        let owned = self.owned_email_thread_ids.lock().await;
-        Ok(thread_ids
-            .iter()
-            .copied()
-            .filter(|id| owned.contains(id))
-            .collect())
-    }
-
     async fn check_user_channel_membership(
         &self,
         _user_id: Option<&MacroUserId<Lowercase<'_>>>,
@@ -428,20 +341,6 @@ impl AccessRepository for MockRepo {
         _user_id: Option<&MacroUserId<Lowercase<'_>>>,
     ) -> Result<Option<AccessLevel>, AccessError> {
         Ok(*self.initiative_access.lock().await)
-    }
-
-    async fn get_pipeline_access(
-        &self,
-        _id: &str,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-    ) -> Result<Option<AccessLevel>, AccessError> {
-        Ok(*self.pipeline_access.lock().await)
-    }
-    async fn list_pipeline_access(
-        &self,
-        _user_id: &MacroUserId<Lowercase<'_>>,
-    ) -> Result<Vec<(Uuid, AccessLevel)>, AccessError> {
-        Ok(self.pipeline_access_list.lock().await.clone())
     }
 
     async fn get_database_access(
@@ -562,58 +461,12 @@ impl AccessRepository for MockRepo {
         Ok(*self.team_foreign_entity_access.lock().await)
     }
 
-    async fn get_team_crm_company_access(
-        &self,
-        _company_id: &str,
-        _team_id: Uuid,
-    ) -> Result<Option<CrmEntityAccess>, AccessError> {
-        Ok(*self.team_crm_company_access.lock().await)
-    }
-
-    async fn get_team_crm_contact_access(
-        &self,
-        _contact_id: &str,
-        _team_id: Uuid,
-    ) -> Result<Option<CrmEntityAccess>, AccessError> {
-        Ok(*self.team_crm_contact_access.lock().await)
-    }
-
     async fn has_foreign_entity_access(
         &self,
         _foreign_entity_id: &str,
         _user_id: Option<&MacroUserId<Lowercase<'_>>>,
     ) -> Result<bool, AccessError> {
         Ok(*self.foreign_entity_access.lock().await)
-    }
-
-    async fn get_crm_company_access(
-        &self,
-        _company_id: &str,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-    ) -> Result<Option<CrmEntityAccess>, AccessError> {
-        // Owning team / role are irrelevant to these access-level tests.
-        Ok(
-            (*self.crm_company_access.lock().await).map(|access_level| CrmEntityAccess {
-                access_level,
-                team_id: Uuid::nil(),
-                team_role: TeamRole::Member,
-            }),
-        )
-    }
-
-    async fn get_crm_contact_access(
-        &self,
-        _contact_id: &str,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-    ) -> Result<Option<CrmEntityAccess>, AccessError> {
-        // Owning team / role are irrelevant to these access-level tests.
-        Ok(
-            (*self.crm_contact_access.lock().await).map(|access_level| CrmEntityAccess {
-                access_level,
-                team_id: Uuid::nil(),
-                team_role: TeamRole::Member,
-            }),
-        )
     }
 
     async fn get_entity_users(
@@ -625,7 +478,6 @@ impl AccessRepository for MockRepo {
             EntityType::Document => Ok(self.document_users.lock().await.clone()),
             EntityType::Chat => Ok(self.chat_users.lock().await.clone()),
             EntityType::Project => Ok(self.project_users.lock().await.clone()),
-            EntityType::EmailThread => Ok(self.thread_users.lock().await.clone()),
             EntityType::AgentSession => Ok(self.agent_session_users.lock().await.clone()),
             EntityType::Call => panic!("standalone calls must use direct grants"),
             EntityType::Initiative => Ok(vec![]),
@@ -745,19 +597,6 @@ async fn test_get_project_access_returns_level_from_repo() {
         .await;
 
     assert_eq!(result.unwrap(), Some(AccessLevel::Owner));
-}
-
-#[tokio::test]
-async fn test_get_thread_access_returns_level_from_repo() {
-    let repo = MockRepo::new().with_thread_access(AccessLevel::Comment);
-    let service = EntityAccessServiceImpl::new(repo);
-    let user_id = test_user_id();
-
-    let result = service
-        .get_access_level(Some(&user_id), "thread-1", EntityType::EmailThread)
-        .await;
-
-    assert_eq!(result.unwrap(), Some(AccessLevel::Comment));
 }
 
 #[tokio::test]
@@ -1540,46 +1379,6 @@ async fn test_check_access_with_none_user_id_and_no_access() {
 // --- generate_entity_access_receipt tests ---
 
 #[tokio::test]
-async fn test_batch_email_receipts_use_owned_thread_fast_path() {
-    let thread_id = Uuid::new_v4();
-    let repo = MockRepo::new().with_owned_email_thread_ids(vec![thread_id]);
-    let calls = repo.thread_access_calls.clone();
-    let service = EntityAccessServiceImpl::new(repo);
-    let user_id = test_user_id();
-
-    let mut receipts = service
-        .generate_email_thread_view_access_receipts(&user_id, None, &[thread_id.to_string()])
-        .await;
-    let receipt = receipts.remove(&thread_id.to_string()).unwrap().unwrap();
-
-    assert_eq!(calls.load(Ordering::SeqCst), 0);
-    assert_eq!(receipt.entity().entity_type, EntityType::EmailThread);
-    assert_eq!(receipt.entity().entity_id, thread_id.to_string());
-    assert!(matches!(
-        receipt.entity_permission(),
-        EntityPermission::AccessLevel {
-            access_level: AccessLevel::Owner
-        }
-    ));
-}
-
-#[tokio::test]
-async fn test_batch_email_receipts_fall_back_for_shared_threads() {
-    let thread_id = Uuid::new_v4();
-    let repo = MockRepo::new().with_thread_access(AccessLevel::View);
-    let calls = repo.thread_access_calls.clone();
-    let service = EntityAccessServiceImpl::new(repo);
-    let user_id = test_user_id();
-
-    let receipts = service
-        .generate_email_thread_view_access_receipts(&user_id, None, &[thread_id.to_string()])
-        .await;
-
-    assert_eq!(calls.load(Ordering::SeqCst), 1);
-    assert!(receipts[&thread_id.to_string()].is_ok());
-}
-
-#[tokio::test]
 async fn test_generate_receipt_document_with_access() {
     let repo = MockRepo::new().with_document_access(AccessLevel::Edit);
     let service = EntityAccessServiceImpl::new(repo);
@@ -1738,7 +1537,6 @@ async fn team_scoped_bot_dispatches_all_item_types() {
         EntityType::Document,
         EntityType::Chat,
         EntityType::Project,
-        EntityType::EmailThread,
         EntityType::Call,
         EntityType::Initiative,
         EntityType::DatabaseRow,
@@ -1901,65 +1699,6 @@ async fn team_scoped_bot_foreign_entity_access_is_view_only() {
         )
         .await;
     assert!(matches!(result, Err(AccessError::Unauthorized)));
-}
-
-#[tokio::test]
-async fn team_scoped_bot_crm_access_is_always_view_only() {
-    let repository_access = CrmEntityAccess {
-        access_level: AccessLevel::Owner,
-        team_id: test_team_id(),
-        team_role: TeamRole::Owner,
-    };
-    let repo = MockRepo::new()
-        .with_team_crm_company_access(repository_access)
-        .with_team_crm_contact_access(repository_access);
-    let service = EntityAccessServiceImpl::new(repo);
-
-    for entity_type in [EntityType::CrmCompany, EntityType::CrmContact] {
-        let entity_id = Uuid::new_v4().to_string();
-        let receipt = service
-            .generate_bot_entity_access_receipt::<ViewAccessLevel>(
-                test_bot_id(),
-                test_bot_scope(),
-                &entity_id,
-                entity_type,
-            )
-            .await
-            .unwrap();
-        assert!(matches!(
-            receipt.entity_permission(),
-            EntityPermission::AccessLevel {
-                access_level: AccessLevel::View
-            }
-        ));
-
-        let result = service
-            .generate_bot_entity_access_receipt::<EditAccessLevel>(
-                test_bot_id(),
-                test_bot_scope(),
-                &entity_id,
-                entity_type,
-            )
-            .await;
-        assert!(matches!(result, Err(AccessError::Unauthorized)));
-    }
-}
-
-#[tokio::test]
-async fn team_scoped_bot_hidden_or_other_team_crm_rows_are_unauthorized() {
-    let service = EntityAccessServiceImpl::new(MockRepo::new());
-
-    for entity_type in [EntityType::CrmCompany, EntityType::CrmContact] {
-        let result = service
-            .generate_bot_entity_access_receipt::<ViewAccessLevel>(
-                test_bot_id(),
-                test_bot_scope(),
-                &Uuid::new_v4().to_string(),
-                entity_type,
-            )
-            .await;
-        assert!(matches!(result, Err(AccessError::Unauthorized)));
-    }
 }
 
 #[tokio::test]
@@ -2539,44 +2278,6 @@ async fn test_get_users_by_entity_project_returns_empty_when_no_users() {
     assert!(result.is_empty());
 }
 
-#[tokio::test]
-async fn test_get_users_by_entity_thread_returns_users() {
-    let users = vec![
-        user_id("macro|dave@test.com"),
-        user_id("macro|eve@test.com"),
-    ];
-    let repo = MockRepo::new().with_thread_users(users.clone());
-    let service = EntityAccessServiceImpl::new(repo);
-
-    let result = service
-        .get_users_by_entity(
-            "00000000-0000-0000-0000-000000000004",
-            EntityType::EmailThread,
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(result.len(), 2);
-    assert_eq!(result[0].to_string(), "macro|dave@test.com");
-    assert_eq!(result[1].to_string(), "macro|eve@test.com");
-}
-
-#[tokio::test]
-async fn test_get_users_by_entity_thread_returns_empty_when_no_users() {
-    let repo = MockRepo::new();
-    let service = EntityAccessServiceImpl::new(repo);
-
-    let result = service
-        .get_users_by_entity(
-            "00000000-0000-0000-0000-000000000004",
-            EntityType::EmailThread,
-        )
-        .await
-        .unwrap();
-
-    assert!(result.is_empty());
-}
-
 /// A row has no grants of its own: whoever can reach its database hears
 /// about it, and a row that no longer exists has no one to tell.
 #[tokio::test]
@@ -2986,43 +2687,38 @@ async fn accessible_forms_are_the_repository_listing() {
 }
 
 #[tokio::test]
-async fn pipeline_receipts_use_their_own_grants() {
-    let repo = MockRepo::new().with_database_access(AccessLevel::Owner);
-    let service = EntityAccessServiceImpl::new(repo.clone());
-    let user = MacroUserIdStr::try_from_email("pipeline@macro.com").unwrap();
-    let id = Uuid::now_v7().to_string();
-    assert!(
-        service
-            .generate_entity_access_receipt::<ViewAccessLevel>(
-                &user,
-                None,
+async fn removed_feature_entity_types_grant_nothing() {
+    let service = EntityAccessServiceImpl::new(MockRepo::new());
+    let user_id = test_user_id();
+
+    for entity_type in [
+        EntityType::EmailThread,
+        EntityType::CalendarEvent,
+        EntityType::CrmCompany,
+        EntityType::CrmContact,
+        EntityType::CrmPipeline,
+    ] {
+        let id = Uuid::new_v4().to_string();
+        assert_eq!(
+            service
+                .get_access_level(Some(&user_id), &id, entity_type)
+                .await
+                .unwrap(),
+            None,
+            "{entity_type:?} must not grant access",
+        );
+
+        let bot = service
+            .generate_bot_entity_access_receipt::<ViewAccessLevel>(
+                test_bot_id(),
+                test_bot_scope(),
                 &id,
-                EntityType::CrmPipeline
+                entity_type,
             )
-            .await
-            .is_err()
-    );
-    *repo.pipeline_access.lock().await = Some(AccessLevel::Edit);
-    assert!(
-        service
-            .generate_entity_access_receipt::<EditAccessLevel>(
-                &user,
-                None,
-                &id,
-                EntityType::CrmPipeline
-            )
-            .await
-            .is_ok()
-    );
-    assert!(
-        service
-            .generate_entity_access_receipt::<OwnerAccessLevel>(
-                &user,
-                None,
-                &id,
-                EntityType::CrmPipeline
-            )
-            .await
-            .is_err()
-    );
+            .await;
+        assert!(
+            matches!(bot, Err(AccessError::BadRequest(_))),
+            "{entity_type:?} must not mint a bot receipt",
+        );
+    }
 }

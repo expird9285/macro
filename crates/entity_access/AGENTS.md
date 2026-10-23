@@ -33,7 +33,7 @@ depended-on crates in the backend.
 - Depends on: `model-entity`, `model_owner`, `models_entity_access_management`,
   `models_permissions`, `macro_user_id`, `bot_id`.
 - Used by: nearly every domain crate that authorizes a request (`documents`,
-  `chat`, `projects`, `crm`, `forms`, `databases`, `channels`, `agent_session`,
+  `chat`, `projects`, `forms`, `databases`, `channels`, `agent_session`,
   `graphql_*` crates, and most services) — a signature change here ripples
   widely; check callers first.
 

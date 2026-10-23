@@ -158,11 +158,8 @@ fn internal_access_level(entity_type: EntityType) -> AccessLevel {
     }
 }
 
-/// Parse entity type string to [`EntityType`], handling the "email_thread" → "thread" alias.
+/// Parse entity type string to [`EntityType`].
 fn parse_entity_type(s: &str) -> Result<EntityType, ExtractorError> {
-    // "thread" in the API maps to EmailThread
-    let normalized = if s == "thread" { "email_thread" } else { s };
-    normalized
-        .parse()
+    s.parse()
         .map_err(|_| ExtractorError::BadRequest("Invalid entity type"))
 }

@@ -1,7 +1,5 @@
 use super::*;
-use crate::domain::models::{
-    AccessLevel, EmailAttachmentReason, Entity, EntityPermission, EntityType, ParticipantRole,
-};
+use crate::domain::models::{AccessLevel, Entity, EntityPermission, EntityType, ParticipantRole};
 use models_entity_access_management::EntityAccessSourceType;
 use uuid::Uuid;
 
@@ -54,28 +52,6 @@ fn strongest_access_level_wins() {
 }
 
 #[test]
-fn inbox_owner_is_owner() {
-    let explanation = AccessExplanation::from_grants(
-        user(),
-        Entity {
-            entity_id: "thread-1".to_string(),
-            entity_type: EntityType::EmailThread,
-        },
-        vec![
-            AccessGrant::InboxOwner,
-            AccessGrant::PublicLink {
-                access_level: AccessLevel::View,
-            },
-        ],
-    );
-
-    assert_eq!(
-        explanation.effective_access_level(),
-        Some(AccessLevel::Owner)
-    );
-}
-
-#[test]
 fn channel_participant_beats_team_view_only() {
     let explanation = AccessExplanation::from_grants(
         user(),
@@ -102,59 +78,11 @@ fn channel_participant_beats_team_view_only() {
 }
 
 #[test]
-fn calendar_delegate_is_edit() {
-    assert_eq!(
-        AccessGrant::CalendarInboxDelegate.permission(),
-        EntityPermission::AccessLevel {
-            access_level: AccessLevel::Edit
-        }
-    );
-}
-
-#[test]
-fn containing_project_is_view() {
-    assert_eq!(
-        AccessGrant::ContainingProject {
-            project_id: "project-1".to_string(),
-        }
-        .permission(),
-        EntityPermission::AccessLevel {
-            access_level: AccessLevel::View
-        }
-    );
-}
-
-#[test]
 fn channel_public_default_is_member() {
     assert_eq!(
         AccessGrant::ChannelPublicDefault.permission(),
         EntityPermission::ChannelRole {
             role: ParticipantRole::Member
-        }
-    );
-}
-
-#[test]
-fn email_attachment_reason_maps_level() {
-    let thread_id = Uuid::nil();
-    assert_eq!(
-        AccessGrant::EmailAttachmentThread {
-            thread_id,
-            reason: EmailAttachmentReason::InboxOwner,
-        }
-        .permission(),
-        EntityPermission::AccessLevel {
-            access_level: AccessLevel::Edit
-        }
-    );
-    assert_eq!(
-        AccessGrant::EmailAttachmentThread {
-            thread_id,
-            reason: EmailAttachmentReason::ThreadGrant,
-        }
-        .permission(),
-        EntityPermission::AccessLevel {
-            access_level: AccessLevel::View
         }
     );
 }

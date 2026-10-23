@@ -19,7 +19,7 @@ use super::RequiredPermission;
 use crate::domain::{
     models::{
         AccessError, AccessLevel, BotAccessScope, BotId, CallChannelInfo, Entity,
-        EntityAccessReceipt, EntityPermission, EntityType, TeamRole, UserTeamInfo,
+        EntityAccessReceipt, EntityPermission, EntityType, UserTeamInfo,
     },
     ports::EntityAccessService,
 };
@@ -188,15 +188,6 @@ impl EntityAccessService for FakeEntityAccessService {
             .await?
             .ok_or(AccessError::Unauthorized)?;
         Ok(EntityPermission::AccessLevel { access_level })
-    }
-
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-        _entity_id: &str,
-        _entity_type: EntityType,
-    ) -> Result<(EntityPermission, Uuid, TeamRole), AccessError> {
-        panic!("unexpected get_crm_entity_permission_with_team call")
     }
 
     async fn get_users_by_entity(

@@ -126,7 +126,7 @@ async fn typed_owner_team_links_allow_only_the_resolved_audience(
 
             #[cfg(feature = "explain_binary")]
             for grants in [
-                document_access::explain_document_access(&pool, &id, &sources, None).await?,
+                document_access::explain_document_access(&pool, &id, &sources).await?,
                 project_access::explain_project_access(&pool, &id, &sources).await?,
                 chat_access::explain_chat_access(&pool, &id, &sources).await?,
             ] {

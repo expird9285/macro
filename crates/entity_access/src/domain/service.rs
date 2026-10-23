@@ -5,22 +5,20 @@ use std::{collections::HashMap, marker::PhantomData, str::FromStr};
 use crate::domain::{
     models::{
         AccessError, AccessLevel, AgentSessionParent, BotAccessScope, BotId, CallChannelInfo,
-        ChannelRoleResult, CrmEntityAccess, Entity, EntityAccessAuth, EntityAccessReceipt,
-        EntityPermission, EntityType, RequiredPermission, TeamRole, UserTeamInfo, ViewAccessLevel,
+        ChannelRoleResult, Entity, EntityAccessAuth, EntityAccessReceipt, EntityPermission,
+        EntityType, RequiredPermission, TeamRole, UserTeamInfo, ViewAccessLevel,
     },
     ports::{
-        AccessRepository, AccessibleDatabases, AccessibleForms, AccessiblePipelines,
-        EntityAccessService, ScheduledActionGrants,
+        AccessRepository, AccessibleDatabases, AccessibleForms, EntityAccessService,
+        ScheduledActionGrants,
     },
 };
-use futures::{StreamExt, stream};
 use macro_user_id::{
     cowlike::CowLike, lowercased::Lowercase, user_id::MacroUserId, user_id::MacroUserIdStr,
 };
 use tracing::Level;
 use uuid::Uuid;
 
-const MAX_CONCURRENT_BATCH_ACCESS_CHECKS: usize = 8;
 
 /// Implementation of the [`EntityAccessService`].
 ///
@@ -52,7 +50,6 @@ where
             EntityType::Document => self.repo.get_document_access(entity_id, user_id).await,
             EntityType::Chat => self.repo.get_chat_access(entity_id, user_id).await,
             EntityType::Project => self.repo.get_project_access(entity_id, user_id).await,
-            EntityType::EmailThread => self.repo.get_thread_access(entity_id, user_id).await,
             EntityType::Call => self.repo.get_call_access(entity_id, user_id).await,
             EntityType::AgentSession => {
                 let direct = self
@@ -75,18 +72,12 @@ where
                 Ok(direct.max(parent_access.map(session_permission_from_parent)))
             }
             EntityType::Initiative => self.repo.get_initiative_access(entity_id, user_id).await,
-            EntityType::CrmPipeline => self.repo.get_pipeline_access(entity_id, user_id).await,
             EntityType::Database => self.repo.get_database_access(entity_id, user_id).await,
             EntityType::DatabaseRow => self.repo.get_database_row_access(entity_id, user_id).await,
             EntityType::Form => self.repo.get_form_access(entity_id, user_id).await,
             EntityType::ScheduledAction => {
                 self.repo
                     .get_scheduled_action_access(entity_id, user_id)
-                    .await
-            }
-            EntityType::CalendarEvent => {
-                self.repo
-                    .get_calendar_event_access(entity_id, user_id)
                     .await
             }
             _ => unreachable!("Only optimized types should call this method"),
@@ -134,26 +125,6 @@ where
         } else {
             Ok(None)
         }
-    }
-
-    /// Get access level + owning team for a CRM company via the user's team
-    /// membership.
-    async fn get_crm_company_access(
-        &self,
-        entity_id: &str,
-        user_id: Option<&MacroUserId<Lowercase<'_>>>,
-    ) -> Result<Option<CrmEntityAccess>, AccessError> {
-        self.repo.get_crm_company_access(entity_id, user_id).await
-    }
-
-    /// Get access level + owning team for a CRM contact via its parent
-    /// company's team.
-    async fn get_crm_contact_access(
-        &self,
-        entity_id: &str,
-        user_id: Option<&MacroUserId<Lowercase<'_>>>,
-    ) -> Result<Option<CrmEntityAccess>, AccessError> {
-        self.repo.get_crm_contact_access(entity_id, user_id).await
     }
 
     /// Resolve a call id string to the channel id that owns it.
@@ -217,10 +188,8 @@ where
             EntityType::Document
             | EntityType::Chat
             | EntityType::Project
-            | EntityType::EmailThread
             | EntityType::Call
             | EntityType::Initiative
-            | EntityType::CrmPipeline
             | EntityType::Database
             | EntityType::DatabaseRow
             | EntityType::Form => {
@@ -261,24 +230,6 @@ where
                     Err(AccessError::Unauthorized)
                 }
             }
-            EntityType::CrmCompany => {
-                self.repo
-                    .get_team_crm_company_access(entity_id, team_id)
-                    .await?
-                    .ok_or(AccessError::Unauthorized)?;
-                Ok(EntityPermission::AccessLevel {
-                    access_level: AccessLevel::View,
-                })
-            }
-            EntityType::CrmContact => {
-                self.repo
-                    .get_team_crm_contact_access(entity_id, team_id)
-                    .await?
-                    .ok_or(AccessError::Unauthorized)?;
-                Ok(EntityPermission::AccessLevel {
-                    access_level: AccessLevel::View,
-                })
-            }
             EntityType::Team => {
                 let requested_team_id = Uuid::parse_str(entity_id)
                     .map_err(|_| AccessError::BadRequest("Invalid team ID format"))?;
@@ -292,7 +243,12 @@ where
             EntityType::User
             | EntityType::ChannelMessage
             | EntityType::StaticFile
+            // Removed features keep their stored entity types but grant nothing.
+            | EntityType::EmailThread
             | EntityType::CalendarEvent
+            | EntityType::CrmCompany
+            | EntityType::CrmContact
+            | EntityType::CrmPipeline
             // A reminder belongs to a user, so a team-scoped bot never reaches one.
             | EntityType::Reminder
             | EntityType::Skill
@@ -425,92 +381,6 @@ where
         receipts
     }
 
-    async fn generate_email_thread_view_access_receipts(
-        &self,
-        user_id: &MacroUserId<Lowercase<'_>>,
-        user_org_id: Option<i64>,
-        thread_ids: &[String],
-    ) -> HashMap<String, Result<EntityAccessReceipt<ViewAccessLevel>, AccessError>> {
-        let mut receipts = HashMap::with_capacity(thread_ids.len());
-        let mut valid_ids = Vec::with_capacity(thread_ids.len());
-
-        for thread_id in thread_ids {
-            match Uuid::parse_str(thread_id) {
-                Ok(id) => valid_ids.push((thread_id.clone(), id)),
-                Err(_) => {
-                    receipts.insert(
-                        thread_id.clone(),
-                        Err(AccessError::BadRequest("Invalid thread ID format")),
-                    );
-                }
-            }
-        }
-
-        let owned_ids = match self
-            .repo
-            .get_owned_email_thread_ids(
-                &valid_ids.iter().map(|(_, id)| *id).collect::<Vec<_>>(),
-                user_id,
-            )
-            .await
-        {
-            Ok(ids) => ids.into_iter().collect::<std::collections::HashSet<_>>(),
-            Err(error) => {
-                tracing::error!(?error, "bulk email thread ownership check failed");
-                for (thread_id, _) in valid_ids {
-                    receipts.insert(
-                        thread_id,
-                        Err(AccessError::internal(
-                            "bulk email thread ownership check failed",
-                        )),
-                    );
-                }
-                return receipts;
-            }
-        };
-
-        let mut remaining = Vec::new();
-        for (thread_id, id) in valid_ids {
-            if owned_ids.contains(&id) {
-                receipts.insert(
-                    thread_id.clone(),
-                    Ok(EntityAccessReceipt {
-                        auth: EntityAccessAuth::Authenticated(MacroUserIdStr(
-                            user_id.clone().into_owned(),
-                        )),
-                        entity: Entity {
-                            entity_id: thread_id,
-                            entity_type: EntityType::EmailThread,
-                        },
-                        entity_permission: EntityPermission::AccessLevel {
-                            access_level: AccessLevel::Owner,
-                        },
-                        _marker: PhantomData,
-                    }),
-                );
-            } else {
-                remaining.push(thread_id);
-            }
-        }
-
-        let fallback = stream::iter(remaining.into_iter().map(|thread_id| async move {
-            let result = self
-                .generate_entity_access_receipt::<ViewAccessLevel>(
-                    user_id,
-                    user_org_id,
-                    &thread_id,
-                    EntityType::EmailThread,
-                )
-                .await;
-            (thread_id, result)
-        }))
-        .buffer_unordered(MAX_CONCURRENT_BATCH_ACCESS_CHECKS)
-        .collect::<Vec<_>>()
-        .await;
-        receipts.extend(fallback);
-        receipts
-    }
-
     #[tracing::instrument(err(level = Level::DEBUG), skip(self))]
     async fn generate_bot_entity_access_receipt<T: RequiredPermission>(
         &self,
@@ -555,12 +425,9 @@ where
             EntityType::Document
             | EntityType::Chat
             | EntityType::Project
-            | EntityType::EmailThread
             | EntityType::Call
-            | EntityType::CalendarEvent
             | EntityType::AgentSession
             | EntityType::Initiative
-            | EntityType::CrmPipeline
             | EntityType::Database
             | EntityType::DatabaseRow
             | EntityType::Form
@@ -571,22 +438,20 @@ where
             EntityType::Channel => self.get_channel_access(entity_id, user_id).await,
             EntityType::Reminder => self.repo.get_reminder_access(entity_id, user_id).await,
             EntityType::ForeignEntity => self.get_foreign_entity_access(entity_id, user_id).await,
-            EntityType::CrmCompany => Ok(self
-                .get_crm_company_access(entity_id, user_id)
-                .await?
-                .map(|a| a.access_level)),
-            EntityType::CrmContact => Ok(self
-                .get_crm_contact_access(entity_id, user_id)
-                .await?
-                .map(|a| a.access_level)),
             // Static files are always viewable. This is wrong for owners
             EntityType::StaticFile => Ok(Some(AccessLevel::View)),
             // These entity types either don't have access checks implemented yet, or they should not have access checks.
             // Skill refs are access-checked against the underlying skill document.
+            // Removed features keep their stored entity types but grant nothing.
             EntityType::Team
             | EntityType::User
             | EntityType::ChannelMessage
-            | EntityType::Skill => Ok(None),
+            | EntityType::Skill
+            | EntityType::EmailThread
+            | EntityType::CalendarEvent
+            | EntityType::CrmCompany
+            | EntityType::CrmContact
+            | EntityType::CrmPipeline => Ok(None),
         }
     }
 
@@ -668,11 +533,8 @@ where
             EntityType::Document
             | EntityType::Chat
             | EntityType::Project
-            | EntityType::EmailThread
             | EntityType::Call
-            | EntityType::CalendarEvent
             | EntityType::Initiative
-            | EntityType::CrmPipeline
             | EntityType::Database
             | EntityType::DatabaseRow
             | EntityType::Form
@@ -692,24 +554,6 @@ where
                 match access {
                     Some(level) => Ok(EntityPermission::AccessLevel {
                         access_level: level,
-                    }),
-                    None => Err(AccessError::Unauthorized),
-                }
-            }
-            EntityType::CrmCompany => {
-                let access = self.get_crm_company_access(entity_id, user_id).await?;
-                match access {
-                    Some(access) => Ok(EntityPermission::AccessLevel {
-                        access_level: access.access_level,
-                    }),
-                    None => Err(AccessError::Unauthorized),
-                }
-            }
-            EntityType::CrmContact => {
-                let access = self.get_crm_contact_access(entity_id, user_id).await?;
-                match access {
-                    Some(access) => Ok(EntityPermission::AccessLevel {
-                        access_level: access.access_level,
                     }),
                     None => Err(AccessError::Unauthorized),
                 }
@@ -741,35 +585,6 @@ where
     }
 
     #[tracing::instrument(err(level = Level::DEBUG), skip(self))]
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        user_id: Option<&MacroUserId<Lowercase<'_>>>,
-        entity_id: &str,
-        entity_type: EntityType,
-    ) -> Result<(EntityPermission, Uuid, TeamRole), AccessError> {
-        // Resolve permission, owning team, and team role from one ownership
-        // lookup, so the team is the entity's owner (and the user is a member
-        // of it) rather than the user's default team.
-        let access = match entity_type {
-            EntityType::CrmCompany => self.get_crm_company_access(entity_id, user_id).await?,
-            EntityType::CrmContact => self.get_crm_contact_access(entity_id, user_id).await?,
-            _ => {
-                return Err(AccessError::BadRequest(
-                    "get_crm_entity_permission_with_team supports only CRM entities",
-                ));
-            }
-        };
-        let access = access.ok_or(AccessError::Unauthorized)?;
-        Ok((
-            EntityPermission::AccessLevel {
-                access_level: access.access_level,
-            },
-            access.team_id,
-            access.team_role,
-        ))
-    }
-
-    #[tracing::instrument(err(level = Level::DEBUG), skip(self))]
     async fn get_users_by_entity(
         &self,
         entity_id: &str,
@@ -786,12 +601,8 @@ where
             | EntityType::Document
             | EntityType::Chat
             | EntityType::Project
-            | EntityType::EmailThread
             | EntityType::AgentSession
             | EntityType::Initiative
-            | EntityType::CrmCompany
-            | EntityType::CrmContact
-            | EntityType::CrmPipeline
             | EntityType::Database
             | EntityType::Form => {
                 let entity_id = Uuid::parse_str(entity_id).map_err(|_| {
@@ -892,14 +703,5 @@ fn session_permission_from_parent(level: AccessLevel) -> AccessLevel {
         AccessLevel::Edit
     } else {
         AccessLevel::View
-    }
-}
-
-impl<R: AccessRepository> AccessiblePipelines for EntityAccessServiceImpl<R> {
-    async fn accessible_pipelines(
-        &self,
-        user_id: &MacroUserId<Lowercase<'_>>,
-    ) -> Result<Vec<(Uuid, AccessLevel)>, AccessError> {
-        self.repo.list_pipeline_access(user_id).await
     }
 }

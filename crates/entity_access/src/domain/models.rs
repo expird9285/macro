@@ -13,9 +13,7 @@ use uuid::Uuid;
 mod access_explanation;
 
 #[cfg(feature = "explain_binary")]
-pub use access_explanation::{
-    AccessExplanation, AccessGrant, EmailAttachmentReason, ForeignEntityAuthEntity,
-};
+pub use access_explanation::{AccessExplanation, AccessGrant, ForeignEntityAuthEntity};
 pub use bot_id::{BotId, BotIdStr};
 pub use model_entity::EntityType;
 pub use models_entity_access_management::EntityAccessSourceType;
@@ -127,21 +125,6 @@ impl From<&BotAccessScope> for BotReceiptScope {
             BotAccessScope::Team { team_id } => Self::Team { team_id: *team_id },
         }
     }
-}
-
-/// A user's resolved access to a CRM entity (company or contact) paired with
-/// the entity's owning team — both produced by the same ownership lookup, so
-/// the team is guaranteed to be the one that granted access (not the user's
-/// default team).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CrmEntityAccess {
-    /// The access level the user holds on the entity.
-    pub access_level: AccessLevel,
-    /// The team that owns the entity.
-    pub team_id: Uuid,
-    /// The role the user holds on the owning team. Hidden-row visibility
-    /// keys on this (admin/owner) rather than on the access level.
-    pub team_role: TeamRole,
 }
 
 /// The role a user has within a channel.

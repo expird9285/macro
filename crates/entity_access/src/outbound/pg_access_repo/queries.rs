@@ -5,7 +5,6 @@
 #[cfg(not(test))]
 use cached::proc_macro::cached;
 
-use anyhow::Context;
 use bot_id::BotIdStr;
 use macro_user_id::{
     cowlike::CowLike,
@@ -27,20 +26,15 @@ pub mod channel_membership;
 pub mod channel_role;
 pub mod channel_users;
 pub mod chat_access;
-pub mod crm_company_access;
-pub mod crm_contact_access;
-pub mod crm_entity_users;
 pub mod database_access;
 pub mod database_row_access;
 pub mod document_access;
 pub mod foreign_entity_access;
 pub mod form_access;
 pub mod initiative_access;
-pub mod pipeline_access;
 pub mod project_access;
 pub mod scheduled_action_access;
 pub mod team_access;
-pub mod thread_access;
 
 #[cfg(test)]
 mod test;
@@ -173,41 +167,7 @@ pub(in crate::outbound::pg_access_repo) async fn get_entity_users(
     if entity_type == EntityType::ForeignEntity {
         return foreign_entity_access::get_foreign_entity_users(pool, entity_id).await;
     }
-    // because we don't store entity_access per email we need to also grab the owner
-    // of the email to append to the list, plus any primary that delegates the inbox
-    // via macro_user_links (shared inbox)
-    let mut email_owner: Vec<MacroUserIdStr> = if let EntityType::EmailThread = entity_type {
-        let macro_ids = sqlx::query_scalar!(
-            r#"
-        SELECT l.macro_id AS "macro_id!"
-        FROM email_threads et
-        JOIN email_links l ON et.link_id = l.id
-        WHERE et.id = $1
-        UNION
-        SELECT mul.primary_macro_id
-        FROM email_threads et
-        JOIN email_links l ON et.link_id = l.id
-        JOIN macro_user_links mul ON mul.link_id = l.id
-        WHERE et.id = $1
-        "#,
-            entity_id
-        )
-        .fetch_all(pool)
-        .await?;
-
-        macro_ids
-            .into_iter()
-            .map(|macro_id| {
-                MacroUserIdStr::parse_from_str(macro_id.as_str())
-                    .map(|u| u.into_owned())
-                    .context("macro user id should be valid")
-            })
-            .collect::<anyhow::Result<Vec<_>>>()?
-    } else {
-        vec![]
-    };
-
-    let mut users: Vec<MacroUserIdStr<'static>> = sqlx::query_scalar!(
+    let users: Vec<MacroUserIdStr<'static>> = sqlx::query_scalar!(
         r#"
     SELECT user_id FROM (
         -- Direct user grants
@@ -248,9 +208,6 @@ pub(in crate::outbound::pg_access_repo) async fn get_entity_users(
         })
     })
     .collect::<Vec<MacroUserIdStr<'static>>>();
-
-    // add in email owner (if applicable)
-    users.append(&mut email_owner);
 
     Ok(users
         .into_iter()

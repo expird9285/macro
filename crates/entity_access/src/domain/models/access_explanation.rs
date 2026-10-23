@@ -76,46 +76,6 @@ impl Display for AccessExplanation {
     }
 }
 
-/// Why a document is reachable through an attached email thread.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum EmailAttachmentReason {
-    /// The caller owns the attached thread's inbox.
-    InboxOwner,
-    /// The caller is delegated the attached thread's inbox.
-    InboxDelegate,
-    /// The caller has an `entity_access` row on the attached thread.
-    ThreadGrant,
-}
-
-impl EmailAttachmentReason {
-    fn access_level(self) -> AccessLevel {
-        match self {
-            Self::InboxOwner | Self::InboxDelegate => AccessLevel::Edit,
-            Self::ThreadGrant => AccessLevel::View,
-        }
-    }
-
-    fn parse_db(value: &str) -> Option<Self> {
-        match value {
-            "inbox_owner" => Some(Self::InboxOwner),
-            "inbox_delegate" => Some(Self::InboxDelegate),
-            "thread_grant" => Some(Self::ThreadGrant),
-            _ => None,
-        }
-    }
-}
-
-impl Display for EmailAttachmentReason {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        f.write_str(match self {
-            Self::InboxOwner => "inbox_owner",
-            Self::InboxDelegate => "inbox_delegate",
-            Self::ThreadGrant => "thread_grant",
-        })
-    }
-}
-
 /// Principal kind stored on a foreign entity row.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -177,34 +137,6 @@ pub enum AccessGrant {
         /// The owner's team that matched the caller's source ids.
         owner_team_id: Uuid,
     },
-    /// The caller owns the email thread's inbox.
-    InboxOwner,
-    /// The caller is the primary on a delegated inbox.
-    InboxDelegate {
-        /// The mailbox owner whose inbox was delegated.
-        mailbox_owner: MacroUserIdStr<'static>,
-    },
-    /// The thread's containing project has an `entity_access` row for the caller.
-    ContainingProject {
-        /// The project that granted View.
-        project_id: String,
-    },
-    /// A document reachable because it is attached to a thread the caller can see.
-    EmailAttachmentThread {
-        /// The linked email thread.
-        thread_id: Uuid,
-        /// Which thread path produced this grant.
-        reason: EmailAttachmentReason,
-    },
-    /// CRM access via membership on the entity's owning team.
-    CrmTeam {
-        /// The team that owns the CRM row.
-        team_id: Uuid,
-        /// The caller's role on that team.
-        team_role: TeamRole,
-        /// Mapped access level after hidden-row rules.
-        access_level: AccessLevel,
-    },
     /// An active channel participant row.
     ChannelParticipant {
         /// Stored participant role.
@@ -224,10 +156,6 @@ pub enum AccessGrant {
     },
     /// The caller set the reminder.
     ReminderOwner,
-    /// The caller owns the calendar event.
-    CalendarOwner,
-    /// The caller is delegated the event's source inbox.
-    CalendarInboxDelegate,
     /// A foreign entity stored for a matching source pair.
     ForeignEntity {
         /// The stored-for principal.
@@ -254,25 +182,13 @@ impl AccessGrant {
         match self {
             Self::EntityAccess { access_level, .. }
             | Self::PublicLink { access_level }
-            | Self::TeamLink { access_level, .. }
-            | Self::CrmTeam { access_level, .. } => EntityPermission::AccessLevel {
+            | Self::TeamLink { access_level, .. } => EntityPermission::AccessLevel {
                 access_level: *access_level,
             },
-            Self::ContainingProject { .. } => EntityPermission::AccessLevel {
-                access_level: AccessLevel::View,
-            },
-            Self::EmailAttachmentThread { reason, .. } => EntityPermission::AccessLevel {
-                access_level: reason.access_level(),
-            },
-            Self::InboxOwner | Self::ReminderOwner | Self::CalendarOwner => {
-                EntityPermission::AccessLevel {
-                    access_level: AccessLevel::Owner,
-                }
-            }
-            Self::InboxDelegate { .. } => EntityPermission::AccessLevel {
+            Self::ReminderOwner => EntityPermission::AccessLevel {
                 access_level: AccessLevel::Owner,
             },
-            Self::CalendarInboxDelegate | Self::ViaForm { .. } => EntityPermission::AccessLevel {
+            Self::ViaForm { .. } => EntityPermission::AccessLevel {
                 access_level: AccessLevel::Edit,
             },
             Self::StaticFileAlwaysView | Self::ForeignEntity { .. } | Self::PublicForm => {
@@ -287,10 +203,6 @@ impl AccessGrant {
             Self::ChannelTeamViewOnly { .. } => EntityPermission::ChannelViewOnly,
             Self::TeamMembership { role } => EntityPermission::TeamRole { role: *role },
         }
-    }
-
-    pub(crate) fn email_attachment_reason(value: &str) -> Option<EmailAttachmentReason> {
-        EmailAttachmentReason::parse_db(value)
     }
 
     pub(crate) fn foreign_entity_auth(value: &str) -> Option<ForeignEntityAuthEntity> {
@@ -322,25 +234,6 @@ impl Display for AccessGrant {
                 access_level,
                 owner_team_id,
             } => write!(f, "team_link {owner_team_id} {access_level}"),
-            Self::InboxOwner => write!(f, "inbox_owner"),
-            Self::InboxDelegate { mailbox_owner } => {
-                write!(f, "inbox_delegate mailbox={mailbox_owner}")
-            }
-            Self::ContainingProject { project_id } => {
-                write!(f, "containing_project {project_id}")
-            }
-            Self::EmailAttachmentThread { thread_id, reason } => {
-                write!(f, "email_attachment_thread {thread_id} {reason}")
-            }
-            Self::CrmTeam {
-                team_id,
-                team_role,
-                access_level,
-            } => write!(
-                f,
-                "crm_team {team_id} role={} {access_level}",
-                format_team_role(*team_role)
-            ),
             Self::ChannelParticipant { role } => {
                 write!(f, "channel_participant {}", format_participant_role(*role))
             }
@@ -352,8 +245,6 @@ impl Display for AccessGrant {
                 write!(f, "team_membership {}", format_team_role(*role))
             }
             Self::ReminderOwner => write!(f, "reminder_owner"),
-            Self::CalendarOwner => write!(f, "calendar_owner"),
-            Self::CalendarInboxDelegate => write!(f, "calendar_inbox_delegate"),
             Self::ForeignEntity {
                 stored_for_id,
                 stored_for_auth_entity,

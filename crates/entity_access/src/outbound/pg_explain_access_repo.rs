@@ -1,12 +1,11 @@
 use crate::domain::{
     models::{
-        AccessError, AccessGrant, AccessLevel, EntityType, ForeignEntityAuthEntity, UserTeamInfo,
+        AccessError, AccessGrant, EntityType, ForeignEntityAuthEntity, UserTeamInfo,
     },
     ports::ExplainAccessRepository,
 };
 use crate::outbound::pg_access_repo::queries;
 use macro_user_id::{lowercased::Lowercase, user_id::MacroUserId};
-use models_entity_access_management::EntityAccessSourceType;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -63,7 +62,6 @@ impl ExplainAccessRepository for PgExplainAccessRepository {
                     &self.pool,
                     &document_id,
                     &source_ids,
-                    Some(user_id),
                 )
                 .await?)
             }
@@ -86,19 +84,6 @@ impl ExplainAccessRepository for PgExplainAccessRepository {
                     &self.pool,
                     &project_id,
                     &source_ids,
-                )
-                .await?)
-            }
-            EntityType::EmailThread => {
-                let thread_id = parse_uuid(entity_id, "Invalid thread ID format")?;
-                let source_ids = queries::get_user_source_ids(&self.pool, Some(user_id))
-                    .await
-                    .map_err(anyhow_access_error)?;
-                Ok(queries::thread_access::explain_thread_access(
-                    &self.pool,
-                    &thread_id,
-                    &source_ids,
-                    Some(user_id),
                 )
                 .await?)
             }
@@ -132,19 +117,6 @@ impl ExplainAccessRepository for PgExplainAccessRepository {
                 Ok(queries::database_access::explain_database_access(
                     &self.pool,
                     &database_id,
-                    &source_ids,
-                )
-                .await?)
-            }
-            EntityType::CrmPipeline => {
-                let pipeline_id = parse_uuid(entity_id, "Invalid pipeline ID format")?;
-                let source_ids = queries::get_user_source_ids(&self.pool, Some(user_id))
-                    .await
-                    .map_err(anyhow_access_error)?;
-                Ok(queries::list_entity_access_grants(
-                    &self.pool,
-                    &pipeline_id,
-                    EntityType::CrmPipeline,
                     &source_ids,
                 )
                 .await?)
@@ -192,38 +164,6 @@ impl ExplainAccessRepository for PgExplainAccessRepository {
                 )
                 .await?)
             }
-            EntityType::CrmCompany => {
-                let company_id = parse_uuid(entity_id, "Invalid CRM company ID format")?;
-                Ok(queries::crm_company_access::get_crm_company_access(
-                    &self.pool,
-                    &company_id,
-                    user_id,
-                )
-                .await?
-                .map(|access| AccessGrant::CrmTeam {
-                    team_id: access.team_id,
-                    team_role: access.team_role,
-                    access_level: access.access_level,
-                })
-                .into_iter()
-                .collect())
-            }
-            EntityType::CrmContact => {
-                let contact_id = parse_uuid(entity_id, "Invalid CRM contact ID format")?;
-                Ok(queries::crm_contact_access::get_crm_contact_access(
-                    &self.pool,
-                    &contact_id,
-                    user_id,
-                )
-                .await?
-                .map(|access| AccessGrant::CrmTeam {
-                    team_id: access.team_id,
-                    team_role: access.team_role,
-                    access_level: access.access_level,
-                })
-                .into_iter()
-                .collect())
-            }
             EntityType::Team => {
                 let team_id = parse_uuid(entity_id, "Invalid team ID format")?;
                 Ok(queries::team_access::get_user_team(&self.pool, user_id)
@@ -236,10 +176,6 @@ impl ExplainAccessRepository for PgExplainAccessRepository {
             EntityType::Reminder => {
                 let reminder_id = parse_uuid(entity_id, "Invalid reminder ID format")?;
                 explain_reminder_access(&self.pool, &reminder_id, user_id).await
-            }
-            EntityType::CalendarEvent => {
-                let event_id = parse_uuid(entity_id, "Invalid calendar event ID format")?;
-                explain_calendar_event_access(&self.pool, &event_id, user_id).await
             }
             EntityType::ForeignEntity => {
                 let foreign_entity_id = parse_uuid(entity_id, "Invalid foreign entity ID format")?;
@@ -255,10 +191,16 @@ impl ExplainAccessRepository for PgExplainAccessRepository {
                 .await?)
             }
             EntityType::StaticFile => Ok(vec![AccessGrant::StaticFileAlwaysView]),
+            // Removed features keep their stored entity types but grant nothing.
             EntityType::User
             | EntityType::ChannelMessage
             | EntityType::Skill
-            | EntityType::ScheduledAction => Ok(vec![]),
+            | EntityType::ScheduledAction
+            | EntityType::EmailThread
+            | EntityType::CalendarEvent
+            | EntityType::CrmCompany
+            | EntityType::CrmContact
+            | EntityType::CrmPipeline => Ok(vec![]),
         }
     }
 }
@@ -281,82 +223,6 @@ async fn explain_reminder_access(
     Ok(owns
         .then_some(AccessGrant::ReminderOwner)
         .into_iter()
-        .collect())
-}
-
-async fn explain_calendar_event_access(
-    pool: &PgPool,
-    event_id: &Uuid,
-    user_id: &MacroUserId<Lowercase<'_>>,
-) -> Result<Vec<AccessGrant>, AccessError> {
-    let is_owner = sqlx::query_scalar!(
-        r#"
-        SELECT event.owner_id = $2 AS "is_owner!"
-        FROM calendar_events event
-        WHERE event.id = $1
-          AND (
-              event.owner_id = $2
-              OR EXISTS (
-                  SELECT 1
-                  FROM macro_user_links link
-                  WHERE link.link_id = event.source_link_id
-                    AND link.primary_macro_id = $2
-              )
-          )
-        "#,
-        event_id,
-        user_id.as_ref(),
-    )
-    .fetch_optional(pool)
-    .await?;
-
-    // Mirrors the access query: a channel share counts only for a current
-    // participant while the event is live and not private or confidential.
-    let channel_grants = sqlx::query!(
-        r#"
-        SELECT
-            grant_row.source_type AS "source_type!: EntityAccessSourceType",
-            grant_row.source_id,
-            grant_row.access_level AS "access_level!: AccessLevel",
-            grant_row.granted_from_project_id
-        FROM calendar_events event
-        JOIN entity_access grant_row
-          ON grant_row.entity_id = event.id
-         AND grant_row.entity_type = 'calendar_event'
-         AND grant_row.source_type = 'channel'
-        JOIN comms_channel_participants participant
-          ON participant.channel_id::text = grant_row.source_id
-         AND participant.user_id = $2
-         AND participant.left_at IS NULL
-        WHERE event.id = $1
-          AND event.status <> 'cancelled'
-          AND event.visibility IN ('default', 'public')
-        "#,
-        event_id,
-        user_id.as_ref(),
-    )
-    .fetch_all(pool)
-    .await?;
-
-    Ok(is_owner
-        .map(|is_owner| {
-            if is_owner {
-                AccessGrant::CalendarOwner
-            } else {
-                AccessGrant::CalendarInboxDelegate
-            }
-        })
-        .into_iter()
-        .chain(
-            channel_grants
-                .into_iter()
-                .map(|row| AccessGrant::EntityAccess {
-                    source_type: row.source_type,
-                    source_id: row.source_id,
-                    access_level: row.access_level,
-                    granted_from_project_id: row.granted_from_project_id,
-                }),
-        )
         .collect())
 }
 

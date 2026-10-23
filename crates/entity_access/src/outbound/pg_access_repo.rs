@@ -11,7 +11,7 @@ mod test;
 use crate::domain::{
     models::{
         AccessError, AccessLevel, AgentSessionParent, BotId, CallChannelInfo, ChannelRoleResult,
-        CrmEntityAccess, EntityType, UserTeamInfo,
+        EntityType, UserTeamInfo,
     },
     ports::AccessRepository,
 };
@@ -122,104 +122,6 @@ impl AccessRepository for PgAccessRepository {
     }
 
     #[tracing::instrument(err, skip(self))]
-    async fn get_thread_access(
-        &self,
-        thread_id: &str,
-        user_id: Option<&MacroUserId<Lowercase<'_>>>,
-    ) -> Result<Option<AccessLevel>, AccessError> {
-        let thread_uuid = thread_id
-            .parse::<Uuid>()
-            .map_err(|_| AccessError::BadRequest("Invalid thread ID format"))?;
-        let source_ids = queries::get_user_source_ids(&self.pool, user_id)
-            .await
-            .map_err(anyhow_access_error)?;
-        Ok(queries::thread_access::get_thread_access(
-            &self.pool,
-            &thread_uuid,
-            &source_ids,
-            user_id,
-        )
-        .await?)
-    }
-
-    #[tracing::instrument(err, skip(self))]
-    async fn get_calendar_event_access(
-        &self,
-        event_id: &str,
-        user_id: Option<&MacroUserId<Lowercase<'_>>>,
-    ) -> Result<Option<AccessLevel>, AccessError> {
-        let event_id = event_id
-            .parse::<Uuid>()
-            .map_err(|_| AccessError::BadRequest("Invalid calendar event ID format"))?;
-        let Some(user_id) = user_id else {
-            return Ok(None);
-        };
-        let user_id = user_id.as_ref();
-        // A channel share reaches current participants only, and only while
-        // the event is live and not marked private or confidential: the grant
-        // records that someone shared it, not that its details may outlive the
-        // owner's later decision to hide them.
-        let access = sqlx::query!(
-            r#"
-            SELECT
-                event.owner_id = $2 AS "is_owner!",
-                EXISTS (
-                    SELECT 1
-                    FROM macro_user_links link
-                    WHERE link.link_id = event.source_link_id
-                      AND link.primary_macro_id = $2
-                ) AS "is_linked!",
-                (
-                    event.status <> 'cancelled'
-                    AND event.visibility IN ('default', 'public')
-                    AND EXISTS (
-                        SELECT 1
-                        FROM entity_access grant_row
-                        JOIN comms_channel_participants participant
-                          ON participant.channel_id::text = grant_row.source_id
-                         AND participant.user_id = $2
-                         AND participant.left_at IS NULL
-                        WHERE grant_row.entity_id = event.id
-                          AND grant_row.entity_type = 'calendar_event'
-                          AND grant_row.source_type = 'channel'
-                    )
-                ) AS "is_channel_shared!"
-            FROM calendar_events event
-            WHERE event.id = $1
-            "#,
-            event_id,
-            user_id,
-        )
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(AccessError::from)?;
-
-        Ok(access.and_then(|access| {
-            if access.is_owner {
-                Some(AccessLevel::Owner)
-            } else if access.is_linked {
-                Some(AccessLevel::Edit)
-            } else if access.is_channel_shared {
-                Some(AccessLevel::View)
-            } else {
-                None
-            }
-        }))
-    }
-
-    #[tracing::instrument(err, skip(self, thread_ids, user_id))]
-    async fn get_owned_email_thread_ids(
-        &self,
-        thread_ids: &[Uuid],
-        user_id: &MacroUserId<Lowercase<'_>>,
-    ) -> Result<Vec<Uuid>, AccessError> {
-        Ok(
-            queries::thread_access::get_owned_email_thread_ids(&self.pool, thread_ids, user_id)
-                .await?,
-        )
-    }
-
-    #[tracing::instrument(err, skip(self))]
     async fn get_call_access(
         &self,
         call_id: &str,
@@ -317,32 +219,6 @@ impl AccessRepository for PgAccessRepository {
             &source_ids,
         )
         .await?)
-    }
-
-    #[tracing::instrument(err, skip(self, user_id))]
-    async fn get_pipeline_access(
-        &self,
-        id: &str,
-        user_id: Option<&MacroUserId<Lowercase<'_>>>,
-    ) -> Result<Option<AccessLevel>, AccessError> {
-        let id = id
-            .parse::<Uuid>()
-            .map_err(|_| AccessError::BadRequest("Invalid pipeline ID"))?;
-        let sources = queries::get_user_source_ids(&self.pool, user_id)
-            .await
-            .map_err(anyhow_access_error)?;
-        Ok(queries::pipeline_access::get_pipeline_access(&self.pool, id, &sources).await?)
-    }
-
-    #[tracing::instrument(err, skip(self, user_id))]
-    async fn list_pipeline_access(
-        &self,
-        user_id: &MacroUserId<Lowercase<'_>>,
-    ) -> Result<Vec<(Uuid, AccessLevel)>, AccessError> {
-        let sources = queries::get_user_source_ids(&self.pool, Some(user_id))
-            .await
-            .map_err(anyhow_access_error)?;
-        Ok(queries::pipeline_access::list_pipeline_access(&self.pool, &sources).await?)
     }
 
     #[tracing::instrument(err, skip(self, user_id))]
@@ -545,15 +421,6 @@ impl AccessRepository for PgAccessRepository {
                 queries::project_access::get_project_access(&self.pool, &entity_uuid, &source_ids)
                     .await
             }
-            EntityType::EmailThread => {
-                queries::thread_access::get_thread_access(
-                    &self.pool,
-                    &entity_uuid,
-                    &source_ids,
-                    None,
-                )
-                .await
-            }
             EntityType::Call => {
                 queries::call_access::get_call_access(&self.pool, &entity_uuid, &source_ids).await
             }
@@ -572,9 +439,6 @@ impl AccessRepository for PgAccessRepository {
                     &source_ids,
                 )
                 .await
-            }
-            EntityType::CrmPipeline => {
-                queries::pipeline_access::get_pipeline_access(&self.pool, entity_uuid, &source_ids).await
             }
             EntityType::Database => {
                 queries::database_access::get_database_access(
@@ -598,13 +462,16 @@ impl AccessRepository for PgAccessRepository {
             EntityType::User
             | EntityType::Channel
             | EntityType::ChannelMessage
-            | EntityType::CalendarEvent
             | EntityType::Team
             | EntityType::ForeignEntity
             | EntityType::StaticFile
+            | EntityType::Skill
+            // Removed features keep their stored entity types but grant nothing.
+            | EntityType::EmailThread
+            | EntityType::CalendarEvent
             | EntityType::CrmCompany
             | EntityType::CrmContact
-            | EntityType::Skill
+            | EntityType::CrmPipeline
             // Reminders and scheduled actions are user-owned, never reachable
             // through a team scope.
             | EntityType::Reminder
@@ -669,40 +536,6 @@ impl AccessRepository for PgAccessRepository {
     }
 
     #[tracing::instrument(err, skip(self))]
-    async fn get_team_crm_company_access(
-        &self,
-        company_id: &str,
-        team_id: Uuid,
-    ) -> Result<Option<CrmEntityAccess>, AccessError> {
-        let company_uuid = company_id
-            .parse::<Uuid>()
-            .map_err(|_| AccessError::BadRequest("Invalid CRM company ID format"))?;
-        Ok(queries::crm_company_access::get_team_crm_company_access(
-            &self.pool,
-            &company_uuid,
-            &team_id,
-        )
-        .await?)
-    }
-
-    #[tracing::instrument(err, skip(self))]
-    async fn get_team_crm_contact_access(
-        &self,
-        contact_id: &str,
-        team_id: Uuid,
-    ) -> Result<Option<CrmEntityAccess>, AccessError> {
-        let contact_uuid = contact_id
-            .parse::<Uuid>()
-            .map_err(|_| AccessError::BadRequest("Invalid CRM contact ID format"))?;
-        Ok(queries::crm_contact_access::get_team_crm_contact_access(
-            &self.pool,
-            &contact_uuid,
-            &team_id,
-        )
-        .await?)
-    }
-
-    #[tracing::instrument(err, skip(self))]
     async fn has_foreign_entity_access(
         &self,
         foreign_entity_id: &str,
@@ -726,42 +559,6 @@ impl AccessRepository for PgAccessRepository {
             &source_auth_entities,
         )
         .await?)
-    }
-
-    #[tracing::instrument(err, skip(self))]
-    async fn get_crm_company_access(
-        &self,
-        company_id: &str,
-        user_id: Option<&MacroUserId<Lowercase<'_>>>,
-    ) -> Result<Option<CrmEntityAccess>, AccessError> {
-        let company_uuid = company_id
-            .parse::<Uuid>()
-            .map_err(|_| AccessError::BadRequest("Invalid CRM company ID format"))?;
-        let Some(user_id) = user_id else {
-            return Ok(None);
-        };
-        Ok(
-            queries::crm_company_access::get_crm_company_access(&self.pool, &company_uuid, user_id)
-                .await?,
-        )
-    }
-
-    #[tracing::instrument(err, skip(self))]
-    async fn get_crm_contact_access(
-        &self,
-        contact_id: &str,
-        user_id: Option<&MacroUserId<Lowercase<'_>>>,
-    ) -> Result<Option<CrmEntityAccess>, AccessError> {
-        let contact_uuid = contact_id
-            .parse::<Uuid>()
-            .map_err(|_| AccessError::BadRequest("Invalid CRM contact ID format"))?;
-        let Some(user_id) = user_id else {
-            return Ok(None);
-        };
-        Ok(
-            queries::crm_contact_access::get_crm_contact_access(&self.pool, &contact_uuid, user_id)
-                .await?,
-        )
     }
 
     #[tracing::instrument(err, skip(self))]
@@ -800,15 +597,6 @@ impl AccessRepository for PgAccessRepository {
         entity_id: &uuid::Uuid,
         entity_type: EntityType,
     ) -> Result<Vec<MacroUserIdStr<'static>>, AccessError> {
-        if matches!(entity_type, EntityType::CrmCompany | EntityType::CrmContact) {
-            return queries::crm_entity_users::get_crm_entity_users(
-                &self.pool,
-                entity_id,
-                entity_type,
-            )
-            .await
-            .map_err(AccessError::from);
-        }
         queries::get_entity_users(&self.pool, entity_id, entity_type)
             .await
             .map_err(anyhow_access_error)

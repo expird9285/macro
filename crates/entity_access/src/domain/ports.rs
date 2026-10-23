@@ -5,8 +5,8 @@
 use super::models::EntityType;
 use crate::domain::models::{
     AccessError, AccessLevel, AgentSessionParent, BotAccessScope, BotId, CallChannelInfo,
-    ChannelRoleResult, CrmEntityAccess, EntityAccessReceipt, EntityPermission, RequiredPermission,
-    TeamRole, UserTeamInfo, ViewAccessLevel,
+    ChannelRoleResult, EntityAccessReceipt, EntityPermission, RequiredPermission, UserTeamInfo,
+    ViewAccessLevel,
 };
 #[cfg(feature = "explain_binary")]
 use crate::domain::models::{AccessExplanation, AccessGrant};
@@ -39,27 +39,6 @@ pub trait AccessRepository: Clone + Send + Sync + 'static {
         project_id: &str,
         user_id: Option<&MacroUserId<Lowercase<'_>>>,
     ) -> impl Future<Output = Result<Option<AccessLevel>, AccessError>> + Send;
-
-    /// Get the highest access level a user has for an email thread.
-    fn get_thread_access(
-        &self,
-        thread_id: &str,
-        user_id: Option<&MacroUserId<Lowercase<'_>>>,
-    ) -> impl Future<Output = Result<Option<AccessLevel>, AccessError>> + Send;
-
-    /// Get owner or explicitly delegated-inbox access to a calendar event.
-    fn get_calendar_event_access(
-        &self,
-        event_id: &str,
-        user_id: Option<&MacroUserId<Lowercase<'_>>>,
-    ) -> impl Future<Output = Result<Option<AccessLevel>, AccessError>> + Send;
-
-    /// Return the requested email threads owned by, or inbox-delegated to, a user.
-    fn get_owned_email_thread_ids(
-        &self,
-        thread_ids: &[Uuid],
-        user_id: &MacroUserId<Lowercase<'_>>,
-    ) -> impl Future<Output = Result<Vec<Uuid>, AccessError>> + Send;
 
     /// Get the highest access level a user has for a call.
     fn get_call_access(
@@ -115,19 +94,6 @@ pub trait AccessRepository: Clone + Send + Sync + 'static {
         &self,
         agent_session_id: &str,
     ) -> impl Future<Output = Result<bool, AccessError>> + Send;
-
-    /// Highest grant on a CRM pipeline.
-    fn get_pipeline_access(
-        &self,
-        id: &str,
-        user_id: Option<&MacroUserId<Lowercase<'_>>>,
-    ) -> impl Future<Output = Result<Option<AccessLevel>, AccessError>> + Send;
-
-    /// All pipeline grants for the caller's current sharing sources.
-    fn list_pipeline_access(
-        &self,
-        user_id: &MacroUserId<Lowercase<'_>>,
-    ) -> impl Future<Output = Result<Vec<(Uuid, AccessLevel)>, AccessError>> + Send;
 
     /// Get the highest access level a user has for a database.
     fn get_database_access(
@@ -187,11 +153,10 @@ pub trait AccessRepository: Clone + Send + Sync + 'static {
     ) -> impl Future<Output = Result<Option<AccessLevel>, AccessError>> + Send;
 
     /// Get the highest access level available to a bot in its owning team's
-    /// scope for a document, chat, project, email thread, or call.
+    /// scope for a document, chat, project, or call.
     ///
     /// Team scope includes the team, its team channels, the bot principal, and
-    /// channels in which the bot is an active participant. Email-thread
-    /// ownership and inbox delegation are intentionally excluded.
+    /// channels in which the bot is an active participant.
     fn get_team_entity_access(
         &self,
         bot_id: BotId,
@@ -221,23 +186,6 @@ pub trait AccessRepository: Clone + Send + Sync + 'static {
         bot_id: BotId,
     ) -> impl Future<Output = Result<bool, AccessError>> + Send;
 
-    /// Get member-equivalent access to a visible CRM company owned by the
-    /// scoped team.
-    fn get_team_crm_company_access(
-        &self,
-        company_id: &str,
-        team_id: Uuid,
-    ) -> impl Future<Output = Result<Option<CrmEntityAccess>, AccessError>> + Send;
-
-    /// Get member-equivalent access to a visible CRM contact owned by the
-    /// scoped team. Hidden contacts and contacts of hidden companies are
-    /// excluded.
-    fn get_team_crm_contact_access(
-        &self,
-        contact_id: &str,
-        team_id: Uuid,
-    ) -> impl Future<Output = Result<Option<CrmEntityAccess>, AccessError>> + Send;
-
     /// Check whether a user has access to a foreign entity.
     ///
     /// Foreign entity access is boolean because it only maps to [`AccessLevel::View`]
@@ -247,34 +195,6 @@ pub trait AccessRepository: Clone + Send + Sync + 'static {
         foreign_entity_id: &str,
         user_id: Option<&MacroUserId<Lowercase<'_>>>,
     ) -> impl Future<Output = Result<bool, AccessError>> + Send;
-
-    /// Get the access level a user has for a CRM company, with the company's
-    /// owning `team_id`.
-    ///
-    /// Access derives from the user's role on the team that owns the company:
-    /// `Owner` → [`AccessLevel::Owner`], `Admin` and `Member` →
-    /// [`AccessLevel::Edit`]. Hidden companies are invisible to plain members
-    /// (returns `None`) but reachable by admins and owners. The returned
-    /// `team_id` is the company's owning team and `team_role` the user's role
-    /// on it, both resolved from the same row that grants access.
-    fn get_crm_company_access(
-        &self,
-        company_id: &str,
-        user_id: Option<&MacroUserId<Lowercase<'_>>>,
-    ) -> impl Future<Output = Result<Option<CrmEntityAccess>, AccessError>> + Send;
-
-    /// Get the access level a user has for a CRM contact, with the contact's
-    /// owning `team_id` (its parent company's team).
-    ///
-    /// Access derives from the user's role on the team that owns the contact's
-    /// parent company, with the same role-to-level mapping as
-    /// [`Self::get_crm_company_access`]. Hidden contacts (or contacts whose
-    /// parent company is hidden) are invisible to plain members.
-    fn get_crm_contact_access(
-        &self,
-        contact_id: &str,
-        user_id: Option<&MacroUserId<Lowercase<'_>>>,
-    ) -> impl Future<Output = Result<Option<CrmEntityAccess>, AccessError>> + Send;
 
     /// Check if a user is a member of the specified channels.
     ///
@@ -412,38 +332,6 @@ pub trait EntityAccessService: Clone + Send + Sync + 'static {
         entity_type: EntityType,
     ) -> impl Future<Output = Result<EntityAccessReceipt<T>, AccessError>> + Send;
 
-    /// Mint view receipts for a distinct batch of email thread IDs.
-    ///
-    /// Implementations may override this to share authorization work across
-    /// the batch. The default preserves correctness for test and alternate
-    /// adapters by delegating to the single-entity API.
-    fn generate_email_thread_view_access_receipts<'a>(
-        &'a self,
-        user_id: &'a MacroUserId<Lowercase<'_>>,
-        user_org_id: Option<i64>,
-        thread_ids: &'a [String],
-    ) -> impl Future<
-        Output = HashMap<String, Result<EntityAccessReceipt<ViewAccessLevel>, AccessError>>,
-    > + Send
-    + 'a {
-        async move {
-            let mut receipts = HashMap::with_capacity(thread_ids.len());
-            for thread_id in thread_ids {
-                receipts.insert(
-                    thread_id.clone(),
-                    self.generate_entity_access_receipt::<ViewAccessLevel>(
-                        user_id,
-                        user_org_id,
-                        thread_id,
-                        EntityType::EmailThread,
-                    )
-                    .await,
-                );
-            }
-            receipts
-        }
-    }
-
     /// Mint view receipts for database rows. Implementations may share access
     /// lookups; the default delegates to the single-entity authorization path.
     fn generate_database_row_view_access_receipts<'a>(
@@ -475,7 +363,7 @@ pub trait EntityAccessService: Clone + Send + Sync + 'static {
     /// Generates an [`EntityAccessReceipt<T>`] for an authenticated bot.
     ///
     /// User scope delegates to the acting user's permission path. Team scope
-    /// resolves item, channel, foreign-entity, CRM, and owning-team permissions
+    /// resolves item, channel, foreign-entity, and owning-team permissions
     /// from the scoped team's shared pool plus explicit bot grants. Unsupported
     /// entity types return [`AccessError::BadRequest`].
     ///
@@ -537,29 +425,9 @@ pub trait EntityAccessService: Clone + Send + Sync + 'static {
         user_org_id: Option<i64>,
     ) -> impl Future<Output = Result<EntityPermission, AccessError>> + Send;
 
-    /// Resolve a user's permission for a CRM company or contact **together
-    /// with the entity's owning `team_id` and the user's role on that team**
-    /// — all resolved from the same ownership lookup that grants access.
-    /// Mint team-scoped CRM receipts off this rather than pairing
-    /// [`Self::get_entity_permission`] with [`Self::get_user_team`], so the
-    /// bundled team can't drift from the authorized entity for a multi-team
-    /// user. The role rides along so CRM receipts can gate hidden-row
-    /// visibility and governance actions on admin/owner without a second
-    /// lookup. Errors `AccessError::Unauthorized` when access fails.
-    ///
-    /// No default impl on purpose: implementors must derive the team from the
-    /// entity's ownership row (not the user's default team), so the invariant
-    /// can't be silently weakened by inheriting a fallback.
-    fn get_crm_entity_permission_with_team(
-        &self,
-        user_id: Option<&MacroUserId<Lowercase<'_>>>,
-        entity_id: &str,
-        entity_type: EntityType,
-    ) -> impl Future<Output = Result<(EntityPermission, Uuid, TeamRole), AccessError>> + Send;
-
     /// Get all user IDs that have access to a given entity.
     ///
-    /// For Document, Chat, Project, and EmailThread: returns user IDs with direct
+    /// For Document, Chat, and Project: returns user IDs with direct
     /// access or inherited access through the project hierarchy via `entity_access`.
     /// For Channel: returns active channel participants.
     /// Returns `AccessError::BadRequest` for unsupported types (Team, User).
@@ -696,17 +564,6 @@ impl EntityAccessService for NoOpEntityAccessService {
         ))
     }
 
-    async fn get_crm_entity_permission_with_team(
-        &self,
-        _user_id: Option<&MacroUserId<Lowercase<'_>>>,
-        _entity_id: &str,
-        _entity_type: EntityType,
-    ) -> Result<(EntityPermission, Uuid, TeamRole), AccessError> {
-        Err(AccessError::internal(
-            "entity access service not configured",
-        ))
-    }
-
     async fn get_users_by_entity(
         &self,
         _entity_id: &str,
@@ -741,13 +598,4 @@ impl EntityAccessService for NoOpEntityAccessService {
     ) -> Result<Option<UserTeamInfo>, AccessError> {
         Ok(None)
     }
-}
-
-/// Directory of pipeline grants for CRM navigation.
-pub trait AccessiblePipelines: Clone + Send + Sync + 'static {
-    /// Highest effective grant on each accessible pipeline.
-    fn accessible_pipelines(
-        &self,
-        user_id: &MacroUserId<Lowercase<'_>>,
-    ) -> impl Future<Output = Result<Vec<(Uuid, AccessLevel)>, AccessError>> + Send;
 }

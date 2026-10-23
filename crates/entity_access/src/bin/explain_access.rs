@@ -26,7 +26,7 @@ struct Args {
     #[arg(long)]
     entity_id: String,
 
-    /// Entity type (`document`, `email_thread`, `thread`, …).
+    /// Entity type (`document`, `chat`, `project`, …).
     #[arg(long, value_parser = parse_cli_entity_type)]
     entity_type: EntityType,
 
@@ -36,12 +36,7 @@ struct Args {
 }
 
 fn parse_cli_entity_type(value: &str) -> Result<EntityType, String> {
-    let normalized = if value == "thread" {
-        "email_thread"
-    } else {
-        value
-    };
-    EntityType::from_str(normalized).map_err(|_| format!("invalid entity type: {value}"))
+    EntityType::from_str(value).map_err(|_| format!("invalid entity type: {value}"))
 }
 
 #[tokio::main]
