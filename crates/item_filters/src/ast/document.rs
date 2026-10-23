@@ -1,9 +1,6 @@
 use crate::{
     DocumentFilters,
-    ast::{
-        ExpandErr, crm_association::CrmAssociation, date::DateLiteral, email::Email,
-        properties::PropertiesLiteral,
-    },
+    ast::{ExpandErr, date::DateLiteral, properties::PropertiesLiteral},
 };
 use document_sub_type::DocumentSubType;
 use either::Either;
@@ -50,31 +47,16 @@ pub enum DocumentLiteral {
     /// this node value filters by document sub type
     #[serde(rename = "dst")]
     SubType(DocumentSubType),
-    /// this node value filters by email attachment status
-    #[serde(rename = "iea")]
-    IsEmailAttachment(bool),
     /// this node value filters by document createdAt timestamp
     #[serde(rename = "ca")]
     CreatedAt(DateLiteral),
     /// this node value filters by document updatedAt timestamp
     #[serde(rename = "ua")]
     UpdatedAt(DateLiteral),
-    /// an entity-property condition on the document or task, e.g. its
-    /// Companies property referencing a CRM company. Unlike the top-level
-    /// properties filter, it composes with the other document literals.
+    /// an entity-property condition on the document or task. Unlike the
+    /// top-level properties filter, it composes with the other document literals.
     #[serde(rename = "prop")]
     Property(PropertiesLiteral),
-    /// the document was uploaded from an email attachment whose message was
-    /// sent by, or addressed to, a matching email address or domain
-    #[serde(rename = "eap")]
-    EmailAttachmentParticipant(Email),
-    /// the document or task is associated with a CRM record through its
-    /// Companies or Contacts property or a reference to the record. Soup
-    /// resolves the record before querying; it composes with the other
-    /// document literals the way [`DocumentLiteral::Property`] does. Only
-    /// expanded, timestamp-sorted queries accept it.
-    #[serde(rename = "crm")]
-    CrmAssociated(CrmAssociation),
     /// case-insensitive substring of the document name
     #[serde(rename = "nc")]
     NameContains(String),
@@ -207,7 +189,6 @@ impl ExpandFrame<DocumentLiteral> for DocumentFilters {
             notification_filters,
             task_filters,
             sub_types,
-            is_email_attachment,
         } = filter_request;
 
         let file_types_node = file_types
@@ -243,9 +224,6 @@ impl ExpandFrame<DocumentLiteral> for DocumentFilters {
             .map(|s| DocumentSubType::from_str(s))
             .try_expand(|r| r.map(DocumentLiteral::SubType), Expr::or)?;
 
-        let is_email_attachment_node =
-            is_email_attachment.map(|v| Expr::Literal(DocumentLiteral::IsEmailAttachment(v)));
-
         let normal_expr = [
             file_types_node,
             document_id_nodes,
@@ -254,7 +232,6 @@ impl ExpandFrame<DocumentLiteral> for DocumentFilters {
             importance_node,
             notification_state_node,
             sub_types_node,
-            is_email_attachment_node,
         ]
         .into_iter()
         .fold_with(Expr::and);

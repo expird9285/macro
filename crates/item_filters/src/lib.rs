@@ -113,10 +113,6 @@ pub struct DocumentFilters {
     /// Filter by document sub type. Examples: ['task']. Empty to search all sub types.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sub_types: Vec<String>,
-
-    /// Filter by email attachment status. true = only email attachments, false = only non-email attachments, None = both.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub is_email_attachment: Option<bool>,
 }
 
 impl IsEmpty for DocumentFilters {
@@ -130,7 +126,6 @@ impl IsEmpty for DocumentFilters {
             notification_filters,
             task_filters,
             sub_types,
-            is_email_attachment,
         } = self;
         file_types.is_empty()
             && document_ids.is_empty()
@@ -140,7 +135,6 @@ impl IsEmpty for DocumentFilters {
             && notification_filters.is_empty()
             && task_filters.is_empty()
             && sub_types.is_empty()
-            && is_email_attachment.is_none()
     }
 }
 
@@ -192,150 +186,6 @@ impl IsEmpty for ChatFilters {
             && owners.is_empty()
             && importance.is_none()
             && notification_filters.is_empty()
-    }
-}
-
-/// Controls whether shared email threads are included in results.
-#[derive(Debug, Serialize, Deserialize, Default, PartialEq, Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "schema", derive(utoipa::ToSchema, schemars::JsonSchema))]
-pub enum SharedEmailFilter {
-    /// Only show the user's own threads (default)
-    #[default]
-    Exclude,
-    /// Show both own and shared threads
-    Include,
-    /// Show only threads shared with the user
-    Only,
-}
-
-impl SharedEmailFilter {
-    /// Returns true if this is the default (Exclude) variant.
-    pub fn is_default(&self) -> bool {
-        matches!(self, SharedEmailFilter::Exclude)
-    }
-}
-
-/// The email filters used to filter down what emails you search over.
-#[derive(Debug, Serialize, Deserialize, Default, PartialEq, Clone)]
-#[cfg_attr(feature = "schema", derive(utoipa::ToSchema, schemars::JsonSchema))]
-pub struct EmailFilters {
-    /// Email sender addresses to filter by. Examples: ['user@example.com']. Empty to search all senders.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub senders: Vec<String>,
-    /// Email CC addresses to filter by. Examples: ['user@example.com']. Empty if not filtering by CC.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub cc: Vec<String>,
-    /// Email BCC addresses to filter by. Examples: ['user@example.com']. Empty if not filtering by BCC.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub bcc: Vec<String>,
-    /// Email Recipient addresses to filter by. Examples: ['user@example.com']. Empty if not filtering by Recipient.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub recipients: Vec<String>,
-
-    /// Email thread IDs to filter by. Examples: ['thread-uuid-1']. Empty to search all threads.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub email_thread_ids: Vec<String>,
-
-    /// Restrict to specific inboxes by email_links.id. Empty means "any inbox the
-    /// caller can access" (soup expands to the full set at the router edge).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub link_ids: Vec<String>,
-
-    /// A list of project ids to search within. Empty to ignore project filtering.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub project_ids: Vec<String>,
-
-    /// Filter by email importance. None to not filter. True to show only important emails
-    /// (drafts, personal, sent, or uncategorized). False to show only unimportant emails
-    /// (those categorized as promotions, social, updates, or forums).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub importance: Option<bool>,
-
-    /// Filter by the email thread's read flag, independently of notification state.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub is_read: Option<bool>,
-
-    /// Filter by email notification state.
-    #[serde(default, skip_serializing_if = "NotificationFilters::is_empty")]
-    pub notification_filters: NotificationFilters,
-
-    /// Only include emails that have at least one of these labels. Supports both Gmail system labels (e.g. "INBOX", "CATEGORY_PROMOTIONS") and user-created labels (e.g. "github"). Empty to not filter by included labels.
-    /// Note: SPAM and TRASH emails are not indexed in OpenSearch, so they will never appear in results regardless of this filter.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub include_labels: Vec<String>,
-
-    /// Exclude emails that have any of these labels. Supports both Gmail system labels (e.g. "CATEGORY_PROMOTIONS") and user-created labels. Empty to not exclude any labels.
-    /// Note: SPAM and TRASH emails are not indexed in OpenSearch, so they are already excluded by default.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub exclude_labels: Vec<String>,
-
-    /// Controls whether shared email threads are included in results.
-    /// Defaults to "exclude" (only the user's own threads).
-    #[serde(default, skip_serializing_if = "SharedEmailFilter::is_default")]
-    pub shared: SharedEmailFilter,
-
-    /// CRM-scoped domain filter. When non-empty, expands visibility to every
-    /// teammate's mailbox and restricts to threads involving any of these
-    /// domains (in any of sender/cc/bcc/recipient). Each domain is authorized
-    /// against `crm_domains` + `crm_companies` (must exist for the caller's
-    /// team, company must not be hidden, `email_sync` must be true).
-    /// Mutually exclusive with `crm_addresses`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub crm_domains: Vec<String>,
-
-    /// CRM-scoped address filter. When non-empty, expands visibility to every
-    /// teammate's mailbox and restricts to threads involving any of these
-    /// fully-qualified addresses. Each address is authorized against
-    /// `crm_contacts` + `crm_companies` (contact must not be hidden, company
-    /// must not be hidden, `email_sync` must be true).
-    /// Mutually exclusive with `crm_domains`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub crm_addresses: Vec<String>,
-
-    /// When `Some(true)`, only include threads that have at least one message
-    /// with an iCalendar attachment (`.ics` filename or `application/ics` mime
-    /// type). `Some(false)` and `None` apply no constraint.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub calendar_only: Option<bool>,
-}
-
-impl IsEmpty for EmailFilters {
-    fn is_empty(&self) -> bool {
-        let EmailFilters {
-            senders,
-            cc,
-            bcc,
-            recipients,
-            email_thread_ids,
-            link_ids,
-            project_ids,
-            importance,
-            is_read,
-            notification_filters,
-            include_labels,
-            exclude_labels,
-            shared,
-            crm_domains,
-            crm_addresses,
-            calendar_only,
-        } = self;
-        senders.is_empty()
-            && cc.is_empty()
-            && bcc.is_empty()
-            && recipients.is_empty()
-            && email_thread_ids.is_empty()
-            && link_ids.is_empty()
-            && project_ids.is_empty()
-            && importance.is_none()
-            && is_read.is_none()
-            && notification_filters.is_empty()
-            && include_labels.is_empty()
-            && exclude_labels.is_empty()
-            && shared.is_default()
-            && crm_domains.is_empty()
-            && crm_addresses.is_empty()
-            && !calendar_only.unwrap_or(false)
     }
 }
 
@@ -391,41 +241,6 @@ impl IsEmpty for CallFilters {
             && speaker_ids.is_empty()
             && status.is_none()
             && attended.is_none()
-    }
-}
-
-/// Filters for canonical calendar-event entities.
-#[derive(Debug, Serialize, Deserialize, Default, PartialEq, Clone)]
-#[cfg_attr(feature = "schema", derive(utoipa::ToSchema, schemars::JsonSchema))]
-pub struct CalendarEventFilters {
-    /// Canonical event ids.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub calendar_event_ids: Vec<String>,
-    /// Event statuses such as `confirmed`, `tentative`, or `cancelled`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub statuses: Vec<String>,
-    /// Include master events starting before this instant.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub starts_before: Option<chrono::DateTime<chrono::Utc>>,
-    /// Include master events ending after this instant.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ends_after: Option<chrono::DateTime<chrono::Utc>>,
-    /// Attendee email addresses.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub attendees: Vec<String>,
-    /// Organizer email addresses.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub organizers: Vec<String>,
-}
-
-impl IsEmpty for CalendarEventFilters {
-    fn is_empty(&self) -> bool {
-        self.calendar_event_ids.is_empty()
-            && self.statuses.is_empty()
-            && self.starts_before.is_none()
-            && self.ends_after.is_none()
-            && self.attendees.is_empty()
-            && self.organizers.is_empty()
     }
 }
 
@@ -686,33 +501,6 @@ impl IsEmpty for PropertyFilter {
     }
 }
 
-/// The crm company filters used to narrow which CRM companies appear in soup.
-#[derive(Debug, Serialize, Deserialize, Default, PartialEq, Clone)]
-#[cfg_attr(feature = "schema", derive(utoipa::ToSchema, schemars::JsonSchema))]
-pub struct CrmCompanyFilters {
-    /// CRM company ids to filter by. Examples: ['11111111-...']. Empty to
-    /// include all of the team's visible CRM companies.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub company_ids: Vec<String>,
-    /// Optional `crm_companies.hidden` filter. `None` = visible only
-    /// (default for back-compat with non-admin callers). `Some(false)` =
-    /// visible only (explicit). `Some(true)` = hidden only — requires
-    /// admin/owner team role; enforced by the CRM service from the
-    /// caller's team receipt.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hidden: Option<bool>,
-}
-
-impl IsEmpty for CrmCompanyFilters {
-    fn is_empty(&self) -> bool {
-        let CrmCompanyFilters {
-            company_ids,
-            hidden,
-        } = self;
-        company_ids.is_empty() && hidden.is_none()
-    }
-}
-
 /// The project filters used to filter down what projects you search over.
 #[derive(Debug, Serialize, Deserialize, Default, PartialEq, Clone)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema, schemars::JsonSchema))]
@@ -777,9 +565,6 @@ pub struct EntityFilters {
     /// Restrict results to the authenticated viewer's favorites when true.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub favorites_only: Option<bool>,
-    /// the bundled [CalendarEventFilters]
-    #[serde(default)]
-    pub calendar_event_filters: CalendarEventFilters,
     /// the bundled [ProjectFilters]
     #[serde(default)]
     pub project_filters: ProjectFilters,
@@ -798,12 +583,6 @@ pub struct EntityFilters {
     /// the bundled [CallFilters]
     #[serde(default)]
     pub call_filters: CallFilters,
-    /// the bundled [EmailFilters]
-    #[serde(default)]
-    pub email_filters: EmailFilters,
-    /// the bundled [CrmCompanyFilters]
-    #[serde(default)]
-    pub crm_company_filters: CrmCompanyFilters,
     /// the bundled [ForeignEntityFilters]
     #[serde(default)]
     pub foreign_entity_filters: ForeignEntityFilters,
@@ -831,15 +610,12 @@ impl IsEmpty for EntityFilters {
     fn is_empty(&self) -> bool {
         let EntityFilters {
             favorites_only,
-            calendar_event_filters,
             project_filters,
             document_filters,
             chat_filters,
             channel_filters,
             channel_thread_filters,
             call_filters,
-            email_filters,
-            crm_company_filters,
             foreign_entity_filters,
             agent_session_filters,
             initiative_filters,
@@ -849,15 +625,12 @@ impl IsEmpty for EntityFilters {
             tag_filter_mode: _,
         } = self;
         favorites_only != &Some(true)
-            && calendar_event_filters.is_empty()
             && project_filters.is_empty()
             && document_filters.is_empty()
             && chat_filters.is_empty()
             && channel_filters.is_empty()
             && channel_thread_filters.is_empty()
             && call_filters.is_empty()
-            && email_filters.is_empty()
-            && crm_company_filters.is_empty()
             && foreign_entity_filters.is_empty()
             && agent_session_filters.is_empty()
             && initiative_filters.is_empty()
