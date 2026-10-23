@@ -102,6 +102,3 @@ pub use outbound::{MacroAuthJwtValidator, NoopMacroAuthJwtValidator};
 pub use outbound::{
     PgBotAuthorizationRepo, PgBotAuthorizer, PgUserApiKeyAuthorizationRepo, PgUserApiKeyAuthorizer,
 };
-/// PostgreSQL harness authorization repository and concrete authorizer.
-#[cfg(feature = "postgres")]
-pub use outbound::{PgHarnessAuthorizationRepo, PgHarnessAuthorizer};
