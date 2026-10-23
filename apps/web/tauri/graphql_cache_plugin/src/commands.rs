@@ -200,7 +200,7 @@ pub async fn graphql_cache_search(
     engine_handle(&state)?.search(request).await
 }
 
-/// Evaluates Soup filters over native projections, including cached Mail pages.
+/// Evaluates Soup filters over native projections.
 #[tauri::command]
 pub async fn graphql_cache_entity_filter(
     state: State<'_, CacheState>,

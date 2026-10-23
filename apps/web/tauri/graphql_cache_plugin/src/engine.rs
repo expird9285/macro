@@ -396,9 +396,6 @@ struct EngineState {
 #[derive(Clone)]
 pub struct EngineHandle {
     inner: Arc<Mutex<EngineState>>,
-    // Shared by cloned handles, changed when the native engine is reopened.
-    // Revisions alone may repeat across process restarts.
-    mail_generation: String,
 }
 
 fn wire_write_result(ops: &OpInterner, result: WriteResult) -> WriteResultWire {
@@ -451,7 +448,6 @@ impl EngineHandle {
             schema,
         );
         EngineHandle {
-            mail_generation: soup_filter_cache_adapter::mail::new_generation(),
             inner: Arc::new(Mutex::new(EngineState {
                 engine,
                 ops: OpInterner::default(),
@@ -607,20 +603,14 @@ impl EngineHandle {
             .map_err(|error| error.to_string())
     }
 
-    /// Evaluates a Soup predicate or a revision-bound cached Mail page.
+    /// Evaluates a Soup predicate or live query over native projections.
     pub async fn entity_filter(
         &self,
         request: EntityFilterRequest,
     ) -> Result<EntityFilterResult, String> {
         let mut state = self.inner.lock().await;
         let state = &mut *state;
-        soup::filter(
-            &mut state.engine,
-            &mut state.selections,
-            &self.mail_generation,
-            request,
-        )
-        .await
+        soup::filter(&mut state.engine, &mut state.selections, request).await
     }
 
     /// Recovers cached query variables without materializing each variant.

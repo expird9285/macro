@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use soup_filter_cache_adapter::{
     SoupFilterCompileOutcome, authoritative_projection_mutations,
-    compile_current_filter_request as compile_filter_request, dirty_projection_mutations, mail,
+    compile_current_filter_request as compile_filter_request, dirty_projection_mutations,
     notification_deletion_updates, notification_projection_updates,
     optimistic_notification_updates, optimistic_projection_mutations,
 };
@@ -30,8 +30,6 @@ pub struct EntityFilterRequest {
     pub limit: u16,
     /// Same-query server membership evidence, when reconciliation is requested.
     pub baseline: Option<Vec<PredicateBaselineEntry>>,
-    /// Independent local Mail page request, never a server cursor.
-    pub mail: Option<mail::PageRequest>,
 }
 
 /// Server membership evidence supplied by the caller for this exact query.
@@ -44,15 +42,12 @@ pub struct PredicateBaselineEntry {
     pub sort_timestamp: String,
 }
 
-/// Native/browser-compatible filter result. Mail uses the shared adapter's
-/// wire representation directly rather than redefining its cursor contract.
+/// Native/browser-compatible filter result.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum EntityFilterResult {
     /// Maintained record deltas for a live query subscription.
     Live(LiveQueryResult),
-    /// Canonical cached Mail pagination result.
-    Mail(mail::PageResult),
     /// Generic Soup predicate-index result.
     Predicate(PredicateFilterResult),
 }
@@ -109,7 +104,6 @@ pub enum PredicateFilterResult {
 pub(super) async fn filter(
     engine: &mut Engine<TursoStorage>,
     selections: &mut cache_core::record_selection::cache::RecordSelectionCache,
-    generation: &str,
     request: EntityFilterRequest,
 ) -> Result<EntityFilterResult, String> {
     if let Some(live) = &request.live_query {
@@ -119,25 +113,9 @@ pub(super) async fn filter(
                 PredicateFilterResult::Unsupported,
             ));
         }
-        if request.mail.is_some() || request.baseline.is_none() {
-            return Err(
-                "live queries require a reconciled baseline and do not accept mail cursors".into(),
-            );
+        if request.baseline.is_none() {
+            return Err("live queries require a reconciled baseline".into());
         }
-    }
-    if let Some(mail_request) = request.mail {
-        return mail::page_current(
-            engine,
-            generation,
-            request.filters,
-            &request.sort_method,
-            &request.sort_direction,
-            request.limit,
-            mail_request,
-        )
-        .await
-        .map(EntityFilterResult::Mail)
-        .map_err(|error| error.to_string());
     }
     let outcome = compile_filter_request(
         request.filters,
@@ -275,19 +253,6 @@ pub(super) async fn write_projections(
             .map_err(|error| error.to_string())?,
         );
     }
-    projections.extend(
-        mail::projection_updates_for_write(
-            engine.schema(),
-            engine.storage(),
-            query,
-            operation,
-            variables,
-            data,
-            reuse_stored_identity,
-        )
-        .await
-        .map_err(|error| error.to_string())?,
-    );
     soup_filter_cache_adapter::properties::augment_authoritative(
         engine.schema(),
         engine.storage(),
@@ -326,30 +291,6 @@ pub(super) async fn optimistic_projections(
         )
         .map_err(|error| error.to_string())?,
     );
-    projections.extend(mail::optimistic_updates(
-        mail::projection_updates(
-            engine.schema(),
-            engine.storage(),
-            query,
-            operation,
-            variables,
-            data,
-        )
-        .await
-        .map_err(|error| error.to_string())?,
-    ));
-    projections.extend(
-        mail::draft_optimistic_updates(
-            engine.schema(),
-            engine.storage(),
-            query,
-            operation,
-            variables,
-            data,
-        )
-        .await
-        .map_err(|error| error.to_string())?,
-    );
     soup_filter_cache_adapter::properties::augment_optimistic(
         engine.schema(),
         engine.storage(),
@@ -368,7 +309,6 @@ pub(super) async fn invalidation_projections(
     keys: &[String],
 ) -> Result<Vec<ProjectionMutation>, String> {
     let mut projections = dirty_projection_mutations(keys);
-    projections.extend(mail::dirty_updates(keys));
     projections.extend(
         notification_deletion_updates(engine.storage(), keys, true)
             .await

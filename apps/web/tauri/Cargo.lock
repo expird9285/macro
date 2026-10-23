@@ -2595,7 +2595,6 @@ dependencies = [
  "serde",
  "serde_json",
  "soup-filter-cache-adapter",
- "soup-filter-projection",
  "tauri",
  "tempfile",
  "tokio",

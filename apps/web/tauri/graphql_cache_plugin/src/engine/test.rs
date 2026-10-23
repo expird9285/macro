@@ -309,39 +309,37 @@ fn entity_resolvers_cross_the_native_engine_boundary() {
                 "soup": {
                     "nextCursor": null,
                     "items": [{
-                        "__typename": "GraphqlSoupEmailThread",
-                        "id": "thread-1"
+                        "__typename": "GraphqlSoupAgentSession",
+                        "id": "session-1"
                     }]
                 }
             }
         }),
         None,
     );
-    let query = r#"query Email($input: EmailThreadInput!) {
-        user { id emailThread(input: $input) { __typename id } }
+    let query = r#"query Session($sessionId: ID!) {
+        user { id agentSession(sessionId: $sessionId) { __typename id } }
     }"#;
-    let serde_json::Value::Object(variables) =
-        serde_json::json!({"input": {"threadId": "thread-1"}})
-    else {
+    let serde_json::Value::Object(variables) = serde_json::json!({"sessionId": "session-1"}) else {
         unreachable!()
     };
     let result = block_on(handle.read(
         Some("webview:1".to_string()),
         query.to_string(),
-        Some("Email".to_string()),
+        Some("Session".to_string()),
         variables,
         vec![EntityResolver {
             parent_type: "GraphqlUser".to_string(),
-            field_name: "emailThread".to_string(),
-            target_type: "GraphqlSoupEmailThread".to_string(),
-            argument_path: vec!["input".to_string(), "threadId".to_string()],
+            field_name: "agentSession".to_string(),
+            target_type: "GraphqlSoupAgentSession".to_string(),
+            argument_path: vec!["sessionId".to_string()],
         }],
     ))
     .unwrap();
     let ReadResultWire::Hit { data } = result else {
         panic!("expected resolver hit")
     };
-    assert_eq!(data["user"]["emailThread"]["id"], "thread-1");
+    assert_eq!(data["user"]["agentSession"]["id"], "session-1");
 }
 
 #[test]

@@ -9,8 +9,6 @@ use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_dedicated_worker);
 
-mod mail_projection;
-
 #[wasm_bindgen_test]
 fn read_response_conversion_preserves_json_and_revision_strings() {
     let data = serde_json::json!({
@@ -609,15 +607,12 @@ fn exact_document_filter(document_id: &str) -> serde_json::Value {
     const NIL_ID: &str = "00000000-0000-0000-0000-000000000000";
     serde_json::json!({
         "filters": {
-            "calendarEventFilter": { "literal": { "id": NIL_ID } },
             "documentFilter": { "literal": { "id": document_id } },
             "projectFilter": { "literal": { "projectIdSelf": NIL_ID } },
             "chatFilter": { "literal": { "chatId": NIL_ID } },
-            "emailFilter": { "tree": { "literal": { "threadId": NIL_ID } } },
             "channelFilter": { "literal": { "channelId": NIL_ID } },
             "channelThreadFilter": { "literal": { "threadId": NIL_ID } },
             "callFilter": { "literal": { "callId": NIL_ID } },
-            "crmCompanyFilter": { "literal": { "id": NIL_ID } },
             "foreignEntityFilter": { "literal": { "id": NIL_ID } }
         },
         "sortMethod": "UPDATED_AT",
@@ -630,15 +625,12 @@ fn documents_preset_filter(document_filter: serde_json::Value) -> serde_json::Va
     const NIL_ID: &str = "00000000-0000-0000-0000-000000000000";
     serde_json::json!({
         "filters": {
-            "calendarEventFilter": { "literal": { "id": NIL_ID } },
             "documentFilter": document_filter,
             "projectFilter": { "literal": { "projectId": NIL_ID } },
             "chatFilter": { "literal": { "chatId": NIL_ID } },
-            "emailFilter": { "tree": { "literal": { "threadId": NIL_ID } } },
             "channelFilter": { "literal": { "channelId": NIL_ID } },
             "channelThreadFilter": { "literal": { "threadId": NIL_ID } },
             "callFilter": { "literal": { "callId": NIL_ID } },
-            "crmCompanyFilter": { "literal": { "id": NIL_ID } },
             "foreignEntityFilter": { "literal": { "id": NIL_ID } }
         },
         "sortMethod": "UPDATED_AT",
@@ -652,7 +644,6 @@ fn my_tasks_filter(owner: &str) -> serde_json::Value {
     const STATUS_PROPERTY_ID: &str = "00000001-0000-0000-0000-000000000002";
     serde_json::json!({
         "filters": {
-            "calendarEventFilter": { "literal": { "id": NIL_ID } },
             "documentFilter": {
                 "and": {
                     "left": { "literal": { "subType": "TASK" } },
@@ -666,11 +657,9 @@ fn my_tasks_filter(owner: &str) -> serde_json::Value {
             },
             "projectFilter": { "literal": { "projectId": NIL_ID } },
             "chatFilter": { "literal": { "chatId": NIL_ID } },
-            "emailFilter": { "tree": { "literal": { "threadId": NIL_ID } } },
             "channelFilter": { "literal": { "channelId": NIL_ID } },
             "channelThreadFilter": { "literal": { "threadId": NIL_ID } },
             "callFilter": { "literal": { "callId": NIL_ID } },
-            "crmCompanyFilter": { "literal": { "id": NIL_ID } },
             "foreignEntityFilter": { "literal": { "id": NIL_ID } },
             "propertiesFilter": {
                 "or": {
@@ -731,12 +720,7 @@ fn production_documents_preset_filters() -> Vec<(&'static str, serde_json::Value
             documents_preset_filter(serde_json::json!({
                 "and": {
                     "left": not_task.clone(),
-                    "right": {
-                        "and": {
-                            "left": { "literal": { "owner": owner } },
-                            "right": { "literal": { "isEmailAttachment": false } }
-                        }
-                    }
+                    "right": { "literal": { "owner": owner } }
                 }
             })),
         ),
@@ -745,12 +729,7 @@ fn production_documents_preset_filters() -> Vec<(&'static str, serde_json::Value
             documents_preset_filter(serde_json::json!({
                 "and": {
                     "left": not_task_or_snippet.clone(),
-                    "right": {
-                        "and": {
-                            "left": { "literal": { "owner": owner } },
-                            "right": { "literal": { "isEmailAttachment": false } }
-                        }
-                    }
+                    "right": { "literal": { "owner": owner } }
                 }
             })),
         ),
@@ -759,12 +738,7 @@ fn production_documents_preset_filters() -> Vec<(&'static str, serde_json::Value
             documents_preset_filter(serde_json::json!({
                 "and": {
                     "left": not_task.clone(),
-                    "right": {
-                        "and": {
-                            "left": { "not": { "literal": { "owner": owner } } },
-                            "right": { "literal": { "isEmailAttachment": false } }
-                        }
-                    }
+                    "right": { "not": { "literal": { "owner": owner } } }
                 }
             })),
         ),
@@ -773,26 +747,9 @@ fn production_documents_preset_filters() -> Vec<(&'static str, serde_json::Value
             documents_preset_filter(serde_json::json!({
                 "and": {
                     "left": not_task_or_snippet.clone(),
-                    "right": {
-                        "and": {
-                            "left": { "not": { "literal": { "owner": owner } } },
-                            "right": { "literal": { "isEmailAttachment": false } }
-                        }
-                    }
+                    "right": { "not": { "literal": { "owner": owner } } }
                 }
             })),
-        ),
-        (
-            "attachments/snippets-on",
-            documents_preset_filter(
-                serde_json::json!({ "literal": { "isEmailAttachment": true } }),
-            ),
-        ),
-        (
-            "attachments/snippets-off",
-            documents_preset_filter(
-                serde_json::json!({ "literal": { "isEmailAttachment": true } }),
-            ),
         ),
         ("all/snippets-on", documents_preset_filter(not_task)),
         (
@@ -943,7 +900,6 @@ async fn soup_updated_v3_supplements_advance_revision_and_recompute_documents_pr
     const INITIAL: &str = "00000000-0000-0000-0000-000000000001";
     const ORDINARY: &str = "00000000-0000-0000-0000-000000000002";
     const SHARED: &str = "00000000-0000-0000-0000-000000000003";
-    const ATTACHMENT: &str = "00000000-0000-0000-0000-000000000004";
     const TASK: &str = "00000000-0000-0000-0000-000000000005";
     const SNIPPET: &str = "00000000-0000-0000-0000-000000000006";
     const SKILL: &str = "00000000-0000-0000-0000-000000000007";
@@ -974,7 +930,6 @@ async fn soup_updated_v3_supplements_advance_revision_and_recompute_documents_pr
     let updates = [
         projected_document_item(ORDINARY, OWNER, false, None, 20),
         projected_document_item(SHARED, OTHER_OWNER, false, None, 30),
-        projected_document_item(ATTACHMENT, OWNER, true, None, 40),
         projected_document_item(TASK, OWNER, false, Some("task"), 50),
         projected_document_item(SNIPPET, OWNER, false, Some("snippet"), 60),
         projected_document_item(SKILL, OWNER, false, Some("skill"), 70),
@@ -1003,24 +958,14 @@ async fn soup_updated_v3_supplements_advance_revision_and_recompute_documents_pr
             "owned/snippets-on" => vec![key(SKILL), key(SNIPPET), key(ORDINARY), key(INITIAL)],
             "owned/snippets-off" => vec![key(SKILL), key(ORDINARY), key(INITIAL)],
             "shared/snippets-on" | "shared/snippets-off" => vec![key(SHARED)],
-            "attachments/snippets-on" | "attachments/snippets-off" => {
-                vec![key(ATTACHMENT)]
-            }
             "all/snippets-on" => vec![
                 key(SKILL),
                 key(SNIPPET),
-                key(ATTACHMENT),
                 key(SHARED),
                 key(ORDINARY),
                 key(INITIAL),
             ],
-            "all/snippets-off" => vec![
-                key(SKILL),
-                key(ATTACHMENT),
-                key(SHARED),
-                key(ORDINARY),
-                key(INITIAL),
-            ],
+            "all/snippets-off" => vec![key(SKILL), key(SHARED), key(ORDINARY), key(INITIAL)],
             _ => panic!("unexpected Documents preset fixture {name}"),
         };
         let filtered: serde_json::Value =
@@ -1501,8 +1446,8 @@ async fn entity_resolvers_cross_the_js_boundary() {
                 "soup": {
                     "nextCursor": null,
                     "items": [{
-                        "__typename": "GraphqlSoupEmailThread",
-                        "id": "thread-1"
+                        "__typename": "GraphqlWidget",
+                        "id": "widget-1"
                     }]
                 }
             }
@@ -1511,26 +1456,26 @@ async fn entity_resolvers_cross_the_js_boundary() {
     ))
     .await;
 
-    let direct_query = r#"query Email($input: EmailThreadInput!) {
-        user { id emailThread(input: $input) { __typename id } }
+    let direct_query = r#"query Widget($input: WidgetInput!) {
+        user { id widget(input: $input) { __typename id } }
     }"#;
     let result: serde_json::Value = from_js(
         resolved(engine.read_query(
             Some("tab:entity".into()),
             direct_query.into(),
-            Some("Email".into()),
-            js(serde_json::json!({"input": {"threadId": "thread-1"}})),
+            Some("Widget".into()),
+            js(serde_json::json!({"input": {"widgetId": "widget-1"}})),
             js(serde_json::json!([{
                 "parentType": "GraphqlUser",
-                "fieldName": "emailThread",
-                "targetType": "GraphqlSoupEmailThread",
-                "argumentPath": ["input", "threadId"]
+                "fieldName": "widget",
+                "targetType": "GraphqlWidget",
+                "argumentPath": ["input", "widgetId"]
             }])),
         ))
         .await,
     );
     assert_eq!(result["kind"], "hit");
-    assert_eq!(result["data"]["user"]["emailThread"]["id"], "thread-1");
+    assert_eq!(result["data"]["user"]["widget"]["id"], "widget-1");
 
     close_and_destroy(&engine, SCOPE).await;
 }
@@ -2024,68 +1969,6 @@ async fn storage_reset_errors_latch_and_block_hot_read_write_and_control_methods
     assert_reset_required(engine.bound_identity()).await;
 
     resolved(engine.physical_reset()).await;
-    close_and_destroy(&engine, SCOPE).await;
-}
-
-#[wasm_bindgen_test(async)]
-async fn mail_page_errors_preserve_reset_latching_and_recovery() {
-    const SCOPE: &str = "cache-wasm-mail-page-reset-latch";
-    let engine = fresh_engine(SCOPE).await;
-    let mut request = exact_document_filter("00000000-0000-0000-0000-000000000000");
-    request["filters"]
-        .as_object_mut()
-        .unwrap()
-        .remove("emailFilter");
-    request["mail"] = serde_json::json!({"view":"ALL"});
-
-    // Validation errors must not poison a healthy cache.
-    let mut invalid = request.clone();
-    invalid["limit"] = serde_json::json!(0);
-    let error = JsFuture::from(engine.entity_filter(js(invalid)))
-        .await
-        .expect_err("invalid limit");
-    assert!(
-        !js_sys::Reflect::get(&error, &JsValue::from_str(RESET_REQUIRED_MARKER))
-            .unwrap()
-            .is_truthy()
-    );
-    assert!(!engine.state.lock().await.reset_required);
-
-    // The first read hydrates identity through EngineError rather than reading
-    // the Mail catalog directly. It must preserve the same reset marker.
-    engine.arm_storage_fault(TestStorageFault::GetBatch).await;
-    assert_reset_required(engine.entity_filter(js(request.clone()))).await;
-    assert_reset_required(engine.bound_identity()).await;
-    resolved(engine.physical_reset()).await;
-
-    for fault in [
-        TestStorageFault::GetBatch,
-        TestStorageFault::ReconcilePredicateIndex,
-        TestStorageFault::LoadProjectionStates,
-        TestStorageFault::LoadOptimisticProjections,
-    ] {
-        resolved(engine.write_query(
-            write_context(None),
-            "query MailCatalog { user { id emailLinks { id } } }".into(),
-            Some("MailCatalog".into()),
-            js(serde_json::json!({})),
-            js(serde_json::json!({"user":{"id":"mail-viewer","emailLinks":[]}})),
-            Some("mail-viewer".into()),
-        ))
-        .await;
-        let page: serde_json::Value =
-            from_js(resolved(engine.entity_filter(js(request.clone()))).await);
-        assert_eq!(page["kind"], "mail-page");
-
-        engine.arm_storage_fault(fault).await;
-        assert_reset_required(engine.entity_filter(js(request.clone()))).await;
-        assert_reset_required(engine.bound_identity()).await;
-        assert_reset_required(engine.clear()).await;
-        resolved(engine.physical_reset()).await;
-        let page: serde_json::Value =
-            from_js(resolved(engine.entity_filter(js(request.clone()))).await);
-        assert_eq!(page["kind"], "incomplete");
-    }
     close_and_destroy(&engine, SCOPE).await;
 }
 
