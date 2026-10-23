@@ -19,8 +19,7 @@ pub mod domain;
 
 pub use domain::models::{Event, EventBrokerError, MacroEvent, MessageWrapper, TopicEvent};
 pub use macro_event_topics::{
-    MacroChannelsTopic, MacroDocumentsTopic, MacroEmailTopic, MacroExampleTopic,
-    MacroProjectsTopic, Topic,
+    MacroChannelsTopic, MacroDocumentsTopic, MacroExampleTopic, MacroProjectsTopic, Topic,
 };
 
 pub use domain::ports::{

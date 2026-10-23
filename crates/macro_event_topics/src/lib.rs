@@ -71,8 +71,6 @@ topics! {
     MacroMessagesTopic => "macro.messages",
     /// Signals telling the agent harness to open or feed an agent session.
     MacroAgentSessionsTopic => "macro.agent_sessions",
-    /// Email lifecycle events (links, messages, threads, labels).
-    MacroEmailTopic => "macro.email",
     /// Webhook configuration lifecycle events (created / updated / deleted / validated).
     MacroWebhooksTopic => "macro.webhooks",
     /// Entity mention events (created / deleted) across channels and docs.
@@ -83,8 +81,6 @@ topics! {
     MacroActivityTopic => "macro.activity",
     /// AI chat lifecycle and message events.
     MacroChatsTopic => "macro.chats",
-    /// Calendar event changes, from provider sync and user mutations alike.
-    MacroCalendarTopic => "macro.calendar",
     /// Agent session lifecycle facts: opened, turns, waiting for input, settled, stopped, renamed, deleted.
     MacroAgentSessionLifecycleTopic => "macro.agent_session_lifecycle",
     /// Retired: runs of appended agent session log frames now travel over a

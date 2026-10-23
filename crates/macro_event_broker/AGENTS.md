@@ -30,8 +30,8 @@ Macro's event topics.
 - Depends on: `macro_event_topics`, `kafka_util` (optional, feature
   `outbound`).
 - Used by: crates and services that publish or consume Macro events
-  (`agent_session`, `agent_trigger`, `activity`, `bots`, `calendar_events`,
-  `channels`, `chat`, `crm`, `databases`, `documents`, ...).
+  (`agent_session`, `agent_trigger`, `activity`, `bots`, `channels`, `chat`,
+  `databases`, `documents`, ...).
 
 ## Checks
 
