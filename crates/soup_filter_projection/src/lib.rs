@@ -23,12 +23,10 @@ pub use profile::{
 };
 pub use wire::{
     MAX_SOUP_CACHE_PROJECTION_BYTES, MAX_SOUP_CACHE_PROJECTION_ENCODED_BYTES,
-    MailCacheProjectionFacts, SOUP_CACHE_PROJECTION_WIRE_VERSION,
-    SOUP_CACHE_PROJECTION_WIRE_VERSION_V1, SOUP_CACHE_PROJECTION_WIRE_VERSION_V2,
-    SOUP_CACHE_PROJECTION_WIRE_VERSION_V3, SoupCacheProjectionCapsuleV1,
-    SoupCacheProjectionCapsuleV2, SoupCacheProjectionCapsuleV3, SoupCacheProjectionSupplement,
-    SoupCacheProjectionWireError, decode_cache_projection_supplement,
-    encode_cache_projection_supplement,
+    SOUP_CACHE_PROJECTION_WIRE_VERSION, SOUP_CACHE_PROJECTION_WIRE_VERSION_V1,
+    SOUP_CACHE_PROJECTION_WIRE_VERSION_V2, SoupCacheProjectionCapsuleV1,
+    SoupCacheProjectionCapsuleV2, SoupCacheProjectionSupplement, SoupCacheProjectionWireError,
+    decode_cache_projection_supplement, encode_cache_projection_supplement,
 };
 
 /// Maximum authoritative task Status options accepted in one complete projection.
@@ -239,11 +237,7 @@ pub fn compose_soup_flat_v3(
             }
             document.exact_facts.push(ExactFact {
                 attribute: vocabulary::email_attachment(),
-                value: ExactValue::new([u8::from(
-                    supplement
-                        .is_email_attachment()
-                        .ok_or(SoupFlatV3CompositionError::MissingDocumentSupplement)?,
-                )])?,
+                value: ExactValue::new([u8::from(supplement.is_email_attachment())])?,
             });
             let is_important = supplement
                 .is_important()
@@ -360,13 +354,9 @@ pub fn project_soup_item<T>(
         SoupItem::Document(document) => project_document(record_key, document).map(Some),
         SoupItem::Project(project) => project_project(record_key, project).map(Some),
         SoupItem::Chat(chat) => project_chat(record_key, chat).map(Some),
-        SoupItem::EmailThread(_)
-        | SoupItem::Channel(_)
+        SoupItem::Channel(_)
         | SoupItem::ChannelThread(_)
         | SoupItem::Call(_)
-        | SoupItem::CalendarEvent(_)
-        | SoupItem::CrmCompany(_)
-        | SoupItem::CrmContact(_)
         | SoupItem::ForeignEntity(_)
         | SoupItem::AgentSession(_)
         | SoupItem::Initiative(_)
@@ -430,7 +420,7 @@ pub fn project_chat<T>(
 
 /// Compile an authorized item/server-facts pair into a typed supplement.
 ///
-/// Only documents hydrated with authoritative `document_email` relation state
+/// Only documents hydrated with authoritative server facts
 /// produce a supplement. Direct entity fields, including document subtype,
 /// are deliberately excluded and must be projected from the same GraphQL
 /// response by the browser. A document supplement attached to another entity

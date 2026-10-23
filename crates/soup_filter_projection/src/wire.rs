@@ -9,70 +9,20 @@ use uuid::Uuid;
 pub const SOUP_CACHE_PROJECTION_WIRE_VERSION_V1: u8 = 0x01;
 /// Framing byte for the viewer-relative Soup server-fact supplement layout.
 pub const SOUP_CACHE_PROJECTION_WIRE_VERSION_V2: u8 = 0x02;
-/// Framing byte for the Mail server-fact supplement layout.
-pub const SOUP_CACHE_PROJECTION_WIRE_VERSION_V3: u8 = 0x03;
+// 0x03 framed the removed Mail supplement layout; never reuse it for another layout.
 /// Latest framing byte understood by this version of the server.
-pub const SOUP_CACHE_PROJECTION_WIRE_VERSION: u8 = SOUP_CACHE_PROJECTION_WIRE_VERSION_V3;
+pub const SOUP_CACHE_PROJECTION_WIRE_VERSION: u8 = SOUP_CACHE_PROJECTION_WIRE_VERSION_V2;
 /// Maximum decoded bytes accepted for one entity supplement, including framing.
 pub const MAX_SOUP_CACHE_PROJECTION_BYTES: usize = 1_024;
 /// Maximum RFC 4648 unpadded base64 bytes accepted before decoding.
 pub const MAX_SOUP_CACHE_PROJECTION_ENCODED_BYTES: usize =
     (MAX_SOUP_CACHE_PROJECTION_BYTES * 4).div_ceil(3);
 
-/// Server-only facts used by an offline Mail projection.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MailCacheProjectionFacts {
-    latest_non_spam_message_ts: Option<i64>,
-    latest_outbound_message_ts: Option<i64>,
-    has_calendar_attachment: bool,
-    has_thread_share: bool,
-}
-
-impl MailCacheProjectionFacts {
-    /// Construct canonical Mail filter and sort facts.
-    pub fn new(
-        latest_non_spam_message_ts: Option<i64>,
-        latest_outbound_message_ts: Option<i64>,
-        has_calendar_attachment: bool,
-        has_thread_share: bool,
-    ) -> Self {
-        Self {
-            latest_non_spam_message_ts,
-            latest_outbound_message_ts,
-            has_calendar_attachment,
-            has_thread_share,
-        }
-    }
-
-    /// Read the canonical ALL-view timestamp in microseconds.
-    pub fn latest_non_spam_message_ts(&self) -> Option<i64> {
-        self.latest_non_spam_message_ts
-    }
-
-    /// Read the canonical SENT-view timestamp in microseconds.
-    pub fn latest_outbound_message_ts(&self) -> Option<i64> {
-        self.latest_outbound_message_ts
-    }
-
-    /// Read the authoritative Calendar-tab classification.
-    pub fn has_calendar_attachment(&self) -> bool {
-        self.has_calendar_attachment
-    }
-
-    /// Read the viewer-relative direct-share fact.
-    pub fn has_thread_share(&self) -> bool {
-        self.has_thread_share
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum SoupCacheProjectionFacts {
-    Document {
-        is_email_attachment: bool,
-        is_important: Option<bool>,
-        status_option_ids: Option<Vec<Uuid>>,
-    },
-    Mail(MailCacheProjectionFacts),
+struct SoupCacheProjectionFacts {
+    is_email_attachment: bool,
+    is_important: Option<bool>,
+    status_option_ids: Option<Vec<Uuid>>,
 }
 
 /// Typed server-only facts supplement for one Soup entity projection.
@@ -96,7 +46,7 @@ impl SoupCacheProjectionSupplement {
             record_key,
             target_profile: vocabulary::profile_v2(),
             partition: vocabulary::document_partition(),
-            facts: SoupCacheProjectionFacts::Document {
+            facts: SoupCacheProjectionFacts {
                 is_email_attachment,
                 is_important: None,
                 status_option_ids: None,
@@ -117,21 +67,11 @@ impl SoupCacheProjectionSupplement {
             record_key,
             target_profile: vocabulary::profile_v3(),
             partition: vocabulary::document_partition(),
-            facts: SoupCacheProjectionFacts::Document {
+            facts: SoupCacheProjectionFacts {
                 is_email_attachment,
                 is_important: Some(is_important),
                 status_option_ids: Some(status_option_ids),
             },
-        }
-    }
-
-    /// Construct a Mail supplement containing server-only filter and sort facts.
-    pub fn mail(record_key: RecordKey, facts: MailCacheProjectionFacts) -> Self {
-        Self {
-            record_key,
-            target_profile: item_filter_index::mail::profile(),
-            partition: item_filter_index::mail::partition(),
-            facts: SoupCacheProjectionFacts::Mail(facts),
         }
     }
 
@@ -151,40 +91,18 @@ impl SoupCacheProjectionSupplement {
     }
 
     /// Read the authoritative email-attachment relation fact for a document.
-    pub fn is_email_attachment(&self) -> Option<bool> {
-        match &self.facts {
-            SoupCacheProjectionFacts::Document {
-                is_email_attachment,
-                ..
-            } => Some(*is_email_attachment),
-            SoupCacheProjectionFacts::Mail(_) => None,
-        }
+    pub fn is_email_attachment(&self) -> bool {
+        self.facts.is_email_attachment
     }
 
     /// Read viewer-relative document importance when supplied by this wire version.
     pub fn is_important(&self) -> Option<bool> {
-        match &self.facts {
-            SoupCacheProjectionFacts::Document { is_important, .. } => *is_important,
-            SoupCacheProjectionFacts::Mail(_) => None,
-        }
+        self.facts.is_important
     }
 
     /// Read the complete task Status option set when supplied by this wire version.
     pub fn status_option_ids(&self) -> Option<&[Uuid]> {
-        match &self.facts {
-            SoupCacheProjectionFacts::Document {
-                status_option_ids, ..
-            } => status_option_ids.as_deref(),
-            SoupCacheProjectionFacts::Mail(_) => None,
-        }
-    }
-
-    /// Read Mail-specific server facts when this supplement targets Mail.
-    pub fn mail_facts(&self) -> Option<&MailCacheProjectionFacts> {
-        match &self.facts {
-            SoupCacheProjectionFacts::Mail(facts) => Some(facts),
-            SoupCacheProjectionFacts::Document { .. } => None,
-        }
+        self.facts.status_option_ids.as_deref()
     }
 }
 
@@ -220,27 +138,6 @@ pub struct SoupCacheProjectionCapsuleV2 {
     pub is_important: bool,
     /// Complete canonical task Status select-option UUID set.
     pub status_option_ids: Vec<Uuid>,
-}
-
-/// Immutable postcard payload for a Mail server-fact supplement.
-///
-/// Field order is wire-significant and locked by cross-adapter golden fixtures.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SoupCacheProjectionCapsuleV3 {
-    /// Complete Mail projection profile to which these facts may be applied.
-    pub target_profile: String,
-    /// Defensive normalized-record binding.
-    pub record_key: String,
-    /// Defensive entity-partition binding.
-    pub partition: String,
-    /// Canonical ALL-view timestamp in microseconds.
-    pub latest_non_spam_message_ts: Option<i64>,
-    /// Canonical SENT-view timestamp in microseconds.
-    pub latest_outbound_message_ts: Option<i64>,
-    /// Authoritative Calendar-tab classification.
-    pub has_calendar_attachment: bool,
-    /// Viewer-relative direct-share fact.
-    pub has_thread_share: bool,
 }
 
 /// Failure to encode or decode a bounded Soup server-fact supplement.
@@ -303,11 +200,9 @@ pub fn encode_cache_projection_supplement(
             postcard::to_stdvec(&capsule).map_err(SoupCacheProjectionWireError::InvalidPostcard)?,
         )
     } else {
-        let capsule = SoupCacheProjectionCapsuleV3::try_from(supplement)?;
-        (
-            SOUP_CACHE_PROJECTION_WIRE_VERSION_V3,
-            postcard::to_stdvec(&capsule).map_err(SoupCacheProjectionWireError::InvalidPostcard)?,
-        )
+        return Err(SoupCacheProjectionWireError::UnsupportedTargetProfile(
+            supplement.target_profile.token().as_str().to_owned(),
+        ));
     };
     let decoded_len = payload.len().saturating_add(1);
     if decoded_len > MAX_SOUP_CACHE_PROJECTION_BYTES {
@@ -344,9 +239,6 @@ pub fn decode_cache_projection_supplement(
         SOUP_CACHE_PROJECTION_WIRE_VERSION_V2 => {
             decode_postcard::<SoupCacheProjectionCapsuleV2>(payload)?.try_into()
         }
-        SOUP_CACHE_PROJECTION_WIRE_VERSION_V3 => {
-            decode_postcard::<SoupCacheProjectionCapsuleV3>(payload)?.try_into()
-        }
         version => Err(SoupCacheProjectionWireError::UnsupportedWireVersion(
             version,
         )),
@@ -378,11 +270,7 @@ impl TryFrom<&SoupCacheProjectionSupplement> for SoupCacheProjectionCapsuleV1 {
             target_profile: supplement.target_profile.token().as_str().to_owned(),
             record_key: supplement.record_key.as_str().to_owned(),
             partition: supplement.partition.as_str().to_owned(),
-            is_email_attachment: supplement.is_email_attachment().ok_or(
-                SoupCacheProjectionWireError::UnsupportedTargetProfile(
-                    supplement.target_profile.token().as_str().to_owned(),
-                ),
-            )?,
+            is_email_attachment: supplement.is_email_attachment(),
         })
     }
 }
@@ -400,11 +288,7 @@ impl TryFrom<&SoupCacheProjectionSupplement> for SoupCacheProjectionCapsuleV2 {
             target_profile: supplement.target_profile.token().as_str().to_owned(),
             record_key: supplement.record_key.as_str().to_owned(),
             partition: supplement.partition.as_str().to_owned(),
-            is_email_attachment: supplement.is_email_attachment().ok_or(
-                SoupCacheProjectionWireError::UnsupportedTargetProfile(
-                    supplement.target_profile.token().as_str().to_owned(),
-                ),
-            )?,
+            is_email_attachment: supplement.is_email_attachment(),
             is_important: supplement.is_important().ok_or(
                 SoupCacheProjectionWireError::UnsupportedTargetProfile(
                     supplement.target_profile.token().as_str().to_owned(),
@@ -420,32 +304,6 @@ impl TryFrom<&SoupCacheProjectionSupplement> for SoupCacheProjectionCapsuleV2 {
     }
 }
 
-impl TryFrom<&SoupCacheProjectionSupplement> for SoupCacheProjectionCapsuleV3 {
-    type Error = SoupCacheProjectionWireError;
-
-    fn try_from(supplement: &SoupCacheProjectionSupplement) -> Result<Self, Self::Error> {
-        if supplement.target_profile != item_filter_index::mail::profile() {
-            return Err(SoupCacheProjectionWireError::UnsupportedTargetProfile(
-                supplement.target_profile.token().as_str().to_owned(),
-            ));
-        }
-        let facts = supplement.mail_facts().ok_or(
-            SoupCacheProjectionWireError::UnsupportedTargetProfile(
-                supplement.target_profile.token().as_str().to_owned(),
-            ),
-        )?;
-        Ok(Self {
-            target_profile: supplement.target_profile.token().as_str().to_owned(),
-            record_key: supplement.record_key.as_str().to_owned(),
-            partition: supplement.partition.as_str().to_owned(),
-            latest_non_spam_message_ts: facts.latest_non_spam_message_ts(),
-            latest_outbound_message_ts: facts.latest_outbound_message_ts(),
-            has_calendar_attachment: facts.has_calendar_attachment(),
-            has_thread_share: facts.has_thread_share(),
-        })
-    }
-}
-
 impl TryFrom<SoupCacheProjectionCapsuleV1> for SoupCacheProjectionSupplement {
     type Error = SoupCacheProjectionWireError;
 
@@ -454,7 +312,7 @@ impl TryFrom<SoupCacheProjectionCapsuleV1> for SoupCacheProjectionSupplement {
             record_key: RecordKey::new(capsule.record_key)?,
             target_profile: Profile::new(Token::new(capsule.target_profile)?),
             partition: Token::new(capsule.partition)?,
-            facts: SoupCacheProjectionFacts::Document {
+            facts: SoupCacheProjectionFacts {
                 is_email_attachment: capsule.is_email_attachment,
                 is_important: None,
                 status_option_ids: None,
@@ -473,7 +331,7 @@ impl TryFrom<SoupCacheProjectionCapsuleV2> for SoupCacheProjectionSupplement {
             record_key: RecordKey::new(capsule.record_key)?,
             target_profile: Profile::new(Token::new(capsule.target_profile)?),
             partition: Token::new(capsule.partition)?,
-            facts: SoupCacheProjectionFacts::Document {
+            facts: SoupCacheProjectionFacts {
                 is_email_attachment: capsule.is_email_attachment,
                 is_important: Some(capsule.is_important),
                 status_option_ids: Some(capsule.status_option_ids),
@@ -484,80 +342,47 @@ impl TryFrom<SoupCacheProjectionCapsuleV2> for SoupCacheProjectionSupplement {
     }
 }
 
-impl TryFrom<SoupCacheProjectionCapsuleV3> for SoupCacheProjectionSupplement {
-    type Error = SoupCacheProjectionWireError;
-
-    fn try_from(capsule: SoupCacheProjectionCapsuleV3) -> Result<Self, Self::Error> {
-        let supplement = Self {
-            record_key: RecordKey::new(capsule.record_key)?,
-            target_profile: Profile::new(Token::new(capsule.target_profile)?),
-            partition: Token::new(capsule.partition)?,
-            facts: SoupCacheProjectionFacts::Mail(MailCacheProjectionFacts::new(
-                capsule.latest_non_spam_message_ts,
-                capsule.latest_outbound_message_ts,
-                capsule.has_calendar_attachment,
-                capsule.has_thread_share,
-            )),
-        };
-        validate_supplement(&supplement)?;
-        Ok(supplement)
-    }
-}
-
 fn validate_supplement(
     supplement: &SoupCacheProjectionSupplement,
 ) -> Result<(), SoupCacheProjectionWireError> {
-    let record_prefix = match &supplement.facts {
-        SoupCacheProjectionFacts::Document {
-            is_important,
-            status_option_ids,
-            ..
-        } => {
-            if supplement.target_profile == vocabulary::profile_v2() {
-                if is_important.is_some() || status_option_ids.is_some() {
-                    return Err(SoupCacheProjectionWireError::UnsupportedTargetProfile(
-                        supplement.target_profile.token().as_str().to_owned(),
-                    ));
-                }
-            } else if supplement.target_profile == vocabulary::profile_v3() {
-                let Some(status_option_ids) = status_option_ids.as_deref() else {
-                    return Err(SoupCacheProjectionWireError::UnsupportedTargetProfile(
-                        supplement.target_profile.token().as_str().to_owned(),
-                    ));
-                };
-                if is_important.is_none()
-                    || status_option_ids.len() > crate::MAX_TASK_STATUS_OPTION_IDS
-                    || !status_option_ids.windows(2).all(|ids| ids[0] < ids[1])
-                {
-                    return Err(SoupCacheProjectionWireError::NonCanonicalStatusOptionIds);
-                }
-            } else {
-                return Err(SoupCacheProjectionWireError::UnsupportedTargetProfile(
-                    supplement.target_profile.token().as_str().to_owned(),
-                ));
-            }
-            if supplement.partition != vocabulary::document_partition() {
-                return Err(SoupCacheProjectionWireError::UnsupportedPartition(
-                    supplement.partition.as_str().to_owned(),
-                ));
-            }
-            "GraphqlSoupDocument:"
+    let SoupCacheProjectionFacts {
+        is_important,
+        status_option_ids,
+        ..
+    } = &supplement.facts;
+    if supplement.target_profile == vocabulary::profile_v2() {
+        if is_important.is_some() || status_option_ids.is_some() {
+            return Err(SoupCacheProjectionWireError::UnsupportedTargetProfile(
+                supplement.target_profile.token().as_str().to_owned(),
+            ));
         }
-        SoupCacheProjectionFacts::Mail(_) => {
-            if supplement.target_profile != item_filter_index::mail::profile() {
-                return Err(SoupCacheProjectionWireError::UnsupportedTargetProfile(
-                    supplement.target_profile.token().as_str().to_owned(),
-                ));
-            }
-            if supplement.partition != item_filter_index::mail::partition() {
-                return Err(SoupCacheProjectionWireError::UnsupportedPartition(
-                    supplement.partition.as_str().to_owned(),
-                ));
-            }
-            "GraphqlSoupEmailThread:"
+    } else if supplement.target_profile == vocabulary::profile_v3() {
+        let Some(status_option_ids) = status_option_ids.as_deref() else {
+            return Err(SoupCacheProjectionWireError::UnsupportedTargetProfile(
+                supplement.target_profile.token().as_str().to_owned(),
+            ));
+        };
+        if is_important.is_none()
+            || status_option_ids.len() > crate::MAX_TASK_STATUS_OPTION_IDS
+            || !status_option_ids.windows(2).all(|ids| ids[0] < ids[1])
+        {
+            return Err(SoupCacheProjectionWireError::NonCanonicalStatusOptionIds);
         }
-    };
-    if !supplement.record_key.as_str().starts_with(record_prefix) {
+    } else {
+        return Err(SoupCacheProjectionWireError::UnsupportedTargetProfile(
+            supplement.target_profile.token().as_str().to_owned(),
+        ));
+    }
+    if supplement.partition != vocabulary::document_partition() {
+        return Err(SoupCacheProjectionWireError::UnsupportedPartition(
+            supplement.partition.as_str().to_owned(),
+        ));
+    }
+    if !supplement
+        .record_key
+        .as_str()
+        .starts_with("GraphqlSoupDocument:")
+    {
         return Err(SoupCacheProjectionWireError::RecordKeyPartitionMismatch);
     }
     Ok(())

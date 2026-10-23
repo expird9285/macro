@@ -10,7 +10,7 @@ Soup entity's filterable facts, shared by server and client-side cache code.
 
 - `src/lib.rs`: `validate_soup_flat_v2/v3/v4` (profile versions) and the
   top-level projection error type.
-- `src/wire.rs`: the capsule wire format (`SoupCacheProjectionCapsuleV1/V2/V3`,
+- `src/wire.rs`: the capsule wire format (`SoupCacheProjectionCapsuleV1/V2`,
   `encode_cache_projection_supplement`/`decode_cache_projection_supplement`) —
   the versioning scheme a cache client decodes against.
 - `src/channel.rs`, `src/database_row.rs`, `src/profile.rs`: per-entity-kind
@@ -49,7 +49,9 @@ Soup entity's filterable facts, shared by server and client-side cache code.
 - `default-features = false` (no `models`) is the wasm-safe build; don't add a
   non-optional dependency on `soup`/`models_soup` outside the `models` feature.
 - Decoding must stay backward-compatible with every `SOUP_CACHE_PROJECTION_WIRE_VERSION_V*`
-  still in the wild — never remove an old decode branch.
+  still in the wild — never remove an old decode branch. Framing byte `0x03`
+  belonged to the removed Mail supplement; it stays unsupported and must not
+  be reused for a different layout.
 
 ## Related
 
