@@ -437,7 +437,6 @@ dependencies = [
  "code_execution",
  "connection_gateway_client",
  "contacts",
- "crm",
  "database_env_vars",
  "document_storage_service_client",
  "doppler-config",
@@ -728,7 +727,6 @@ dependencies = [
  "call",
  "channels",
  "connection_gateway_client",
- "crm",
  "database_env_vars",
  "document_storage_service_client",
  "entity_access",
@@ -910,8 +908,6 @@ dependencies = [
  "axum",
  "bot_id",
  "bots",
- "calendar_events",
- "calendar_scheduling",
  "call",
  "channels",
  "chat",
@@ -923,13 +919,10 @@ dependencies = [
  "connection_gateway_client",
  "contacts",
  "cool_asserts",
- "crm",
  "databases",
  "databases_sql",
  "dateparser",
  "documents",
- "email",
- "email_service_client",
  "entity_access",
  "entity_access_management",
  "entity_registry",
@@ -967,7 +960,6 @@ dependencies = [
  "model_owner",
  "model_user",
  "models_dcs",
- "models_email",
  "models_pagination",
  "models_permissions",
  "models_properties",
@@ -1087,18 +1079,6 @@ name = "allocator-api2"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c880a97d28a3681c0267bd29cff89621202715b065127cd445fa0f0fe0aa2880"
-
-[[package]]
-name = "ammonia"
-version = "4.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f6660fb4ff692ef4937b1b4e74ab3d378653d8588389587d91f96a296907ea0"
-dependencies = [
- "cssparser 0.37.0",
- "html5ever 0.39.0",
- "maplit",
- "url",
-]
 
 [[package]]
 name = "analytics_client"
@@ -1860,7 +1840,6 @@ dependencies = [
  "base64 0.22.1",
  "bot_id",
  "bots",
- "calendar_events",
  "channels",
  "chrono",
  "comms_db_client",
@@ -1868,14 +1847,11 @@ dependencies = [
  "contacts",
  "cookie",
  "cool_asserts",
- "crm",
  "database_env_vars",
  "decode_jwt",
  "document_storage_service_client",
  "doppleganger",
  "doppler-config",
- "email",
- "email_db_client",
  "email_validator",
  "entity_access",
  "entity_registry",
@@ -3415,146 +3391,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ade8366b8bd5ba243f0a58f036cc0ca8a2f069cff1a2351ef1cac6b083e16fc0"
 
 [[package]]
-name = "cal"
-version = "0.1.0"
-dependencies = [
- "analytics_client",
- "axum",
- "chrono",
- "hex",
- "hmac 0.12.1",
- "model-error-response",
- "rootcause",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "thiserror 2.0.18",
- "tracing",
- "utoipa",
- "workspace-hack",
-]
-
-[[package]]
-name = "calendar_events"
-version = "0.1.0"
-dependencies = [
- "ai_toolset",
- "anyhow",
- "async-trait",
- "aws-sdk-sqs",
- "axum",
- "call",
- "chrono",
- "chrono-tz",
- "email_utils",
- "futures",
- "macro_authorization",
- "macro_db_migrator",
- "macro_event_broker",
- "macro_event_topics",
- "macro_user_id",
- "model-entity",
- "model_notifications",
- "models_pagination",
- "notification",
- "reqwest 0.13.4",
- "rootcause",
- "schemars 1.2.1",
- "serde",
- "serde_json",
- "sqlx",
- "thiserror 2.0.18",
- "tokio",
- "tokio-util",
- "tracing",
- "urlencoding",
- "utoipa",
- "uuid",
- "workspace-hack",
-]
-
-[[package]]
-name = "calendar_scheduling"
-version = "0.1.0"
-dependencies = [
- "ai_toolset",
- "anyhow",
- "async-trait",
- "axum",
- "calendar_events",
- "chrono",
- "chrono-tz",
- "email_validator",
- "macro_authorization",
- "macro_user_id",
- "model_user",
- "reqwest 0.13.4",
- "rootcause",
- "schemars 1.2.1",
- "serde",
- "serde_json",
- "sqlx",
- "teams",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "uuid",
- "wiremock",
- "workspace-hack",
-]
-
-[[package]]
-name = "calendar_service"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "authentication_service_client",
- "aws-sdk-secretsmanager",
- "aws-sdk-sqs",
- "axum",
- "calendar_events",
- "calendar_scheduling",
- "chrono",
- "connection_gateway_client",
- "email_api_client",
- "email_db_client",
- "email_utils",
- "futures",
- "google_token",
- "macro_auth",
- "macro_authorization",
- "macro_aws_config",
- "macro_config",
- "macro_cors",
- "macro_entrypoint",
- "macro_env",
- "macro_env_var",
- "macro_event_broker",
- "macro_queues",
- "macro_service_urls",
- "models_email",
- "redis",
- "reqwest 0.13.4",
- "rootcause",
- "secretsmanager_client",
- "serde",
- "serde_json",
- "sqlx",
- "sqs_worker",
- "subtle",
- "teams",
- "tokio",
- "tokio-util",
- "tower 0.5.3",
- "tower-http",
- "tracing",
- "utoipa",
- "utoipa-swagger-ui",
- "uuid",
- "workspace-hack",
-]
-
-[[package]]
 name = "call"
 version = "0.1.0"
 dependencies = [
@@ -3766,7 +3602,6 @@ dependencies = [
  "anyhow",
  "async-trait",
  "bot_id",
- "calendar_events",
  "channel_sender",
  "chrono",
  "chrono-tz",
@@ -3883,16 +3718,6 @@ dependencies = [
  "utoipa",
  "uuid",
  "workspace-hack",
-]
-
-[[package]]
-name = "charset"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1f927b07c74ba84c7e5fe4db2baeb3e996ab2688992e39ac68ce3220a677c7e"
-dependencies = [
- "base64 0.22.1",
- "encoding_rs",
 ]
 
 [[package]]
@@ -4219,20 +4044,14 @@ dependencies = [
  "axum",
  "bot_id",
  "bots",
- "calendar_events",
  "chrono",
- "crm",
  "databases",
- "email",
  "entity_access",
  "entity_mutation",
  "favorites",
  "graphql_activity",
- "graphql_calendar",
  "graphql_channel",
  "graphql_common",
- "graphql_crm",
- "graphql_email",
  "graphql_entity_mutation",
  "graphql_favorite",
  "graphql_initiative",
@@ -4773,55 +4592,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 
 [[package]]
-name = "crm"
-version = "0.1.0"
-dependencies = [
- "ai_toolset",
- "anyhow",
- "async-trait",
- "axum",
- "bot_id",
- "call",
- "chrono",
- "csv",
- "databases",
- "entity_access",
- "entity_access_db_utils",
- "filter_ast",
- "futures",
- "item_filters",
- "kafka_util",
- "macro_authorization",
- "macro_db_migrator",
- "macro_event_broker",
- "macro_user_id",
- "macro_uuid",
- "messages",
- "model-error-response",
- "models_databases",
- "models_permissions",
- "models_properties",
- "properties",
- "rdkafka",
- "reqwest 0.13.4",
- "rootcause",
- "schemars 1.2.1",
- "serde",
- "serde_json",
- "sqlx",
- "system_properties",
- "thiserror 2.0.18",
- "tokio",
- "tower 0.5.3",
- "tracing",
- "unfurl",
- "utoipa",
- "uuid",
- "wiremock",
- "workspace-hack",
-]
-
-[[package]]
 name = "cron"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4955,30 +4725,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cssparser"
-version = "0.36.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dae61cf9c0abb83bd659dab65b7e4e38d8236824c85f0f804f173567bda257d2"
-dependencies = [
- "cssparser-macros",
- "dtoa-short",
- "itoa",
- "phf 0.13.1",
- "smallvec",
-]
-
-[[package]]
-name = "cssparser"
-version = "0.37.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c9cdaae01d5ed7882b04d795e7f752f46ff52d2fa3b50a20d28c464510bba98"
-dependencies = [
- "dtoa-short",
- "itoa",
- "smallvec",
-]
-
-[[package]]
 name = "cssparser-macros"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4986,27 +4732,6 @@ checksum = "13b588ba4ac1a99f7f2964d24b3d896ddc6bf847ee3855dbd4366f058cfcd331"
 dependencies = [
  "quote",
  "syn 2.0.117",
-]
-
-[[package]]
-name = "csv"
-version = "1.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52cd9d68cf7efc6ddfaaee42e7288d3a99d613d4b50f76ce9827ae0c6e14f938"
-dependencies = [
- "csv-core",
- "itoa",
- "ryu",
- "serde_core",
-]
-
-[[package]]
-name = "csv-core"
-version = "0.1.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "704a3c26996a80471189265814dbc2c257598b96b8a7feae2d31ace646bb9782"
-dependencies = [
- "memchr",
 ]
 
 [[package]]
@@ -5305,7 +5030,6 @@ dependencies = [
  "contacts",
  "database_sql",
  "databases",
- "email",
  "entity_access",
  "filter_ast",
  "item_filters",
@@ -5757,15 +5481,12 @@ dependencies = [
  "connection_gateway",
  "connection_gateway_client",
  "cookie",
- "crm",
  "databases",
  "databases_sql",
  "document_storage_service_client",
  "documents",
  "doppleganger",
  "doppler-config",
- "email",
- "email_service_client",
  "entity_access",
  "entity_access_management",
  "entity_registry",
@@ -5879,8 +5600,6 @@ dependencies = [
  "bots",
  "bytes",
  "bzip2 0.5.2",
- "cal",
- "calendar_events",
  "call",
  "channel_bots",
  "channel_labels",
@@ -5897,7 +5616,6 @@ dependencies = [
  "contacts",
  "cool_asserts",
  "cowlike",
- "crm",
  "database_webhooks",
  "databases",
  "databases_sql",
@@ -5906,7 +5624,6 @@ dependencies = [
  "documents",
  "doppler-config",
  "dynamodb_client",
- "email",
  "embedding",
  "entity_access",
  "entity_access_management",
@@ -5921,9 +5638,6 @@ dependencies = [
  "futures",
  "github",
  "github_pull_requests",
- "gmail_client",
- "graphql_calendar",
- "graphql_crm",
  "graphql_initiative",
  "graphql_scheduled_action",
  "graphql_soup",
@@ -5984,7 +5698,6 @@ dependencies = [
  "readonly_pool",
  "redis",
  "regex",
- "reminders",
  "reqwest 0.13.4",
  "roles_and_permissions",
  "rootcause",
@@ -6447,75 +6160,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "email"
-version = "0.1.0"
-dependencies = [
- "activity",
- "ai_toolset",
- "anyhow",
- "async-trait",
- "attachment",
- "authentication_service_client",
- "aws-sdk-s3",
- "axum",
- "axum-extra",
- "base64 0.22.1",
- "calendar_events",
- "chrono",
- "chrono-tz",
- "crm",
- "doppleganger",
- "either",
- "email_api_client",
- "email_db_client",
- "email_utils",
- "entity_access",
- "entity_access_management",
- "entity_mutation",
- "filter_ast",
- "frecency",
- "futures",
- "gmail_client",
- "google_token",
- "ical",
- "item_filters",
- "lexical_client",
- "lol_html",
- "macro_authorization",
- "macro_db_migrator",
- "macro_event_broker",
- "macro_event_topics",
- "macro_user_id",
- "macro_uuid",
- "model-entity",
- "model-error-response",
- "models_email",
- "models_pagination",
- "non_empty",
- "recursion",
- "redis",
- "reqwest 0.13.4",
- "rootcause",
- "schemars 1.2.1",
- "scraper",
- "serde",
- "serde_json",
- "serde_with",
- "sha2 0.10.9",
- "sqlx",
- "strum 0.27.2",
- "subtle",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "url",
- "utoipa",
- "uuid",
- "workspace-hack",
-]
-
-[[package]]
 name = "email-encoding"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6532,62 +6176,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e079f19b08ca6239f47f8ba8509c11cf3ea30095831f7fed61441475edd8c449"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "email_api_client"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "calendar_events",
- "chrono",
- "chrono-tz",
- "email_utils",
- "encoding_rs",
- "gmail_client",
- "html-escape",
- "http 1.4.0",
- "httpdate",
- "lol_html",
- "mail-builder",
- "mailparse",
- "models_email",
- "redis",
- "reqwest 0.13.4",
- "scraper",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "url",
- "uuid",
- "wiremock",
- "workspace-hack",
-]
-
-[[package]]
-name = "email_db_client"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "doppleganger",
- "email_utils",
- "futures",
- "macro_db_migrator",
- "macro_user_id",
- "macro_uuid",
- "models_email",
- "models_pagination",
- "once_cell",
- "regex",
- "serde_json",
- "sqlx",
- "tokio",
- "tracing",
- "workspace-hack",
 ]
 
 [[package]]
@@ -6610,194 +6198,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "email_refresh_handler"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "aws-sdk-sqs",
- "aws_lambda_events",
- "chrono",
- "lambda_runtime",
- "macro_aws_config",
- "macro_db_migrator",
- "macro_entrypoint",
- "macro_env",
- "macro_env_var",
- "macro_queues",
- "model",
- "models_email",
- "sqlx",
- "sqs_client",
- "tokio",
- "tracing",
- "uuid",
- "workspace-hack",
-]
-
-[[package]]
-name = "email_scheduled_handler"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "aws-sdk-sqs",
- "aws_lambda_events",
- "chrono",
- "lambda_runtime",
- "macro_aws_config",
- "macro_db_migrator",
- "macro_entrypoint",
- "macro_env",
- "macro_env_var",
- "macro_queues",
- "models_email",
- "sqlx",
- "sqs_client",
- "tokio",
- "tracing",
- "workspace-hack",
-]
-
-[[package]]
-name = "email_service"
-version = "0.1.0"
-dependencies = [
- "ammonia",
- "anyhow",
- "authentication_service_client",
- "aws-sdk-s3",
- "aws-sdk-secretsmanager",
- "aws-sdk-sqs",
- "axum",
- "axum-extra",
- "base64 0.22.1",
- "bytes",
- "calendar_events",
- "chrono",
- "cloudfront_sign",
- "connection_gateway_client",
- "contacts",
- "crm",
- "document_storage_service_client",
- "doppleganger",
- "doppler-config",
- "ego-tree",
- "email",
- "email_api_client",
- "email_db_client",
- "email_utils",
- "entity_access",
- "entity_access_management",
- "filter_ast",
- "frecency",
- "futures",
- "gmail_client",
- "google_token",
- "html-escape",
- "http-body-util",
- "infer 0.19.0",
- "item_filters",
- "last_online_tracker",
- "lol_html",
- "macro_auth",
- "macro_authorization",
- "macro_aws_config",
- "macro_config",
- "macro_cors",
- "macro_db_client",
- "macro_db_migrator",
- "macro_entrypoint",
- "macro_env",
- "macro_env_var",
- "macro_event_broker",
- "macro_middleware",
- "macro_queues",
- "macro_service_urls",
- "macro_user_id",
- "macro_uuid",
- "mime_guess",
- "model",
- "model-entity",
- "model_file_type",
- "model_notifications",
- "models_email",
- "models_opensearch",
- "models_pagination",
- "models_permissions",
- "models_properties",
- "notification",
- "once_cell",
- "redis",
- "regex",
- "reqwest 0.13.4",
- "rootcause",
- "s3_client",
- "schemars 1.2.1",
- "scraper",
- "secretsmanager_client",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "sqlx",
- "sqlx-core",
- "sqs_client",
- "sqs_worker",
- "static_file_service_client",
- "strum_macros 0.27.2",
- "system_properties",
- "thiserror 2.0.18",
- "tokio",
- "tokio-retry",
- "tokio-util",
- "tower 0.5.3",
- "tower-http",
- "tracing",
- "unfurl",
- "unicode-segmentation",
- "url",
- "urlencoding",
- "utoipa",
- "utoipa-swagger-ui",
- "uuid",
- "workspace-hack",
-]
-
-[[package]]
-name = "email_service_client"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "email",
- "model",
- "models_email",
- "reqwest 0.13.4",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "workspace-hack",
-]
-
-[[package]]
-name = "email_sfs_delete_handler"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "aws-sdk-sqs",
- "aws_lambda_events",
- "lambda_runtime",
- "macro_aws_config",
- "macro_entrypoint",
- "macro_env",
- "macro_env_var",
- "macro_queues",
- "sqlx",
- "sqs_client",
- "tokio",
- "tracing",
- "workspace-hack",
-]
-
-[[package]]
 name = "email_suppression_handler"
 version = "0.1.0"
 dependencies = [
@@ -6813,20 +6213,6 @@ dependencies = [
  "sqlx",
  "strum 0.27.2",
  "tokio",
- "tracing",
- "workspace-hack",
-]
-
-[[package]]
-name = "email_utils"
-version = "0.1.0"
-dependencies = [
- "ammonia",
- "ego-tree",
- "html2text",
- "lazy_static",
- "regex",
- "scraper",
  "tracing",
  "workspace-hack",
 ]
@@ -7462,7 +6848,6 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "bot_id",
- "calendar_scheduling",
  "chrono",
  "collab_surface",
  "connection_gateway_client",
@@ -7826,16 +7211,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gethostname"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bd49230192a3797a9a4d6abe9b3eed6f7fa4c8a8a4947977c6f80025f92cbd8"
-dependencies = [
- "rustix 1.1.4",
- "windows-link",
-]
-
-[[package]]
 name = "getopts"
 version = "0.2.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8084,36 +7459,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gmail_client"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "httpdate",
- "jsonwebtoken 10.3.0",
- "models_email",
- "regex",
- "reqwest 0.13.4",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "wiremock",
- "workspace-hack",
-]
-
-[[package]]
-name = "google_token"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "authentication_service_client",
- "email_utils",
- "redis",
- "tracing",
- "workspace-hack",
-]
-
-[[package]]
 name = "granola_sync"
 version = "0.1.0"
 dependencies = [
@@ -8169,25 +7514,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "graphql_calendar"
-version = "0.1.0"
-dependencies = [
- "async-graphql",
- "calendar_events",
- "chrono",
- "futures",
- "graphql_common",
- "macro_user_id",
- "models_pagination",
- "rootcause",
- "serde_json",
- "tokio",
- "tracing",
- "uuid",
- "workspace-hack",
-]
-
-[[package]]
 name = "graphql_channel"
 version = "0.1.0"
 dependencies = [
@@ -8219,46 +7545,6 @@ dependencies = [
  "models_properties",
  "rootcause",
  "serde",
- "tokio",
- "tracing",
- "uuid",
- "workspace-hack",
-]
-
-[[package]]
-name = "graphql_crm"
-version = "0.1.0"
-dependencies = [
- "async-graphql",
- "chrono",
- "crm",
- "databases",
- "entity_access",
- "graphql_common",
- "graphql_properties",
- "macro_user_id",
- "models_databases",
- "models_properties",
- "serde_json",
- "tokio",
- "tracing",
- "uuid",
- "workspace-hack",
-]
-
-[[package]]
-name = "graphql_email"
-version = "0.1.0"
-dependencies = [
- "async-graphql",
- "chrono",
- "email",
- "email_utils",
- "entity_access",
- "futures",
- "graphql_common",
- "macro_user_id",
- "serde_json",
  "tokio",
  "tracing",
  "uuid",
@@ -8420,12 +7706,10 @@ dependencies = [
  "chrono",
  "document_sub_type",
  "either",
- "email",
  "entity_access",
  "filter_ast",
  "futures",
  "graphql_common",
- "graphql_email",
  "graphql_permission",
  "graphql_soup_filter_input",
  "item_filters",
@@ -8973,18 +8257,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "html2text"
-version = "0.16.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12d23156ea4dbe6b37ad48fab2da56ff27b0f6192fb5db210c44eb07bfe6e787"
-dependencies = [
- "html5ever 0.38.0",
- "tendril 0.5.0",
- "thiserror 2.0.18",
- "unicode-width 0.2.0",
-]
-
-[[package]]
 name = "html5ever"
 version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8992,30 +8264,10 @@ checksum = "bea68cab48b8459f17cf1c944c67ddc572d272d9f2b274140f223ecb1da4a3b7"
 dependencies = [
  "log",
  "mac",
- "markup5ever 0.11.0",
+ "markup5ever",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "html5ever"
-version = "0.38.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1054432bae2f14e0061e33d23402fbaa67a921d319d56adc6bcf887ddad1cbc2"
-dependencies = [
- "log",
- "markup5ever 0.38.0",
-]
-
-[[package]]
-name = "html5ever"
-version = "0.39.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46a1761807faccc9a19e86944bbf40610014066306f96edcdedc2fb714bcb7b8"
-dependencies = [
- "log",
- "markup5ever 0.39.0",
 ]
 
 [[package]]
@@ -9300,15 +8552,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f"
 dependencies = [
  "cc",
-]
-
-[[package]]
-name = "ical"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b7cab7543a8b7729a19e2c04309f902861293dcdae6558dfbeb634454d279f6"
-dependencies = [
- "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -10759,25 +10002,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "lol_html"
-version = "2.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00aad58f6ec3990e795943872f13651e7a5fa59dca2c8f31a74faf8a0e0fb652"
-dependencies = [
- "bitflags 2.11.1",
- "cfg-if",
- "cssparser 0.36.0",
- "encoding_rs",
- "foldhash 0.2.0",
- "hashbrown 0.17.1",
- "memchr",
- "mime",
- "precomputed-hash",
- "selectors 0.37.0",
- "thiserror 2.0.18",
-]
-
-[[package]]
 name = "loom"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11372,32 +10596,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mail-builder"
-version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "900998f307338c4013a28ab14d760b784067324b164448c6d98a89e44810473b"
-dependencies = [
- "gethostname",
-]
-
-[[package]]
-name = "mailparse"
-version = "0.16.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60819a97ddcb831a5614eb3b0174f3620e793e97e09195a395bfa948fd68ed2f"
-dependencies = [
- "charset",
- "data-encoding",
- "quoted_printable",
-]
-
-[[package]]
-name = "maplit"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
-
-[[package]]
 name = "markup5ever"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11405,32 +10603,10 @@ checksum = "7a2629bb1404f3d34c2e921f21fd34ba00b206124c81f65c50b43b6aaefeb016"
 dependencies = [
  "log",
  "phf 0.10.1",
- "phf_codegen 0.10.0",
- "string_cache 0.8.9",
- "string_cache_codegen 0.5.4",
- "tendril 0.4.3",
-]
-
-[[package]]
-name = "markup5ever"
-version = "0.38.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8983d30f2915feeaaab2d6babdd6bc7e9ed1a00b66b5e6d74df19aa9c0e91862"
-dependencies = [
- "log",
- "tendril 0.5.0",
- "web_atoms",
-]
-
-[[package]]
-name = "markup5ever"
-version = "0.39.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7122d987ec5f704ee56f6e5b41a7d93722e9aae27ae07cafa4036c4d3f9757de"
-dependencies = [
- "log",
- "tendril 0.5.0",
- "web_atoms",
+ "phf_codegen",
+ "string_cache",
+ "string_cache_codegen",
+ "tendril",
 ]
 
 [[package]]
@@ -11592,13 +10768,10 @@ dependencies = [
  "channels",
  "chat",
  "connection_gateway_client",
- "crm",
  "database_env_vars",
  "databases",
  "documents",
  "doppler-config",
- "email",
- "email_service_client",
  "entity_access",
  "entity_access_management",
  "entity_registry",
@@ -11719,10 +10892,7 @@ dependencies = [
  "call",
  "channels",
  "chrono",
- "crm",
  "documents",
- "email",
- "email_service_client",
  "entity_access",
  "entity_access_management",
  "entity_registry",
@@ -11742,7 +10912,6 @@ dependencies = [
  "macro_uuid",
  "notification",
  "readonly_pool",
- "reminders",
  "rootcause",
  "search_service_client",
  "serde",
@@ -12174,28 +11343,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "models_email"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64 0.22.1",
- "chrono",
- "email_utils",
- "macro_user_id",
- "models_pagination",
- "schemars 1.2.1",
- "serde",
- "serde_json",
- "serde_with",
- "sqlx",
- "strum 0.27.2",
- "thiserror 2.0.18",
- "utoipa",
- "uuid",
- "workspace-hack",
-]
-
-[[package]]
 name = "models_entity_access_management"
 version = "0.1.0"
 dependencies = [
@@ -12346,10 +11493,8 @@ dependencies = [
  "call",
  "channels",
  "chrono",
- "crm",
  "document_sub_type",
  "doppleganger",
- "email",
  "item_filters",
  "macro_user_id",
  "model",
@@ -13812,16 +12957,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "phf_codegen"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49aa7f9d80421bca176ca8dbfebe668cc7a2684708594ec9f3c0db0805d5d6e1"
-dependencies = [
- "phf_generator 0.13.1",
- "phf_shared 0.13.1",
-]
-
-[[package]]
 name = "phf_generator"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -15100,40 +14235,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
-name = "reminders"
-version = "0.1.0"
-dependencies = [
- "aws-sdk-sqs",
- "axum",
- "axum-extra",
- "chrono",
- "email",
- "entity_access",
- "http-body-util",
- "macro_authorization",
- "macro_db_migrator",
- "macro_user_id",
- "macro_uuid",
- "model-entity",
- "model-error-response",
- "model_notifications",
- "model_user",
- "notification",
- "rootcause",
- "serde",
- "serde_json",
- "sqlx",
- "thiserror 2.0.18",
- "tokio",
- "tokio-util",
- "tower 0.5.3",
- "tracing",
- "utoipa",
- "uuid",
- "workspace-hack",
-]
-
-[[package]]
 name = "remote_env_var"
 version = "0.1.0"
 dependencies = [
@@ -15771,13 +14872,11 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "connection_gateway_client",
- "crm",
  "cron",
  "database_env_vars",
  "document_sub_type",
  "documents",
  "doppler-config",
- "email",
  "entity_access",
  "entity_access_db_utils",
  "entity_access_management",
@@ -15891,14 +14990,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "585480e3719b311b78a573db1c9d9c4c1f8010c2dee4cc59c2efe58ea4dbc3e1"
 dependencies = [
  "ahash",
- "cssparser 0.31.2",
+ "cssparser",
  "ego-tree",
  "getopts",
- "html5ever 0.26.0",
+ "html5ever",
  "indexmap 2.14.0",
  "once_cell",
- "selectors 0.25.0",
- "tendril 0.4.3",
+ "selectors",
+ "tendril",
 ]
 
 [[package]]
@@ -15930,7 +15029,6 @@ dependencies = [
  "aws-sdk-sqs",
  "axum",
  "bots",
- "calendar_events",
  "call",
  "channels",
  "chat",
@@ -15939,8 +15037,6 @@ dependencies = [
  "document_sub_type",
  "documents",
  "doppler-config",
- "email",
- "email_db_client",
  "ensure_exists",
  "entity_registry",
  "entity_registry_db_utils",
@@ -15969,7 +15065,6 @@ dependencies = [
  "model",
  "model_file_type",
  "model_owner",
- "models_email",
  "models_opensearch",
  "models_properties",
  "models_search",
@@ -16013,9 +15108,7 @@ dependencies = [
  "channels",
  "chrono",
  "comms_db_client",
- "crm",
  "document_sub_type",
- "email_db_client",
  "entity_access",
  "futures",
  "http-body-util",
@@ -16029,7 +15122,6 @@ dependencies = [
  "macro_env_var",
  "macro_user_id",
  "model",
- "models_email",
  "models_opensearch",
  "models_properties",
  "models_search",
@@ -16155,8 +15247,6 @@ dependencies = [
  "chrono",
  "clap",
  "comms_db_client",
- "email_db_client",
- "email_utils",
  "entity_access",
  "entity_access_db_utils",
  "fusionauth",
@@ -16175,7 +15265,6 @@ dependencies = [
  "model",
  "model-entity",
  "model_owner",
- "models_email",
  "models_permissions",
  "models_properties",
  "properties",
@@ -16204,34 +15293,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4eb30575f3638fc8f6815f448d50cb1a2e255b0897985c8c59f4d37b72a07b06"
 dependencies = [
  "bitflags 2.11.1",
- "cssparser 0.31.2",
+ "cssparser",
  "derive_more 0.99.20",
  "fxhash",
  "log",
  "new_debug_unreachable",
  "phf 0.10.1",
- "phf_codegen 0.10.0",
+ "phf_codegen",
  "precomputed-hash",
- "servo_arc 0.3.0",
- "smallvec",
-]
-
-[[package]]
-name = "selectors"
-version = "0.37.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2cfaaa6035167f0e604e42723c7650d59ee269ef220d7bbe0565602c8a0173b9"
-dependencies = [
- "bitflags 2.11.1",
- "cssparser 0.36.0",
- "derive_more 2.1.1",
- "log",
- "new_debug_unreachable",
- "phf 0.13.1",
- "phf_codegen 0.13.1",
- "precomputed-hash",
- "rustc-hash 2.1.2",
- "servo_arc 0.4.3",
+ "servo_arc",
  "smallvec",
 ]
 
@@ -16556,15 +15626,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "servo_arc"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "170fb83ab34de17dc69aa7c67482b22218ddb85da56546f9bd6b929e32a05930"
-dependencies = [
- "stable_deref_trait",
-]
-
-[[package]]
 name = "ses_client"
 version = "0.1.0"
 dependencies = [
@@ -16855,7 +15916,6 @@ dependencies = [
  "cowlike",
  "document_sub_type",
  "documents",
- "email",
  "entity_access",
  "filter_ast",
  "item_filters",
@@ -17049,11 +16109,9 @@ dependencies = [
  "chrono",
  "cool_asserts",
  "cowlike",
- "crm",
  "document_sub_type",
  "doppleganger",
  "either",
- "email",
  "entity_access",
  "favorites",
  "filter_ast",
@@ -17145,7 +16203,6 @@ dependencies = [
  "chat",
  "chrono",
  "documents",
- "email",
  "entity_access",
  "futures",
  "github_pull_requests",
@@ -17446,11 +16503,9 @@ dependencies = [
  "anyhow",
  "aws-sdk-sqs",
  "chrono",
- "email",
  "futures",
  "model",
  "models_ai_projection",
- "models_email",
  "s3_key",
  "serde",
  "serde_json",
@@ -17612,18 +16667,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "string_cache"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a18596f8c785a729f2819c0f6a7eae6ebeebdfffbfe4214ae6b087f690e31901"
-dependencies = [
- "new_debug_unreachable",
- "parking_lot",
- "phf_shared 0.13.1",
- "precomputed-hash",
-]
-
-[[package]]
 name = "string_cache_codegen"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -17631,18 +16674,6 @@ checksum = "c711928715f1fe0fe509c53b43e993a9a557babc2d0a3567d0a3006f1ac931a0"
 dependencies = [
  "phf_generator 0.11.3",
  "phf_shared 0.11.3",
- "proc-macro2",
- "quote",
-]
-
-[[package]]
-name = "string_cache_codegen"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "585635e46db231059f76c5849798146164652513eb9e8ab2685939dd90f29b69"
-dependencies = [
- "phf_generator 0.13.1",
- "phf_shared 0.13.1",
  "proc-macro2",
  "quote",
 ]
@@ -18117,7 +17148,6 @@ dependencies = [
  "model_notifications",
  "model_owner",
  "model_user",
- "models_email",
  "models_pagination",
  "models_permissions",
  "non_empty",
@@ -18162,16 +17192,6 @@ checksum = "d24a120c5fc464a3458240ee02c299ebcb9d67b5249c8848b09d639dca8d7bb0"
 dependencies = [
  "futf",
  "mac",
- "utf-8",
-]
-
-[[package]]
-name = "tendril"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4790fc369d5a530f4b544b094e31388b9b3a37c0f4652ade4505945f5660d24"
-dependencies = [
- "new_debug_unreachable",
  "utf-8",
 ]
 
@@ -19752,18 +18772,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "web_atoms"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "075474b12bcb3d2e3d4546580e9de478eeeead668a1761e2a8860c836b7ef297"
-dependencies = [
- "phf 0.13.1",
- "phf_codegen 0.13.1",
- "string_cache 0.9.0",
- "string_cache_codegen 0.6.1",
-]
-
-[[package]]
 name = "webhook"
 version = "0.1.0"
 dependencies = [
@@ -20350,7 +19358,6 @@ dependencies = [
  "chrono",
  "cowlike",
  "document_sub_type",
- "email",
  "entity_access",
  "filter_ast",
  "futures",
