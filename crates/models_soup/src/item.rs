@@ -1,11 +1,7 @@
 use crate::agent_session::SoupAgentSession;
-use crate::calendar_event::SoupCalendarEvent;
 use crate::call_record::SoupCallRecord;
-use crate::crm_company::SoupCrmCompany;
-use crate::crm_contact::SoupCrmContact;
 use crate::database_row::SoupDatabaseRow;
 use crate::document::SoupDocument;
-use crate::email_thread::SoupEnrichedEmailThreadPreview;
 use crate::foreign_entity::SoupForeignEntity;
 use crate::initiative::SoupInitiative;
 use crate::project::SoupProject;
@@ -36,20 +32,12 @@ pub enum SoupItem<T = ()> {
     Project(SoupProject<T>),
     /// Initiative entity.
     Initiative(SoupInitiative<T>),
-    /// Email thread item.
-    EmailThread(SoupEnrichedEmailThreadPreview<T>),
     /// Channel item.
     Channel(SoupChannel),
     /// Channel thread item.
     ChannelThread(SoupChannelThread),
     /// Call record item.
     Call(SoupCallRecord<T>),
-    /// Calendar event item.
-    CalendarEvent(SoupCalendarEvent<T>),
-    /// CRM company item.
-    CrmCompany(SoupCrmCompany<T>),
-    /// Team-owned CRM contact.
-    CrmContact(SoupCrmContact<T>),
     /// Foreign entity item.
     ForeignEntity(SoupForeignEntity),
     /// Agent session item.
@@ -74,9 +62,6 @@ impl<T> SoupItem<T> {
             SoupItem::Project(soup_project) => {
                 EntityType::Project.with_entity_string(soup_project.id.to_string())
             }
-            SoupItem::EmailThread(email_thread) => {
-                EntityType::EmailThread.with_entity_string(email_thread.thread.id.to_string())
-            }
             SoupItem::Channel(channel) => {
                 EntityType::Channel.with_entity_string(channel.channel.channel.id.0.to_string())
             }
@@ -85,15 +70,6 @@ impl<T> SoupItem<T> {
             }
             SoupItem::Call(record) => {
                 EntityType::Call.with_entity_string(record.call_id.to_string())
-            }
-            SoupItem::CalendarEvent(event) => {
-                EntityType::CalendarEvent.with_entity_string(event.id.to_string())
-            }
-            SoupItem::CrmContact(contact) => {
-                EntityType::CrmContact.with_entity_string(contact.id.to_string())
-            }
-            SoupItem::CrmCompany(company) => {
-                EntityType::CrmCompany.with_entity_string(company.id.to_string())
             }
             SoupItem::ForeignEntity(foreign_entity) => {
                 EntityType::ForeignEntity.with_entity_string(foreign_entity.id.to_string())
@@ -114,18 +90,10 @@ impl<T> SoupItem<T> {
             SoupItem::Chat(soup_chat) => soup_chat.updated_at,
             SoupItem::Project(soup_project) => soup_project.updated_at,
             SoupItem::Initiative(initiative) => initiative.updated_at,
-            SoupItem::EmailThread(soup_thread) => soup_thread.thread.updated_at,
             SoupItem::Channel(soup_channel) => soup_channel.channel.channel.updated_at,
             SoupItem::ChannelThread(thread) => thread.effective_updated_at(),
             // Calls intentionally lack `updated_at`; recency follows their lifecycle timestamps.
             SoupItem::Call(record) => record.ended_at.unwrap_or(record.started_at),
-            // Includes the fired-reminder timestamp so the frecency fallback
-            // cursor agrees with the GREATEST-based recency sort.
-            SoupItem::CalendarEvent(event) => event
-                .last_reminder_fired_at
-                .map_or(event.updated_at, |fired| fired.max(event.updated_at)),
-            SoupItem::CrmCompany(company) => company.updated_at,
-            SoupItem::CrmContact(contact) => contact.last_interaction,
             SoupItem::ForeignEntity(foreign_entity) => foreign_entity.updated_at,
             SoupItem::AgentSession(session) => session.updated_at,
             SoupItem::DatabaseRow(row) => row.updated_at,
@@ -178,12 +146,6 @@ impl<T> SoupItem<T> {
             (SoupItem::Project(soup_project), SimpleSortMethod::ViewedUpdated) => {
                 soup_project.viewed_at.unwrap_or(soup_project.updated_at)
             }
-            (SoupItem::EmailThread(thread), _) => {
-                // Always use sort_ts for emails — this is the pre-computed effective_ts
-                // from the email SQL query, which is also what the cursor offset logic
-                // uses: (effective_ts, id) < (cursor_ts, cursor_id).
-                thread.thread.sort_ts
-            }
             (SoupItem::Channel(soup_channel), SimpleSortMethod::ViewedAt) => {
                 soup_channel.viewed_at.unwrap_or_default()
             }
@@ -201,34 +163,6 @@ impl<T> SoupItem<T> {
             // Calls intentionally lack `updated_at`; recency follows their lifecycle timestamps.
             (SoupItem::Call(record), SimpleSortMethod::CreatedAt) => record.started_at,
             (SoupItem::Call(record), _) => record.ended_at.unwrap_or(record.started_at),
-            (SoupItem::CalendarEvent(event), SimpleSortMethod::CreatedAt) => event.created_at,
-            (SoupItem::CalendarEvent(_), SimpleSortMethod::ViewedAt) => DateTime::<Utc>::default(),
-            // A fired alarm is the event's latest activity: without it the row
-            // a reminder surfaces in the inbox would sort at the event's Google
-            // last-modified time, i.e. into the past. Must mirror the SQL sort
-            // expression GREATEST(updated_at, last_reminder_fired_at) or keyset
-            // pagination breaks.
-            (SoupItem::CalendarEvent(event), _) => event
-                .last_reminder_fired_at
-                .map_or(event.updated_at, |fired| fired.max(event.updated_at)),
-            (SoupItem::CrmContact(contact), SimpleSortMethod::CreatedAt) => {
-                contact.first_interaction
-            }
-            (SoupItem::CrmContact(contact), SimpleSortMethod::ViewedAt) => {
-                contact.viewed_at.unwrap_or_default()
-            }
-            (SoupItem::CrmContact(contact), SimpleSortMethod::ViewedUpdated) => {
-                contact.viewed_at.unwrap_or(contact.last_interaction)
-            }
-            (SoupItem::CrmContact(contact), _) => contact.last_interaction,
-            (SoupItem::CrmCompany(company), SimpleSortMethod::CreatedAt) => company.created_at,
-            (SoupItem::CrmCompany(company), SimpleSortMethod::ViewedAt) => {
-                company.viewed_at.unwrap_or_default()
-            }
-            (SoupItem::CrmCompany(company), SimpleSortMethod::ViewedUpdated) => {
-                company.viewed_at.unwrap_or(company.updated_at)
-            }
-            (SoupItem::CrmCompany(company), _) => company.updated_at,
             (SoupItem::ForeignEntity(foreign_entity), SimpleSortMethod::CreatedAt) => {
                 foreign_entity.created_at
             }
@@ -269,10 +203,6 @@ impl<T> SoupItem<T> {
                 p.id.to_string(),
                 PropertiesEntityType::Project,
             )),
-            SoupItem::EmailThread(e) => Some(EntityReference::new(
-                e.thread.id.to_string(),
-                PropertiesEntityType::Thread,
-            )),
             SoupItem::Chat(c) => Some(EntityReference::new(
                 c.id.to_string(),
                 PropertiesEntityType::Chat,
@@ -283,15 +213,6 @@ impl<T> SoupItem<T> {
                 c.call_id.to_string(),
                 PropertiesEntityType::CallRecord,
             )),
-            SoupItem::CalendarEvent(event) => Some(EntityReference::new(
-                event.id.to_string(),
-                PropertiesEntityType::CalendarEvent,
-            )),
-            SoupItem::CrmCompany(c) => Some(EntityReference::new(
-                c.id.to_string(),
-                PropertiesEntityType::Company,
-            )),
-            SoupItem::CrmContact(_) => None,
             SoupItem::ForeignEntity(_) => None,
             // Agent sessions have no properties entity type yet.
             SoupItem::AgentSession(_) => None,
@@ -406,19 +327,6 @@ impl<T> SoupItem<T> {
                 deleted_at,
                 extra: f(extra),
             }),
-            SoupItem::EmailThread(SoupEnrichedEmailThreadPreview {
-                thread,
-                attachments,
-                participants,
-                labels,
-                extra,
-            }) => SoupItem::EmailThread(SoupEnrichedEmailThreadPreview {
-                thread,
-                attachments,
-                participants,
-                labels,
-                extra: f(extra),
-            }),
             SoupItem::Channel(channel) => SoupItem::Channel(channel),
             SoupItem::ChannelThread(soup_channel_thread) => {
                 SoupItem::ChannelThread(soup_channel_thread)
@@ -454,101 +362,6 @@ impl<T> SoupItem<T> {
                 attended,
                 participants,
                 guests,
-                extra: f(extra),
-            }),
-            SoupItem::CalendarEvent(SoupCalendarEvent {
-                id,
-                owner_id,
-                ical_uid,
-                title,
-                description,
-                location,
-                status,
-                visibility,
-                transparency,
-                time,
-                organizer_email,
-                organizer_name,
-                conference_url,
-                conference_provider,
-                is_read_only,
-                created_at,
-                updated_at,
-                last_reminder_fired_at,
-                extra,
-            }) => SoupItem::CalendarEvent(SoupCalendarEvent {
-                id,
-                owner_id,
-                ical_uid,
-                title,
-                description,
-                location,
-                status,
-                visibility,
-                transparency,
-                time,
-                organizer_email,
-                organizer_name,
-                conference_url,
-                conference_provider,
-                is_read_only,
-                created_at,
-                updated_at,
-                last_reminder_fired_at,
-                extra: f(extra),
-            }),
-            SoupItem::CrmContact(SoupCrmContact {
-                id,
-                team_id,
-                company_id,
-                company_name,
-                email,
-                name,
-                hidden,
-                first_interaction,
-                last_interaction,
-                created_at,
-                updated_at,
-                viewed_at,
-                extra,
-            }) => SoupItem::CrmContact(SoupCrmContact {
-                id,
-                team_id,
-                company_id,
-                company_name,
-                email,
-                name,
-                hidden,
-                first_interaction,
-                last_interaction,
-                created_at,
-                updated_at,
-                viewed_at,
-                extra: f(extra),
-            }),
-            SoupItem::CrmCompany(SoupCrmCompany {
-                id,
-                team_id,
-                name,
-                description,
-                email_sync,
-                hidden,
-                created_at,
-                updated_at,
-                viewed_at,
-                domains,
-                extra,
-            }) => SoupItem::CrmCompany(SoupCrmCompany {
-                id,
-                team_id,
-                name,
-                description,
-                email_sync,
-                hidden,
-                created_at,
-                updated_at,
-                viewed_at,
-                domains,
                 extra: f(extra),
             }),
             SoupItem::ForeignEntity(soup_foreign_entity) => {
@@ -629,13 +442,9 @@ impl<T> Identify for SoupItem<T> {
             SoupItem::Chat(soup_chat) => soup_chat.id,
             SoupItem::Project(soup_project) => soup_project.id,
             SoupItem::Initiative(initiative) => initiative.id,
-            SoupItem::EmailThread(thread) => thread.thread.id,
             SoupItem::Channel(soup_channel) => soup_channel.channel.channel.id.0,
             SoupItem::ChannelThread(thread) => thread.id,
             SoupItem::Call(record) => record.call_id,
-            SoupItem::CalendarEvent(event) => event.id,
-            SoupItem::CrmCompany(company) => company.id,
-            SoupItem::CrmContact(contact) => contact.id,
             SoupItem::ForeignEntity(foreign_entity) => foreign_entity.id,
             SoupItem::AgentSession(session) => session.id,
             SoupItem::DatabaseRow(row) => row.id,

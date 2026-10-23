@@ -13,10 +13,8 @@ anyhow = { workspace = true }
 call = { path = "../call", default-features = false }
 channels = { path = "../channels", default-features = false, features = ["list"] }
 chrono = { workspace = true }
-crm = { path = "../crm", default-features = false }
 document_sub_type = { path = "../document_sub_type" }
 doppleganger = { workspace = true, features = ["chrono", "uuid"] }
-email = { path = "../email" }
 item_filters = { path = "../item_filters" }
 macro_user_id = { path = "../macro_user_id" }
 model = { path = "../model" }
