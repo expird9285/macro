@@ -11,12 +11,10 @@ pub mod agent_session;
 pub mod channel_mention;
 pub mod citations;
 pub mod connected_toolsets;
-pub mod crm_pipelines;
 pub mod databases;
 pub mod deferred_tools;
 pub mod do_not;
 pub mod document_content_links;
-pub mod email;
 pub mod math;
 pub mod mcp_item_links;
 pub mod mentions;
@@ -25,7 +23,6 @@ pub mod skills;
 pub mod tone;
 pub mod tool_usage;
 mod types;
-pub mod user_tools;
 
 pub use types::{ComposedPrompt, Section, StaticPrompt};
 
@@ -38,58 +35,16 @@ pub static BASE_PROMPT: ComposedPrompt = tone::PROMPT
     .compose(&do_not::PROMPT)
     .compose(&about_macro::PROMPT);
 
-/// The tool-enabled prompt for hosts whose tools all execute directly in the
-/// agent loop (the channel-mention bot, the MCP server): [`BASE_PROMPT`] with
-/// the tool use instructions, skill-following rules, document-content linking
-/// rules, and email inbox behavior appended. Says nothing about
-/// composer-confirmed user tools — those hosts' toolsets execute
-/// `CreateCalendarEvent` directly and have no `SendEmail` at all.
-pub static DIRECT_TOOL_USE_PROMPT: ComposedPrompt = BASE_PROMPT
-    .compose(&tool_usage::PROMPT)
-    .compose(&databases::PROMPT)
-    .compose(&crm_pipelines::PROMPT)
-    .compose(&skills::PROMPT)
-    .compose(&document_content_links::PROMPT)
-    .compose(&email::PROMPT);
-
-/// The chat tool-enabled prompt: [`DIRECT_TOOL_USE_PROMPT`] plus the rules
-/// for composer-confirmed user tools (`SendEmail`, deferred execution), which
-/// only apply on surfaces that can render the composer card. Composed as its
-/// own chain so the email section stays last.
+/// The tool-enabled prompt for every host that runs tools (chat, agent
+/// sessions, the channel-mention bot, the MCP server): [`BASE_PROMPT`] with the
+/// tool use instructions, skill-following rules, and document-content linking
+/// rules appended. Every toolset executes its calls directly in the agent
+/// loop, so nothing here describes a composer or review card.
 pub static TOOL_USE_PROMPT: ComposedPrompt = BASE_PROMPT
     .compose(&tool_usage::PROMPT)
     .compose(&databases::PROMPT)
-    .compose(&crm_pipelines::PROMPT)
-    .compose(&user_tools::BOOKING_PROMPT)
-    .compose(&user_tools::PROMPT)
     .compose(&skills::PROMPT)
-    .compose(&document_content_links::PROMPT)
-    .compose(&email::PROMPT);
-
-/// The agent-session tool-enabled prompt: [`TOOL_USE_PROMPT`] with the user
-/// tool rules restated for a host that reviews those calls in the turn - a
-/// review card the user answers while the agent waits, not a composer left
-/// pending after it.
-pub static SESSION_TOOL_USE_PROMPT: ComposedPrompt = BASE_PROMPT
-    .compose(&tool_usage::PROMPT)
-    .compose(&databases::PROMPT)
-    .compose(&crm_pipelines::PROMPT)
-    .compose(&user_tools::BOOKING_PROMPT)
-    .compose(&user_tools::SESSION_PROMPT)
-    .compose(&skills::PROMPT)
-    .compose(&document_content_links::PROMPT)
-    .compose(&email::PROMPT);
-
-/// Agent-session instructions for nonblocking saved reviews in code mode.
-pub static CODE_MODE_SESSION_TOOL_USE_PROMPT: ComposedPrompt = BASE_PROMPT
-    .compose(&tool_usage::PROMPT)
-    .compose(&databases::PROMPT)
-    .compose(&crm_pipelines::PROMPT)
-    .compose(&user_tools::BOOKING_PROMPT)
-    .compose(&user_tools::CODE_MODE_SESSION_PROMPT)
-    .compose(&skills::PROMPT)
-    .compose(&document_content_links::PROMPT)
-    .compose(&email::PROMPT);
+    .compose(&document_content_links::PROMPT);
 
 /// Database-only agent instructions, without unrelated tool capabilities.
 pub static DATABASE_TOOL_USE_PROMPT: ComposedPrompt = BASE_PROMPT.compose(&databases::PROMPT);
@@ -110,13 +65,12 @@ pub static DATABASE_READ_ONLY_TOOL_USE_PROMPT: ComposedPrompt =
 /// because it governs content written *into* a Markdown document (via
 /// `CreateDocument`/`EditDocument`), not the model's chat replies. See
 /// [`mentions`] for the full statement of which surfaces (replies, channel
-/// messages, email bodies, and Markdown documents) these Markdown/mention
+/// messages, and Markdown documents) these Markdown/mention
 /// rules cover.
 static MCP_STATIC_INSTRUCTIONS: ComposedPrompt = citations::PROMPT
     .compose(&do_not::PROMPT)
     .compose(&about_macro::PROMPT)
     .compose(&databases::PROMPT)
-    .compose(&crm_pipelines::PROMPT)
     .compose(&document_content_links::PROMPT);
 
 /// Builds the instructions surfaced to external MCP clients via the server
@@ -198,98 +152,6 @@ mod tests {
     }
 
     #[test]
-    fn direct_tool_use_prompt_omits_composer_confirmed_user_tool_rules() {
-        // Hosts on the direct prompt (channel bot, MCP) have no composer and
-        // no SendEmail tool; describing deferred user tools there would tell
-        // the model the opposite of what its tools actually do.
-        let direct = DIRECT_TOOL_USE_PROMPT.to_string();
-        assert!(!direct.contains("PendingUserExecution"));
-        assert!(!direct.contains("MUST use the `SendEmail` tool"));
-
-        // The chat prompt keeps both rules.
-        let chat = TOOL_USE_PROMPT.to_string();
-        assert!(chat.contains("PendingUserExecution"));
-        assert!(chat.contains("MUST use the `SendEmail` tool"));
-    }
-
-    #[test]
-    fn session_tool_use_prompt_describes_a_review_in_the_turn_not_a_pending_composer() {
-        // An agent session finishes user tools in the turn: the model never
-        // sees "PendingUserExecution" there, and telling it about a composer
-        // to confirm in later would have it say so to the user.
-        let session = SESSION_TOOL_USE_PROMPT.to_string();
-        assert!(!session.contains("PendingUserExecution"));
-        assert!(session.contains("review card"));
-        assert!(session.contains("MUST use the `SendEmail` tool"));
-        assert!(session.contains("do not ask for confirmation in prose"));
-    }
-
-    #[test]
-    fn session_tool_use_prompt_routes_thread_prompts_to_prose_and_the_confirmed_send() {
-        // A prompt read out of a channel or document thread has no review
-        // card anyone is watching: the model asks in the thread, then sends
-        // on the user's reply through SendConfirmedEmail, quoting it.
-        let session = SESSION_TOOL_USE_PROMPT.to_string();
-        assert!(session.contains("channel or document thread"));
-        assert!(session.contains("context block names a conversation parent"));
-        assert!(session.contains("`SendConfirmedEmail`"));
-        assert!(session.contains("quoted verbatim"));
-        assert!(session.contains("`userConfirmation`"));
-        assert!(session.contains("`AskUser`"));
-        assert!(session.contains(
-            "`SendConfirmedEmail` and `CreateConfirmedCalendarEvent` are never right here"
-        ));
-
-        // The thread rule is to restate what the tool would have done, whole,
-        // so the user can approve it without opening the session - and it
-        // covers every user tool, not just email: an approved event goes
-        // through the calendar twin of the confirmed send.
-        assert!(session.contains("written out verbatim"));
-        assert!(session.contains("the whole calendar event"));
-        assert!(session.contains("`CreateConfirmedCalendarEvent` for the event"));
-
-        // Which prompt is being answered decides it, not the session.
-        assert!(session.contains("decided per"));
-    }
-
-    #[test]
-    fn session_tool_use_prompt_treats_a_private_conversation_like_the_session_view() {
-        // A DM with the agent is read live: its questions and review cards
-        // appear there, so the thread rule does not apply to it.
-        let session = SESSION_TOOL_USE_PROMPT.to_string();
-        assert!(session.contains("private conversation with the user is the exception"));
-        assert!(session.contains("like one typed in the agent session view"));
-    }
-
-    #[test]
-    fn session_tool_use_prompt_keeps_the_thread_mechanics_away_from_the_user() {
-        // The thread rule explains review cards and the session view so the
-        // model knows why it writes the draft out. None of that is for the
-        // user, who asked for an email or an event and should just get the
-        // draft and a question - not a note about where their prompt came from.
-        let session = SESSION_TOOL_USE_PROMPT.to_string();
-        assert!(session.contains("The rule above is for you, not the user"));
-        assert!(session.contains("Never explain why you are writing the draft out"));
-        assert!(session.contains("not mention the agent session view, review cards"));
-        assert!(session.contains("does not know or care"));
-        assert!(session.contains("with no preamble about"));
-    }
-
-    #[test]
-    fn chat_prompt_names_the_confirmed_tools_only_to_rule_them_out() {
-        // The chat host has the same toolset and a composer, so the direct
-        // tools are visible there and must be steered away from; the direct
-        // prompt's hosts do not register them and say nothing about them.
-        let chat = TOOL_USE_PROMPT.to_string();
-        assert!(chat.contains("`SendConfirmedEmail`"));
-        assert!(chat.contains("`CreateConfirmedCalendarEvent`"));
-        assert!(chat.contains("never use them here"));
-        let direct = DIRECT_TOOL_USE_PROMPT.to_string();
-        assert!(!direct.contains("SendConfirmedEmail"));
-        assert!(!direct.contains("CreateConfirmedCalendarEvent"));
-    }
-
-    #[test]
     fn tool_use_prompt_also_carries_document_content_link_rules() {
         // The in-app prompt should keep the same guidance so behavior doesn't
         // diverge between surfaces.
@@ -322,27 +184,12 @@ mod tests {
     }
 
     #[test]
-    fn mentions_and_document_content_links_share_the_booking_link_mention_tag() {
-        const TAG: &str = r#"<m-booking-link-mention>{"profileId":"{profile_id}","slug":"{slug}","url":"https://macro.com/app/book/{profile_id}/{slug}","label":""}</m-booking-link-mention>"#;
-        assert!(mentions::PROMPT.instructions.contains(TAG));
-        assert!(document_content_links::PROMPT.instructions.contains(TAG));
-        assert!(mcp_instructions("https://macro.com").contains(TAG));
-    }
-
-    #[test]
     fn agent_session_preamble_tells_the_model_to_emit_mention_tags() {
         let preamble = agent_session::PROMPT.to_string();
         assert!(preamble.contains("XML mention tag"));
         assert!(preamble.contains("clickable chips"));
         assert!(preamble.contains("agent session"));
         assert!(preamble.contains("date/time"));
-    }
-
-    #[test]
-    fn mentions_prompt_says_a_shared_calendar_event_previews_for_channel_members() {
-        let instructions = mentions::PROMPT.instructions.as_ref();
-        assert!(instructions.contains("read-only preview"));
-        assert!(instructions.contains("Private and confidential events are never shared"));
     }
 
     #[test]
@@ -354,7 +201,6 @@ mod tests {
         assert!(instructions.contains("\"expanded\":true"));
         assert!(instructions.contains("\"blockName\":\"skill\""));
         assert!(instructions.contains("\"blockName\":\"initiative\""));
-        assert!(instructions.contains("\"blockName\":\"pipeline\""));
     }
 
     #[test]
@@ -377,12 +223,7 @@ mod tests {
         // non-Markdown-document exception, and the tool-use tone rule must not
         // silently bleed into tool-authored content.
         let in_app = TOOL_USE_PROMPT.to_string();
-        for surface in [
-            "SendChannelMessage",
-            "SendEmail",
-            "CreateDocument",
-            "agent session",
-        ] {
+        for surface in ["SendChannelMessage", "CreateDocument", "agent session"] {
             assert!(
                 in_app.contains(surface),
                 "markdown surface scope should name {surface}"

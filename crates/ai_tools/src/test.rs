@@ -467,8 +467,6 @@ fn code_mode_retains_direct_lifecycles_and_hides_sdk_methods_from_lazy_discovery
         assert!(eager.iter().any(|schema| schema.name == name), "{name}");
     }
     let prompt = direct.prompt.to_string();
-    assert!(!prompt.contains("the turn waits while the user"));
-    assert!(prompt.contains("Do not wait for the user to act on a saved review"));
     assert!(!prompt.contains("- ReadMetadata:"));
     let routing = prompt::tool_usage::CODE_MODE_ROUTING.to_string();
     assert!(prompt.contains(&routing));

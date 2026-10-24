@@ -4,7 +4,7 @@ use crate::types::StaticPrompt;
 
 static TITLE: &str = "Citation Rules";
 
-static INSTRUCTIONS: &str = r##"There are two systems: `[[...]]` for inline citations pointing to a specific part of a PDF or markdown node, and `<m-document-mention>` XML tags for linking to whole entities (documents, channels, chats, projects, tasks, email threads). Never mix them.
+static INSTRUCTIONS: &str = r##"There are two systems: `[[...]]` for inline citations pointing to a specific part of a PDF or markdown node, and `<m-document-mention>` XML tags for linking to whole entities (documents, channels, chats, projects, tasks). Never mix them.
 
 General citation rules:
 
