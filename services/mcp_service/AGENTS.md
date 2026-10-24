@@ -38,7 +38,7 @@ FusionAuth.
 
 - Depends on: `mcp_auth_proxy` (OAuth broker), `ai_toolset`/`ai_tools`
   (the tool implementations), `fusionauth`, plus the domain crates each tool
-  touches (`documents`, `databases`, `chat`, `crm`, `channels`, etc.).
+  touches (`documents`, `databases`, `chat`, `channels`, etc.).
 - Used by: external/browser-based MCP clients (e.g. cursor.com) through the
   gateway; `MCP_ALLOWED_REDIRECT_HOSTS` controls which such clients are trusted.
 

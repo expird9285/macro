@@ -95,21 +95,19 @@ where
     fn get_info(&self) -> ServerInfo {
         let mut info = ServerInfo::new(ServerCapabilities::builder().enable_tools().build());
         let base_url = self.item_base_url.trim_end_matches('/');
-        info.server_info = rmcp::model::Implementation::new(
-            "macro-tools",
-            env!("CARGO_PKG_VERSION"),
-        )
-        .with_title("Macro")
-        .with_description(
-            "Search, read, and create content across documents, emails, and messages in Macro.",
-        )
-        // The same icon the web app's <link rel="icon"> points at, so the
-        // server shows up in MCP clients with the Macro favicon.
-        .with_icons(vec![
-            Icon::new(format!("{base_url}/app/macro-favicon.svg"))
-                .with_mime_type("image/svg+xml")
-                .with_sizes(vec!["any".to_owned()]),
-        ]);
+        info.server_info =
+            rmcp::model::Implementation::new("macro-tools", env!("CARGO_PKG_VERSION"))
+                .with_title("Macro")
+                .with_description(
+                    "Search, read, and create content across documents and messages in Macro.",
+                )
+                // The same icon the web app's <link rel="icon"> points at, so the
+                // server shows up in MCP clients with the Macro favicon.
+                .with_icons(vec![
+                    Icon::new(format!("{base_url}/app/macro-favicon.svg"))
+                        .with_mime_type("image/svg+xml")
+                        .with_sizes(vec!["any".to_owned()]),
+                ]);
         info.instructions = Some(format!(
             "This server provides tools for interacting with a user's Macro workspace. \
              Use ContentSearch and NameSearch to find entities. \

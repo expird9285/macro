@@ -22,7 +22,7 @@ async fn server_info_advertises_macro_tools() {
         info.server_info
             .description
             .as_deref()
-            .is_some_and(|description| description.contains("documents, emails, and messages"))
+            .is_some_and(|description| description.contains("documents and messages"))
     );
     assert!(info.capabilities.tools.is_some());
 }
@@ -165,10 +165,11 @@ fn read_only_tools_map_to_read_only_hint() {
 
 #[test]
 fn destructive_tools_map_to_destructive_hint() {
-    let annotations =
-        mcp_annotations(&ai_toolset::ToolAnnotations::destructive("Send email").with_open_world());
+    let annotations = mcp_annotations(
+        &ai_toolset::ToolAnnotations::destructive("Delete document").with_open_world(),
+    );
 
-    assert_eq!(annotations.title.as_deref(), Some("Send email"));
+    assert_eq!(annotations.title.as_deref(), Some("Delete document"));
     assert_eq!(annotations.read_only_hint, Some(false));
     assert_eq!(annotations.destructive_hint, Some(true));
     assert_eq!(annotations.open_world_hint, Some(true));
