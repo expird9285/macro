@@ -18,7 +18,7 @@ use messages::domain::{
 use uuid::Uuid;
 
 use super::models::{BotEvent, BotTrigger, MarkedPassage};
-use super::ports::{AgentResponder, CommentMarks, ConversationAccess, UserTimeZones};
+use super::ports::{AgentResponder, CommentMarks, ConversationAccess};
 use super::sender_label;
 
 /// How many channel messages preceding the trigger to include as local context.
@@ -252,36 +252,15 @@ const THINKING_MESSAGE: &str = r#"<m-await>{"text":"Macro is thinking…","inlin
 const EMPTY_RESPONSE_FALLBACK: &str = "I wasn't able to come up with a response.";
 const ERROR_FALLBACK: &str = "Sorry — I ran into an error while responding.";
 
-/// Render the `<current_time>` block: now in the user's primary calendar
-/// time zone when one is known and parseable, UTC otherwise.
-fn current_time_block(now: chrono::DateTime<chrono::Utc>, time_zone: Option<&str>) -> String {
+/// Render the `<current_time>` block: now in UTC. No user time zone is
+/// stored, so the block says it is unknown rather than letting the model
+/// read UTC as the user's own.
+fn current_time_block(now: chrono::DateTime<chrono::Utc>) -> String {
     const FORMAT: &str = "%A, %B %-d, %Y, %-I:%M %p";
-    let parsed = time_zone.map(|name| {
-        (
-            name,
-            name.parse::<chrono_tz::Tz>().inspect_err(|error| {
-                tracing::warn!(error=?error, time_zone = name, "unparseable calendar time zone");
-            }),
-        )
-    });
-    let line = match parsed {
-        Some((name, Ok(tz))) => format!(
-            "{} — {name}, the time zone of the user's primary calendar",
-            now.with_timezone(&tz).format(FORMAT)
-        ),
-        // A calendar IS connected here, so the no-calendar wording would
-        // mislead the model into denying the connection.
-        Some((_, Err(_))) => format!(
-            "{} — UTC; the user's own time zone is unknown (their calendar's time \
-             zone could not be interpreted)",
-            now.format(FORMAT)
-        ),
-        None => format!(
-            "{} — UTC; the user's own time zone is unknown (no connected calendar)",
-            now.format(FORMAT)
-        ),
-    };
-    format!("\n<current_time>\n{line}\n</current_time>\n")
+    format!(
+        "\n<current_time>\n{} — UTC; the user's own time zone is unknown\n</current_time>\n",
+        now.format(FORMAT)
+    )
 }
 
 /// In-process handler for the Macro AI system bot.
@@ -290,33 +269,29 @@ fn current_time_block(now: chrono::DateTime<chrono::Utc>, time_zone: Option<&str
 /// edits that same message with the final answer. Reads and writes go through
 /// the shared message service under the invoking user's current capability,
 /// so channels and document discussions behave the same way.
-pub struct MacroAiHandler<R, Z> {
+pub struct MacroAiHandler<R> {
     messages: Arc<dyn MessageServiceApi>,
     access: Arc<dyn ConversationAccess>,
     responder: Arc<R>,
-    time_zones: Arc<Z>,
     marks: Arc<dyn CommentMarks>,
     admission: Arc<dyn AiAdmissionService>,
 }
 
-impl<R, Z> MacroAiHandler<R, Z>
+impl<R> MacroAiHandler<R>
 where
     R: AgentResponder,
-    Z: UserTimeZones,
 {
     /// Create a Macro AI handler over the shared message service.
     pub fn new(
         messages: Arc<dyn MessageServiceApi>,
         access: Arc<dyn ConversationAccess>,
         responder: Arc<R>,
-        time_zones: Arc<Z>,
         marks: Arc<dyn CommentMarks>,
     ) -> Self {
         Self {
             messages,
             access,
             responder,
-            time_zones,
             marks,
             admission: Arc::new(DisabledAiAdmissionService),
         }
@@ -446,23 +421,17 @@ where
             anyhow::bail!("trigger no longer belongs to this conversation");
         }
 
-        let (nearby, time_zone) = futures::join!(
-            async {
-                if matches!(parent, MessageParent::Channel(_)) {
-                    self.messages
-                        .preceding(view.clone(), trigger_id, CONTEXT_MESSAGES_BEFORE)
-                        .await
-                        .inspect_err(|err| {
-                            tracing::warn!(error=?err, "failed to load local channel context")
-                        })
-                        .unwrap_or_default()
-                } else {
-                    Vec::new()
-                }
-            },
-            self.time_zones
-                .primary_time_zone(event.requesting_user.as_ref()),
-        );
+        let nearby = if matches!(parent, MessageParent::Channel(_)) {
+            self.messages
+                .preceding(view.clone(), trigger_id, CONTEXT_MESSAGES_BEFORE)
+                .await
+                .inspect_err(
+                    |err| tracing::warn!(error=?err, "failed to load local channel context"),
+                )
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
 
         let mut prompt = format!("Conversation parent: {}\n", serde_json::to_string(parent)?);
         // Entity discussions and call chat are threads from their roots;
@@ -558,10 +527,7 @@ where
             );
         }
 
-        prompt.push_str(&current_time_block(
-            chrono::Utc::now(),
-            time_zone.as_deref(),
-        ));
+        prompt.push_str(&current_time_block(chrono::Utc::now()));
 
         let _ = write!(prompt, "\nReply to {mentioner}.");
         Ok(prompt)

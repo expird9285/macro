@@ -8,7 +8,7 @@ use tracing::Instrument as _;
 
 use crate::domain::{
     models::BotEvent,
-    ports::{AgentResponder, CommentMarks, ConversationAccess, TriggerDetector, UserTimeZones},
+    ports::{AgentResponder, CommentMarks, ConversationAccess, TriggerDetector},
     service::MacroAiHandler,
 };
 
@@ -23,12 +23,12 @@ use crate::domain::{
 /// are ignored here; only Macro AI is handled by this branch. Non-system bots
 /// are notified of mentions out of process via the trigger topic and webhooks
 /// instead (see the `agent_trigger` and `webhook` crates).
-pub struct BotTriggerRouter<R, D, Z> {
-    macro_ai: Arc<MacroAiHandler<R, Z>>,
+pub struct BotTriggerRouter<R, D> {
+    macro_ai: Arc<MacroAiHandler<R>>,
     detector: Arc<D>,
 }
 
-impl<R, D, Z> Clone for BotTriggerRouter<R, D, Z> {
+impl<R, D> Clone for BotTriggerRouter<R, D> {
     fn clone(&self) -> Self {
         Self {
             macro_ai: self.macro_ai.clone(),
@@ -37,11 +37,10 @@ impl<R, D, Z> Clone for BotTriggerRouter<R, D, Z> {
     }
 }
 
-impl<R, D, Z> BotTriggerRouter<R, D, Z>
+impl<R, D> BotTriggerRouter<R, D>
 where
     R: AgentResponder,
     D: TriggerDetector,
-    Z: UserTimeZones,
 {
     /// Create a router with the built-in system bots registered.
     pub fn new(
@@ -49,7 +48,6 @@ where
         access: Arc<dyn ConversationAccess>,
         responder: Arc<R>,
         detector: Arc<D>,
-        time_zones: Arc<Z>,
         marks: Arc<dyn CommentMarks>,
     ) -> Self {
         Self::new_with_admission(
@@ -57,7 +55,6 @@ where
             access,
             responder,
             detector,
-            time_zones,
             marks,
             Arc::new(ai_billing::DisabledAiAdmissionService),
         )
@@ -70,14 +67,12 @@ where
         access: Arc<dyn ConversationAccess>,
         responder: Arc<R>,
         detector: Arc<D>,
-        time_zones: Arc<Z>,
         marks: Arc<dyn CommentMarks>,
         admission: Arc<dyn ai_billing::AiAdmissionService>,
     ) -> Self {
         Self {
             macro_ai: Arc::new(
-                MacroAiHandler::new(messages, access, responder, time_zones, marks)
-                    .with_admission(admission),
+                MacroAiHandler::new(messages, access, responder, marks).with_admission(admission),
             ),
             detector,
         }
@@ -88,7 +83,6 @@ where
     where
         R: 'static,
         D: 'static,
-        Z: 'static,
     {
         tokio::spawn(async move {
             while let Some(candidate) = candidates.recv().await {

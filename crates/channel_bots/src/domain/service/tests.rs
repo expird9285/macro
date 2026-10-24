@@ -34,24 +34,11 @@ fn responder(result: &'static str) -> Arc<Responder> {
     })
 }
 
-struct FixedTimeZones(Option<&'static str>);
-
-#[async_trait]
-impl UserTimeZones for FixedTimeZones {
-    async fn primary_time_zone(&self, _user_id: &str) -> Option<String> {
-        self.0.map(str::to_string)
-    }
-}
-
-fn eastern_time_zones() -> Arc<FixedTimeZones> {
-    Arc::new(FixedTimeZones(Some("America/New_York")))
-}
-
 fn handler(
     api: MockMessageServiceApi,
     access: Arc<Access>,
     responder: Arc<Responder>,
-) -> MacroAiHandler<Responder, FixedTimeZones> {
+) -> MacroAiHandler<Responder> {
     handler_with_marks(api, access, responder, Marks::none())
 }
 
@@ -60,14 +47,8 @@ fn handler_with_marks(
     access: Arc<Access>,
     responder: Arc<Responder>,
     marks: Arc<Marks>,
-) -> MacroAiHandler<Responder, FixedTimeZones> {
-    MacroAiHandler::new(
-        Arc::new(api),
-        access,
-        responder,
-        eastern_time_zones(),
-        marks,
-    )
+) -> MacroAiHandler<Responder> {
+    MacroAiHandler::new(Arc::new(api), access, responder, marks)
 }
 
 fn invocation(trigger: &messages::domain::models::Message) -> BotEvent {
@@ -608,7 +589,7 @@ async fn a_trigger_that_moved_threads_or_changed_author_is_not_prompted() {
 }
 
 #[tokio::test]
-async fn prompt_carries_the_current_time_in_the_users_zone() {
+async fn prompt_carries_the_current_time_in_utc_with_the_zone_unknown() {
     let trigger = message(1, None, "@macro help");
     let mut api = MockMessageServiceApi::new();
     configure_reads(&mut api, &trigger, thread(trigger.clone(), vec![]));
@@ -618,54 +599,17 @@ async fn prompt_carries_the_current_time_in_the_users_zone() {
         .unwrap();
 
     assert!(prompt.contains("<current_time>"));
-    assert!(prompt.contains("America/New_York, the time zone of the user's primary calendar"));
+    assert!(prompt.contains("UTC; the user's own time zone is unknown"));
     assert!(prompt.ends_with("Reply to person."));
 }
 
-#[tokio::test]
-async fn prompt_says_the_time_zone_is_unknown_without_a_calendar() {
-    let trigger = message(1, None, "@macro help");
-    let mut api = MockMessageServiceApi::new();
-    configure_reads(&mut api, &trigger, thread(trigger.clone(), vec![]));
-    let prompt = MacroAiHandler::new(
-        Arc::new(api),
-        Arc::new(Access::default()),
-        responder("reply"),
-        Arc::new(FixedTimeZones(None)),
-        Marks::none(),
-    )
-    .build_prompt(&invocation(&trigger))
-    .await
-    .unwrap();
-
-    assert!(prompt.contains("UTC; the user's own time zone is unknown"));
-}
-
 #[test]
-fn current_time_block_renders_the_users_zone() {
+fn current_time_block_renders_utc() {
     let now = Utc.with_ymd_and_hms(2026, 1, 6, 18, 23, 0).unwrap();
     assert_eq!(
-        current_time_block(now, Some("America/New_York")),
-        "\n<current_time>\nTuesday, January 6, 2026, 1:23 PM — America/New_York, the time zone \
-         of the user's primary calendar\n</current_time>\n"
-    );
-}
-
-#[test]
-fn current_time_block_falls_back_to_utc_for_missing_or_bad_zones() {
-    let now = Utc.with_ymd_and_hms(2026, 1, 6, 18, 23, 0).unwrap();
-    assert_eq!(
-        current_time_block(now, None),
+        current_time_block(now),
         "\n<current_time>\nTuesday, January 6, 2026, 6:23 PM — UTC; the user's own \
-         time zone is unknown (no connected calendar)\n</current_time>\n"
-    );
-    // An unparseable zone still means a calendar is connected, so the line
-    // must not claim otherwise.
-    assert_eq!(
-        current_time_block(now, Some("Not/AZone")),
-        "\n<current_time>\nTuesday, January 6, 2026, 6:23 PM — UTC; the user's own \
-         time zone is unknown (their calendar's time zone could not be \
-         interpreted)\n</current_time>\n"
+         time zone is unknown\n</current_time>\n"
     );
 }
 

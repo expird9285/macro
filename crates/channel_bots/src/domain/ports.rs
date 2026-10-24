@@ -16,14 +16,6 @@ pub trait AgentResponder: Send + Sync {
     async fn respond(&self, user_id: &str, prompt: String) -> anyhow::Result<String>;
 }
 
-/// Resolves the time zone a user's schedule lives in.
-#[async_trait]
-pub trait UserTimeZones: Send + Sync {
-    /// The IANA time zone of the user's primary calendar, `None` when no
-    /// calendar is connected. Best effort: lookup failures resolve to `None`.
-    async fn primary_time_zone(&self, user_id: &str) -> Option<String>;
-}
-
 /// Reads what a comment mark covers in the live document.
 #[async_trait]
 pub trait CommentMarks: Send + Sync {

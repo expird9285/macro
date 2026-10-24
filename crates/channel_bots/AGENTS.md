@@ -26,7 +26,7 @@ decides whether to trigger, authorizes, and delivers a reply.
 
 ## Boundaries
 
-- Depends on: `bots`, `channels`, `calendar_events` (time zones), `lexical_client`,
+- Depends on: `bots`, `channels`, `lexical_client`,
   `messages`, `prompt`, `ai_tools`/`ai_toolset`, `ai_usage`/`ai_billing`.
 - Used by: `services/document_storage_service`, its composition root.
 
