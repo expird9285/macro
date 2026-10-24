@@ -4,21 +4,11 @@ use ::forms::{
     domain::{authoring::workflow::AuthoringWorkflow, ports::FormEventPublisher},
     outbound::{
         authoring_access::EntityAuthoringAccess,
-        authoring_booking::SchedulingTargets,
         gateway_event_publisher::{FormPublishError, GatewayFormEventPublisher},
-    },
-};
-use calendar_scheduling::{
-    domain::service::Service as SchedulingService,
-    outbound::{
-        macro_services::{MacroCalendars, MacroDirectory},
-        postgres::PostgresRepository,
     },
 };
 use collab_surface::outbound::{PgCollabSurfaceService, pg_collab_surface_service};
 
-type Calendars = MacroCalendars<ToolCalendarReadService, ToolCalendarMutationService>;
-type Directory = MacroDirectory<TeamRepositoryImpl>;
 /// Liveness is optional only for hosts without a gateway (including isolated tests).
 pub struct ToolFormEvents(Option<GatewayFormEventPublisher>);
 impl FormEventPublisher for ToolFormEvents {
@@ -41,7 +31,7 @@ type Core = ::forms::wiring::PgFormsService<
 pub type ToolFormsService = AuthoringWorkflow<
     Core,
     ToolDatabasesService,
-    SchedulingTargets<PostgresRepository, Calendars, Directory>,
+    (),
     EntityAuthoringAccess<ToolEntityAccessService>,
     ::forms::outbound::authoring_editor::WorkerFormEditor,
 >;
@@ -56,12 +46,11 @@ pub struct FormsToolConfig {
     pub editing_worker_url: String,
 }
 
-/// Reuse host clients and the same Forms and Scheduling domain services as HTTP.
+/// Reuse host clients and the same Forms domain services as HTTP.
 pub fn build_forms_tool_context(
     pool: sqlx::PgPool,
     documents: &ToolDocumentToolContext,
     databases: &ToolDatabasesToolContext,
-    calendars: &ToolCalendarToolContext,
     gateway: Option<ConnectionGatewayClient>,
     broker: MaybeToolEventBroker,
     config: FormsToolConfig,
@@ -84,20 +73,11 @@ pub fn build_forms_tool_context(
         broker,
         surfaces,
     ));
-    let scheduling = Arc::new(SchedulingService::new(
-        PostgresRepository::new(pool.clone()),
-        MacroCalendars::new(
-            calendars.occurrences.clone(),
-            calendars.mutations.clone(),
-            Some(app_origin.clone()),
-        ),
-        MacroDirectory(TeamRepositoryImpl::new(pool.clone())),
-    ));
     ToolFormsToolContext {
         service: Arc::new(AuthoringWorkflow {
             core,
             databases: databases.service.clone(),
-            booking: SchedulingTargets(scheduling),
+            booking: (),
             access: EntityAuthoringAccess(databases.entity_access_service.clone()),
             editor: ::forms::outbound::authoring_editor::WorkerFormEditor::new(
                 reqwest::Client::new(),

@@ -18,11 +18,9 @@ use super::context::SearchToolContext;
 pub enum SearchEntityType {
     AgentSessions,
     Documents,
-    Emails,
     Channels,
     Projects,
     CallRecords,
-    CalendarEvents,
 }
 
 impl From<SearchEntityType> for models_search::unified::UnifiedSearchIndex {
@@ -30,11 +28,9 @@ impl From<SearchEntityType> for models_search::unified::UnifiedSearchIndex {
         match value {
             SearchEntityType::AgentSessions => Self::AgentSessions,
             SearchEntityType::Documents => Self::Documents,
-            SearchEntityType::Emails => Self::Emails,
             SearchEntityType::Channels => Self::Channels,
             SearchEntityType::Projects => Self::Projects,
             SearchEntityType::CallRecords => Self::CallRecords,
-            SearchEntityType::CalendarEvents => Self::CalendarEvents,
         }
     }
 }
@@ -57,13 +53,10 @@ pub(super) fn search_filters(
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum SessionAwareSearchResult {
     Document(models_search::document::DocumentSearchResponseItemWithMetadata),
-    Email(models_search::email::EmailSearchResponseItemWithMetadata),
     ChannelMessage(models_search::channel::ChannelMessageSearchResponseItem),
     Channel(models_search::channel::ChannelNameSearchResponseItem),
     Project(models_search::project::ProjectSearchResponseItemWithMetadata),
     Call(models_search::call_record::CallRecordSearchResponseItemWithMetadata),
-    Company(models_search::crm_company::CrmCompanySearchResponseItem),
-    CalendarEvent(models_search::calendar_event::CalendarEventSearchResponseItemWithMetadata),
     AgentSession(models_search::agent_session::AgentSessionSearchResponseItem),
 }
 
@@ -72,13 +65,10 @@ impl SessionAwareSearchResult {
         Some(match item {
             UnifiedSearchResponseItem::Chat(_) => return None,
             UnifiedSearchResponseItem::Document(item) => Self::Document(item),
-            UnifiedSearchResponseItem::Email(item) => Self::Email(item),
             UnifiedSearchResponseItem::ChannelMessage(item) => Self::ChannelMessage(item),
             UnifiedSearchResponseItem::Channel(item) => Self::Channel(item),
             UnifiedSearchResponseItem::Project(item) => Self::Project(item),
             UnifiedSearchResponseItem::Call(item) => Self::Call(item),
-            UnifiedSearchResponseItem::Company(item) => Self::Company(item),
-            UnifiedSearchResponseItem::CalendarEvent(item) => Self::CalendarEvent(item),
             UnifiedSearchResponseItem::AgentSession(item) => Self::AgentSession(item),
         })
     }
@@ -241,14 +231,11 @@ fn item_properties(item: &UnifiedSearchResponseItem) -> Option<&Vec<SoupProperty
     match item {
         UnifiedSearchResponseItem::Document(i) => i.properties.as_ref(),
         UnifiedSearchResponseItem::Chat(i) => i.properties.as_ref(),
-        UnifiedSearchResponseItem::Email(i) => i.properties.as_ref(),
         UnifiedSearchResponseItem::Project(i) => i.properties.as_ref(),
         UnifiedSearchResponseItem::Call(i) => i.properties.as_ref(),
-        UnifiedSearchResponseItem::CalendarEvent(i) => i.properties.as_ref(),
         UnifiedSearchResponseItem::Channel(_)
         | UnifiedSearchResponseItem::ChannelMessage(_)
-        | UnifiedSearchResponseItem::AgentSession(_)
-        | UnifiedSearchResponseItem::Company(_) => None,
+        | UnifiedSearchResponseItem::AgentSession(_) => None,
     }
 }
 
@@ -256,14 +243,11 @@ fn item_properties_mut(item: &mut UnifiedSearchResponseItem) -> Option<&mut Vec<
     match item {
         UnifiedSearchResponseItem::Document(i) => i.properties.as_mut(),
         UnifiedSearchResponseItem::Chat(i) => i.properties.as_mut(),
-        UnifiedSearchResponseItem::Email(i) => i.properties.as_mut(),
         UnifiedSearchResponseItem::Project(i) => i.properties.as_mut(),
         UnifiedSearchResponseItem::Call(i) => i.properties.as_mut(),
-        UnifiedSearchResponseItem::CalendarEvent(i) => i.properties.as_mut(),
         UnifiedSearchResponseItem::Channel(_)
         | UnifiedSearchResponseItem::ChannelMessage(_)
-        | UnifiedSearchResponseItem::AgentSession(_)
-        | UnifiedSearchResponseItem::Company(_) => None,
+        | UnifiedSearchResponseItem::AgentSession(_) => None,
     }
 }
 

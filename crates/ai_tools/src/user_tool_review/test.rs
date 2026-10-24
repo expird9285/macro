@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::*;
-use crate::{AiHost, tools_for};
 
 fn owner() -> MacroUserIdStr<'static> {
     MacroUserIdStr::try_from_email("owner@macro.com").expect("a valid user id")
@@ -26,32 +25,96 @@ fn field<'form>(form: &'form ReviewForm, name: &str) -> &'form ReviewField {
         .unwrap_or_else(|| panic!("the form has a {name} field: {form:#?}"))
 }
 
-/// The real `CreateCalendarEvent` schema, from the chat toolset that
-/// registers it as a user tool.
-fn create_calendar_event_schema() -> Map<String, Value> {
-    let tools = tools_for(AiHost::Chat);
-    tools
-        .toolset
+/// A user tool with flat scalars, an optional string, a boolean, an enum and
+/// nested arguments, to project a review form from.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+#[schemars(title = "ScheduleMeeting", description = "Schedules a meeting.")]
+#[expect(dead_code, reason = "the fields only shape the tool's input schema")]
+struct ScheduleMeeting {
+    /// What the meeting is called.
+    title: String,
+    /// What the meeting is about.
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default)]
+    location: Option<String>,
+    #[serde(default)]
+    add_conference: bool,
+    #[serde(default)]
+    event_type: Option<MeetingKind>,
+    #[serde(default)]
+    time: Option<MeetingTime>,
+    #[serde(default)]
+    attendees: Vec<Attendee>,
+    #[serde(default)]
+    out_of_office: Option<MeetingTime>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+enum MeetingKind {
+    Default,
+    OutOfOffice,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+#[expect(dead_code, reason = "the fields only shape the tool's input schema")]
+struct MeetingTime {
+    starts_at: String,
+    ends_at: String,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[expect(dead_code, reason = "the fields only shape the tool's input schema")]
+struct Attendee {
+    email: String,
+}
+
+impl ToolAnnotated for ScheduleMeeting {
+    const ANNOTATIONS: ToolAnnotations = ToolAnnotations::read_only("Schedule a meeting");
+}
+
+#[async_trait]
+impl AsyncTool<Ran> for ScheduleMeeting {
+    type Output = Greeting;
+
+    async fn call(
+        &self,
+        _context: ServiceContext<Ran>,
+        _request: RequestContext,
+    ) -> ToolResult<Self::Output> {
+        Ok(Greeting {
+            text: self.title.clone(),
+        })
+    }
+}
+
+/// The input schema of [`ScheduleMeeting`] as the toolset registers it.
+fn schedule_meeting_schema() -> Map<String, Value> {
+    AsyncToolCollection::<Ran>::new()
+        .add_user_tool::<ScheduleMeeting, Ran>()
         .user_tools
-        .get("CreateCalendarEvent")
-        .expect("chat registers CreateCalendarEvent as a user tool")
+        .get("ScheduleMeeting")
+        .expect("registered as a user tool")
         .input_schema
         .clone()
 }
 
 #[test]
 fn the_form_shows_a_tools_flat_arguments_prefilled_and_leaves_the_rest_to_the_draft() {
-    let schema = create_calendar_event_schema();
+    let schema = schedule_meeting_schema();
     let draft = json!({
         "title": "Q3 sync",
-        "time": {"kind": "timed", "startsAt": "2026-08-20T17:00:00Z", "endsAt": "2026-08-20T17:30:00Z"},
+        "time": {"startsAt": "2026-08-20T17:00:00Z", "endsAt": "2026-08-20T17:30:00Z"},
         "location": "Room 4",
         "attendees": [{"email": "alice@example.com"}],
         "addConference": true,
     });
-    let form = project_form(Some("Create calendar event".to_owned()), &schema, &draft);
+    let form = project_form(Some("Schedule meeting".to_owned()), &schema, &draft);
 
-    assert_eq!(form.title.as_deref(), Some("Create calendar event"));
+    assert_eq!(form.title.as_deref(), Some("Schedule meeting"));
     assert_eq!(
         field(&form, "title").kind,
         ReviewFieldKind::Text {
@@ -86,13 +149,7 @@ fn the_form_shows_a_tools_flat_arguments_prefilled_and_leaves_the_rest_to_the_dr
         "an enum is a choice, unset when the draft omits it"
     );
     // Objects and arrays have no flat shape: they ride in the draft field.
-    for nested in [
-        "time",
-        "attendees",
-        "reminders",
-        "outOfOffice",
-        "recurrenceLines",
-    ] {
+    for nested in ["time", "attendees", "outOfOffice"] {
         assert!(
             form.fields.iter().all(|field| field.name != nested),
             "{nested} is not a flat field"

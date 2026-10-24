@@ -45,7 +45,7 @@ pub struct ReviewRequest {
     pub tool_name: String,
     /// The call's id as the transcript shows it.
     pub tool_call_id: String,
-    /// What the user is asked, in one line: "Create calendar event?".
+    /// What the user is asked, in one line: "Schedule meeting?".
     pub message: String,
     /// The arguments the model called the tool with, whole.
     pub draft: Value,

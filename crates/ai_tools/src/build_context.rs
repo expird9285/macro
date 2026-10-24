@@ -19,10 +19,6 @@ use documents::inbound::toolset::DocumentToolContext;
 use documents::outbound::editing_worker_client::ReqwestEditingWorkerClient;
 use documents::outbound::pg_document_repo::PgDocumentRepo;
 use documents::outbound::s3_upload_url::S3UploadUrlAdapter;
-use email::domain::ports::ReadonlyEmailPreviewAdapter;
-use email::domain::service::EmailServiceImpl;
-use email::outbound::EmailPgRepo;
-use email_service_client::EmailServiceClientExternal;
 use entity_access::domain::service::EntityAccessServiceImpl;
 use entity_access::outbound::PgAccessRepository;
 use entity_registry::OwnerGrantPolicy;
@@ -43,8 +39,8 @@ use lexical_client::LexicalClient;
 use macro_env::Environment;
 use macro_env_var::{env_var, maybe_env_var};
 use macro_service_urls::{
-    AiEditingWorkerUrl, AppServiceUrl, CalendarServiceUrl, ConnectionGatewayUrl,
-    DocumentStorageServiceUrl, EmailServiceUrl, LexicalServiceUrl, SyncServiceUrl,
+    AiEditingWorkerUrl, ConnectionGatewayUrl, DocumentStorageServiceUrl, LexicalServiceUrl,
+    SyncServiceUrl,
 };
 use notification::domain::service::{NotificationReaderService, PlatformArnConfig};
 use notification::outbound::queue::SqsQueue;
@@ -76,8 +72,6 @@ env_var! {
 
 maybe_env_var! {
     struct ToolContextMaybeEnvVars {
-        EnableEmailScheduledQueue,
-        EnableGmailOpsQueue,
         EnableNotificationQueue,
         McpCredentialsKeySecretName,
     }
@@ -145,12 +139,7 @@ pub fn build_cognition_tool_context() -> anyhow::Result<crate::ToolCognitionTool
 ///
 /// Queue wiring is opt-in via boolean flags (default `false`); the queue name
 /// itself comes from `macro_queues` when enabled:
-/// - `ENABLE_EMAIL_SCHEDULED_QUEUE`
-/// - `ENABLE_GMAIL_OPS_QUEUE` (if disabled, thread-label updates can't enqueue Gmail sync ops)
 /// - `ENABLE_NOTIFICATION_QUEUE` (if disabled, notification status updates skip push clearing)
-///
-/// `ATTACHMENT_BUCKET` (the email service's draft attachment bucket) is
-/// optional; without it `SendEmail` refuses attachments but still sends.
 ///
 /// `enforcement` is validated by the host at startup and shared with all other
 /// AI entry points. It configures quota admission here and must be the policy
@@ -179,26 +168,12 @@ pub async fn build_tool_service_context_from_env(
     let environment = Environment::new_or_prod();
     let document_storage_service_url = DocumentStorageServiceUrl::new()?.to_string();
     let sync_service_url = SyncServiceUrl::new()?.to_string();
-    let email_service_url = EmailServiceUrl::new()?.to_string();
-    let calendar_service_url = CalendarServiceUrl::new()?;
     let lexical_service_url = LexicalServiceUrl::new()?.to_string();
     let ai_editing_worker_url = AiEditingWorkerUrl::new()?.to_string();
     let connection_gateway_url = ConnectionGatewayUrl::new()?.to_string();
 
     let aws_config = macro_aws_config::get_macro_aws_config().await;
     let aws_sqs_client = aws_sdk_sqs::Client::new(&aws_config);
-    let enable_email_scheduled_queue = maybe_env
-        .enable_email_scheduled_queue
-        .as_ref()
-        .and_then(|v| v.value())
-        .and_then(|v| v.parse::<bool>().ok())
-        .unwrap_or(false);
-    let enable_gmail_ops_queue = maybe_env
-        .enable_gmail_ops_queue
-        .as_ref()
-        .and_then(|v| v.value())
-        .and_then(|v| v.parse::<bool>().ok())
-        .unwrap_or(false);
     let enable_notification_queue = maybe_env
         .enable_notification_queue
         .as_ref()
@@ -206,15 +181,6 @@ pub async fn build_tool_service_context_from_env(
         .and_then(|v| v.parse::<bool>().ok())
         .unwrap_or(false);
 
-    let mut sqs_client = sqs_client::SQS::new(aws_sqs_client.clone());
-    if enable_email_scheduled_queue {
-        let email_scheduled_queue = macro_queues::EmailScheduledQueue::new();
-        sqs_client = sqs_client.email_scheduled_queue(email_scheduled_queue.as_ref());
-    }
-    if enable_gmail_ops_queue {
-        let gmail_ops_queue = macro_queues::GmailOpsQueue::new();
-        sqs_client = sqs_client.gmail_ops_queue(gmail_ops_queue.as_ref());
-    }
     let notification_queue = if enable_notification_queue {
         let notification_queue = macro_queues::NotificationIngressQueue::new();
         ToolNotificationQueue::Sqs(SqsQueue::new(
@@ -254,32 +220,15 @@ pub async fn build_tool_service_context_from_env(
         sync_service_auth_key.clone(),
         sync_service_url,
     ));
-    let email_ext_client = Arc::new(EmailServiceClientExternal::new(email_service_url.clone()));
     let lexical_client = LexicalClient::new(env.internal_api_key.to_string(), lexical_service_url);
 
     let frecency_storage = FrecencyPgStorage::new(pool.clone());
     let frecency_service = FrecencyQueryServiceImpl::new(frecency_storage.clone());
-    let crm_service = crm::domain::service::CrmServiceImpl::new(
-        crm::outbound::companies_repo::CompaniesRepositoryImpl::new(pool.clone()),
-        crm::outbound::no_op_resolver::NoOpCompanyMetadataResolver,
-    );
-    let email_service = EmailServiceImpl::new(
-        EmailPgRepo::new(pool.clone()),
-        frecency_service.clone(),
-        email::domain::ports::NoOpEnqueuer,
-        crm_service.clone(),
-        entity_access_management::domain::service::EntityAccessManagementServiceImpl::new(
-            entity_access_management::outbound::PgRepository::new(pool.clone()),
-        ),
-        0,
-    );
     let channels_service = ChannelListServiceImpl::new(
         PgChannelsRepo::new(pool.clone()),
         PgChannelsRepo::new(pool.clone()),
         frecency_storage,
     );
-    let email_service_for_tools: Arc<crate::tool_context::ToolEmailService> =
-        Arc::new(email_service.clone());
     let github_pull_request_service = GithubPullRequestServiceImpl::new(
         ForeignEntityServiceImpl::new(PgForeignEntityRepo::new(pool.clone())),
         PgGithubPullRequestRepo::new(pool.clone()),
@@ -289,12 +238,10 @@ pub async fn build_tool_service_context_from_env(
         SoupImpl::new(
             PgSoupRepo::new(ReadOnlyPool(pool.clone())),
             frecency_service,
-            ReadonlyEmailPreviewAdapter(email_service),
             channels_service,
             call::domain::service::CallRecordQueryServiceImpl::new(
                 call::outbound::pg_call_repo::PgCallRepo::new(pool.clone()),
             ),
-            crm::domain::service::NoOpCrmService,
             github_pull_request_service,
         )
         .with_favorites(favorites_service.clone()),
@@ -396,36 +343,6 @@ pub async fn build_tool_service_context_from_env(
         entity_access_service.clone(),
     );
 
-    let user_email_service = Arc::new(
-        EmailServiceImpl::new(
-            EmailPgRepo::new(pool.clone()),
-            FrecencyQueryServiceImpl::new(FrecencyPgStorage::new(pool.clone())),
-            sqs_client,
-            crm_service.clone(),
-            entity_access_management::domain::service::EntityAccessManagementServiceImpl::new(
-                entity_access_management::outbound::PgRepository::new(pool.clone()),
-            ),
-            0,
-        )
-        .with_macro_event_broker(macro_event_broker.clone()),
-    );
-    let email_tool_context = email::inbound::toolset::EmailToolContext::new(
-        user_email_service.clone(),
-        Arc::new(email::domain::ports::NoOpGmailTokenProvider),
-        Arc::new(EntityAccessServiceImpl::new(PgAccessRepository::new(
-            pool.clone(),
-        ))),
-        Arc::new(lexical_client),
-    )
-    .with_attachment_sender(
-        crate::email_attachments::build_email_attachment_sender(
-            user_email_service.clone(),
-            EmailPgRepo::new(pool.clone()),
-            document_tool_context.service.clone(),
-        )
-        .await,
-    );
-
     let call_service = call::domain::service::CallServiceImpl::new(
         call::outbound::pg_call_repo::PgCallRepo::new(pool.clone()),
         NoOpCallRtcClient,
@@ -438,14 +355,6 @@ pub async fn build_tool_service_context_from_env(
     let call_tool_context = call::inbound::toolset::CallToolContext::new(
         call_service,
         (*entity_access_service).clone(),
-    );
-
-    let calendar_tool_context = crate::tool_context::build_calendar_tool_context(
-        pool.clone(),
-        calendar_service_url,
-        env.internal_api_key.to_string(),
-        call_tool_context.service.clone(),
-        AppServiceUrl::new()?,
     );
 
     let notification_reader_service = NotificationReaderService {
@@ -481,7 +390,6 @@ pub async fn build_tool_service_context_from_env(
         macro_event_broker.clone(),
         entity_access_service.clone(),
         document_tool_context.service.clone(),
-        user_email_service.clone(),
     );
 
     let anthropic_tool_context = build_anthropic_tool_context();
@@ -515,23 +423,10 @@ pub async fn build_tool_service_context_from_env(
         soup_service.clone(),
         pool.clone(),
     );
-    let crm_tool_context = crate::tool_context::build_crm_tool_context(pool.clone());
-    let pipeline_tool_context = crate::tool_context::build_pipeline_tool_context(
-        pool.clone(),
-        &databases_tool_context,
-        &crm_tool_context,
-    );
-    let crm_transfer_tool_context = crate::tool_context::build_crm_transfer_tool_context(
-        &pipeline_tool_context,
-        &crm_tool_context,
-        &document_tool_context,
-    );
-
     let forms_tool_context = crate::tool_context::build_forms_tool_context(
         pool.clone(),
         &document_tool_context,
         &databases_tool_context,
-        &calendar_tool_context,
         Some(side_effect_clients.connection_gateway.as_ref().clone()),
         crate::tool_context::MaybeToolEventBroker::Real(macro_event_broker.clone()),
         crate::tool_context::FormsToolConfig {
@@ -604,9 +499,7 @@ pub async fn build_tool_service_context_from_env(
             pipedream_client.clone(),
         ),
         search_service_client: search_client.clone(),
-        email_service_client: email_ext_client,
         soup_service,
-        email_service: email_service_for_tools,
         activity_tool_context: crate::tool_context::build_activity_tool_context(
             pool.clone(),
             properties_service,
@@ -623,24 +516,7 @@ pub async fn build_tool_service_context_from_env(
         ),
         document_tool_context,
         properties_tool_context,
-        email_tool_context,
         call_tool_context,
-        calendar_tool_context,
-        team_calendar_tool_context: crate::tool_context::build_team_calendar_tool_context(
-            pool.clone(),
-            macro_env_var::maybe_read_env("CALENDAR_TEAM_SHARING_ENABLED")
-                .and_then(|value| value.parse::<bool>().ok())
-                .unwrap_or(false),
-        ),
-        booking_management_tool_context: crate::tool_context::build_booking_management_tool_context(
-            CalendarServiceUrl::new()?,
-            env.internal_api_key.to_string(),
-            environment,
-        ),
-        booking_link_tool_context: crate::tool_context::build_booking_link_tool_context(
-            pool.clone(),
-            environment,
-        ),
         notification_tool_context,
         item_notification_preference_tool_context:
             crate::tool_context::build_item_notification_preference_tool_context(pool.clone()),
@@ -673,9 +549,6 @@ pub async fn build_tool_service_context_from_env(
         ),
         initiative_tool_context,
         team_tool_context: crate::tool_context::build_team_tool_context(pool.clone()),
-        crm_tool_context,
-        pipeline_tool_context,
-        crm_transfer_tool_context,
         skill_tool_context,
         schedule_tool_context: crate::build_routine_tool_context()?,
         anthropic_tool_context,

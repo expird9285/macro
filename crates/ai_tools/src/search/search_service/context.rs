@@ -1,4 +1,4 @@
-use crate::tool_context::{ToolEmailService, ToolPropertiesService, ToolServiceContext};
+use crate::tool_context::{ToolPropertiesService, ToolServiceContext};
 use ai_usage::AiFeature;
 use axum::extract::FromRef;
 use search_service_client::SearchServiceClient;
@@ -14,9 +14,6 @@ use uuid::Uuid;
 pub struct SearchToolContext {
     /// Client used to perform the unified search.
     pub search_client: Arc<SearchServiceClient>,
-    /// Email service used to resolve an `inbox` selector to a link id when a
-    /// search is scoped to a single inbox.
-    pub email_service: Arc<ToolEmailService>,
     /// Properties service used to resolve tag labels for filters and results.
     pub properties_service: Arc<ToolPropertiesService>,
     /// Entity id of the chat this request belongs to, when the request is an
@@ -36,7 +33,6 @@ impl FromRef<ToolServiceContext> for SearchToolContext {
             .flatten();
         SearchToolContext {
             search_client: ctx.search_service_client.clone(),
-            email_service: ctx.email_service.clone(),
             properties_service: ctx.properties_tool_context.service.clone(),
             self_chat_id,
         }

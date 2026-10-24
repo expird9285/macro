@@ -10,7 +10,7 @@ test-support = []
 [dependencies]
 clap = { workspace = true, features = ["derive"] }
 favorites = { path = "../favorites", features = ["ai_tools", "postgres"] }
-forms = { path = "../forms", features = ["ai_tools", "gateway", "postgres", "scheduling"] }
+forms = { path = "../forms", features = ["ai_tools", "gateway", "postgres"] }
 routines = { path = "../routines" }
 macro_auth = { path = "../macro_auth" }
 agent_code_mode = { path = "../agent_code_mode" }
@@ -97,7 +97,6 @@ projects = { path = "../projects", default-features = false, features = ["ai_too
 skills = { path = "../skills", default-features = false, features = ["ai_tools", "outbound"] }
 properties = { path = "../properties", features = ["ai_tools"] }
 soup = { path = "../soup", features = ["ai_tools", "outbound"] }
-sqs_client = { path = "../sqs_client", default-features = false }
 teams = { path = "../teams", default-features = false, features = ["ai_tools", "outbound"] }
 sqlx.workspace = true
 strum.workspace = true

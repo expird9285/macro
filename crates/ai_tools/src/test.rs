@@ -71,7 +71,7 @@ fn database_only_toolset_exposes_exactly_its_database_capabilities() {
     assert_eq!(names, expected);
     assert!(
         tools.user_tools.is_empty(),
-        "database actions must not expose email/calendar composers"
+        "database actions must not expose user-tool composers"
     );
 }
 
@@ -133,8 +133,8 @@ fn project_workflows_are_available_in_every_host_alongside_folder_and_property_t
 
 /// Every host, including MCP, can take the item actions the app's menus
 /// offer: editing channel messages and comments, trashing, duplicating,
-/// renaming, sharing, favoriting, and muting items, DMs, CRM records, calls,
-/// skills, and routines.
+/// renaming, sharing, favoriting, and muting items, DMs, calls, skills, and
+/// routines.
 #[test]
 fn app_item_actions_are_available_in_every_host() {
     let names = [
@@ -153,8 +153,6 @@ fn app_item_actions_are_available_in_every_host() {
         "MuteNotifications",
         "RunRoutine",
         "DeleteRoutine",
-        "CreateCompany",
-        "CreateContact",
         "UpdateCallRecord",
         "DeleteCallRecord",
     ];
@@ -198,31 +196,10 @@ fn document_answers_expose_discovery_and_the_one_query_tool() {
     assert!(tools.user_tools.is_empty());
 }
 
-/// An agent session finishes user tools in the turn, so it keeps chat's
-/// deferring registrations - and gets the prompt that says a review card,
-/// not a pending composer, is what follows the call.
+/// An agent session serves chat's tools, plus connector discovery.
 #[test]
-fn the_agent_session_host_keeps_chats_user_tools_with_the_review_prompt() {
+fn the_agent_session_host_has_chats_tools_plus_connector_discovery() {
     let session = tools_for(AiHost::AgentSession);
-    assert!(
-        session
-            .toolset
-            .user_tools
-            .contains_key("CreateCalendarEvent")
-    );
-    assert!(session.toolset.user_tools.contains_key("SendEmail"));
-    // The confirmed twins execute in the loop, beside the deferring tools,
-    // for the prompts a session reads out of a thread.
-    assert!(session.toolset.tools.contains_key("SendConfirmedEmail"));
-    assert!(
-        session
-            .toolset
-            .tools
-            .contains_key("CreateConfirmedCalendarEvent")
-    );
-    let prompt = session.prompt.to_string();
-    assert!(prompt.contains("review card"));
-    assert!(!prompt.contains("PendingUserExecution"));
     assert_eq!(
         session.toolset.request_schemas().map(|schemas| schemas
             .into_iter()
@@ -234,42 +211,6 @@ fn the_agent_session_host_keeps_chats_user_tools_with_the_review_prompt() {
             .map(|schemas| schemas.len()),
         "the same tools as chat except agent-session connector discovery"
     );
-}
-
-/// Hosts without a composer cannot finish a deferred user tool, so their
-/// toolsets must execute calendar creation directly and omit SendEmail
-/// entirely — a `UserToolResponse` output there would mean a call that
-/// nothing can ever execute.
-#[test]
-fn composerless_hosts_execute_calendar_create_directly_and_omit_send_email() {
-    for host in [AiHost::ChannelBot, AiHost::Mcp] {
-        let json = frontend_schemas_builder()
-            .merge(&tools_for(host))
-            .build()
-            .to_json_pretty()
-            .expect("host schemas serialize");
-        let schemas: serde_json::Value = serde_json::from_str(&json).expect("valid schema json");
-        let tools = schemas["tools"].as_array().expect("tools array");
-
-        let create = tools
-            .iter()
-            .find(|tool| tool["name"] == "CreateCalendarEvent")
-            .expect("composer-less toolset keeps CreateCalendarEvent");
-        assert_eq!(create["output"], "ToolCalendarEvent", "{host:?}");
-
-        assert!(
-            !tools.iter().any(|tool| tool["name"] == "SendEmail"),
-            "{host:?} toolset must not expose SendEmail"
-        );
-        // The confirmed twins are for the in-process agent's thread turns;
-        // these hosts already create directly and keep their own policy.
-        for name in ["SendConfirmedEmail", "CreateConfirmedCalendarEvent"] {
-            assert!(
-                !tools.iter().any(|tool| tool["name"] == name),
-                "{host:?} toolset must not expose {name}"
-            );
-        }
-    }
 }
 
 #[test]
@@ -315,31 +256,6 @@ fn frontend_schemas_build() {
             "removed tool {name} must not be generated"
         );
     }
-}
-
-#[test]
-fn frontend_schemas_distinguish_user_tool_response_types() {
-    let json = all_tool_frontend_schemas()
-        .to_json_pretty()
-        .expect("frontend schemas serialize");
-    let schemas: serde_json::Value = serde_json::from_str(&json).expect("valid schema json");
-    let tools = schemas["tools"].as_array().expect("tools array");
-    let output_for = |name: &str| {
-        tools
-            .iter()
-            .find(|tool| tool["name"] == name)
-            .and_then(|tool| tool["output"].as_str())
-            .expect("tool output schema")
-    };
-
-    assert_eq!(
-        output_for("CreateCalendarEvent"),
-        "UserToolResponseForToolCalendarEvent"
-    );
-    assert_eq!(
-        output_for("SendEmail"),
-        "UserToolResponseForSendEmailResponse"
-    );
 }
 
 /// The configure-agent system skill walks an agent through `ListAgents` and
@@ -495,51 +411,6 @@ fn forms_are_discoverable_and_execute_directly_on_every_host() {
 }
 
 #[test]
-fn booking_link_mutations_execute_without_a_review_on_every_host() {
-    for host in [
-        AiHost::Chat,
-        AiHost::AgentSession,
-        AiHost::ChannelBot,
-        AiHost::Mcp,
-    ] {
-        let tools = tools_for(host).toolset;
-        assert!(tools.tools.contains_key("ListBookingLinks"));
-        for name in ["CreateBookingLink", "EditBookingLink"] {
-            assert!(tools.tools.contains_key(name));
-            assert!(!tools.user_tools.contains_key(name));
-        }
-    }
-}
-
-mod booking_links;
-
-#[test]
-fn booking_management_has_mcp_and_chat_parity() {
-    let names = [
-        "ReadBookingSettings",
-        "UpdateBookingSettings",
-        "ListBookings",
-        "GetBookingInsights",
-        "GetBookingRescheduleSlots",
-        "ChangeBooking",
-    ];
-    for host in [
-        AiHost::Chat,
-        AiHost::AgentSession,
-        AiHost::ChannelBot,
-        AiHost::Mcp,
-    ] {
-        let tools = tools_for(host);
-        for name in names {
-            assert!(
-                tools.toolset.tools.contains_key(name),
-                "{host:?} must expose {name}"
-            );
-        }
-    }
-}
-
-#[test]
 fn code_mode_retains_direct_lifecycles_and_hides_sdk_methods_from_lazy_discovery() {
     let standard = tools_for(AiHost::AgentSession);
     let direct = tools_for_agent_code_mode();
@@ -574,15 +445,7 @@ fn code_mode_retains_direct_lifecycles_and_hides_sdk_methods_from_lazy_discovery
     }
     for name in standard.toolset.user_tools.keys() {
         assert!(direct.toolset.user_tools.contains_key(name), "{name}");
-        if matches!(name.as_str(), "SendEmail" | "CreateCalendarEvent") {
-            assert!(!direct.toolset.tools.contains_key(name), "{name}");
-            assert!(
-                !direct.deferred.iter().any(|tool| tool.name == *name),
-                "{name}"
-            );
-        } else {
-            assert!(direct.toolset.tools.contains_key(name), "{name}");
-        }
+        assert!(direct.toolset.tools.contains_key(name), "{name}");
     }
     let standard_deferred =
         DeferredToolSet::new(standard.toolset.clone(), standard.deferred.clone());
@@ -603,15 +466,8 @@ fn code_mode_retains_direct_lifecycles_and_hides_sdk_methods_from_lazy_discovery
     ] {
         assert!(eager.iter().any(|schema| schema.name == name), "{name}");
     }
-    for name in ["SendEmail", "CreateCalendarEvent"] {
-        assert!(standard.toolset.tools.contains_key(name));
-        assert!(sdk.tools.contains_key(name));
-        assert!(!eager.iter().any(|tool| tool.name == name));
-        assert!(deferred.routing_description(name).is_none());
-    }
     let prompt = direct.prompt.to_string();
     assert!(!prompt.contains("the turn waits while the user"));
-    assert!(!prompt.contains("you MUST use the `SendEmail` tool"));
     assert!(prompt.contains("Do not wait for the user to act on a saved review"));
     assert!(!prompt.contains("- ReadMetadata:"));
     let routing = prompt::tool_usage::CODE_MODE_ROUTING.to_string();

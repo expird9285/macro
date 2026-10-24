@@ -17,8 +17,8 @@ use crate::ToolServiceContext;
 static ABOUT_MACRO: &str = r##"# About Macro
 
 Macro is a single, fast workspace that unifies the tools a team uses to get work
-done — email, messaging, tasks, documents, and more — into one linked database.
-Everything can reference everything else: a task can link to an email, a doc can
+done — messaging, tasks, documents, and more — into one linked database.
+Everything can reference everything else: a task can link to a doc, a doc can
 @mention a channel message, and so on. The backend is Rust and the frontend is
 Solid, so it is built for speed.
 
@@ -26,12 +26,10 @@ Solid, so it is built for speed.
 
 Macro is organized into "blocks":
 
-- **Email** — email, integrated directly into the workspace.
 - **Channels** — Slack-like messaging channels; the default way people communicate.
 - **Tasks** — task and project tracking.
 - **Docs** — collaborative documents.
 - **Calls** — calls and call records.
-- **CRM** — customer relationship management.
 - **Folders** — file storage.
 - **Agents** — AI conversations that can act across the workspace. Read conversations with ReadAgentSession.
 
@@ -68,8 +66,8 @@ channels.
 ### Quick links (fetch with a trailing `.md`; link users to the route without it)
 
 - Get started: https://docs.macro.com/getting-started.md
-- Products (https://docs.macro.com/product/<name>.md): email, channels, tasks,
-  docs, calls, crm, folders, agents, inbox, search, snippets,
+- Products (https://docs.macro.com/product/<name>.md): channels, tasks,
+  docs, calls, folders, agents, inbox, search, snippets,
   unified-memory
 - Concepts (https://docs.macro.com/concepts/<name>.md): blocks, mentions,
   properties
