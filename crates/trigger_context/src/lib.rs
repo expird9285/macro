@@ -372,7 +372,7 @@ pub enum RoutineTrigger {
     },
     /// Events it watches.
     Events {
-        /// The event names, such as `email.message_received`.
+        /// The event names, such as `document.created`.
         events: Vec<String>,
         /// Only these entities, when the routine narrows to some.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -451,11 +451,6 @@ pub enum RoutineEvent {
     TaskPropertyChanged {
         /// The task as it reads now.
         task: TaskSnapshot,
-    },
-    /// An email arrived.
-    EmailReceived {
-        /// The email.
-        email: EmailSnapshot,
     },
     /// A channel was created.
     ChannelCreated {
@@ -577,21 +572,4 @@ pub struct DocumentSnapshot {
     /// Text content, bounded. Absent for documents with no readable text.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
-}
-
-/// An email, read under the routine owner's access.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EmailSnapshot {
-    /// Thread id.
-    pub thread_id: Uuid,
-    /// Subject line.
-    pub subject: String,
-    /// Sender, as the email names them.
-    pub from: String,
-    /// Recipients.
-    pub to: Vec<String>,
-    /// When it arrived.
-    pub received_at: DateTime<Utc>,
-    /// Body as plain text, bounded.
-    pub body: String,
 }

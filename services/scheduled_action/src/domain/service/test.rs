@@ -1308,7 +1308,7 @@ fn conditional_configuration() -> ActionConfiguration {
     ActionConfiguration {
         trigger: serde_json::from_value(json!({
             "type": "events",
-            "filters": [{"events": ["email.message_received"], "condition": "Is this an invoice?"}]
+            "filters": [{"events": ["document.created"], "condition": "Is this an invoice?"}]
         }))
         .unwrap(),
         ..configuration(true)
@@ -1369,17 +1369,17 @@ async fn conditions_are_rejected_unless_the_host_can_check_them() {
 #[test]
 fn conditions_are_trimmed_bounded_and_round_trip() {
     let filters: crate::domain::event_trigger::EventFilters = serde_json::from_value(json!([
-        {"events": ["email.message_received"], "condition": "  Is this urgent?  "}
+        {"events": ["document.created"], "condition": "  Is this urgent?  "}
     ]))
     .unwrap();
     assert_eq!(
         serde_json::to_value(&filters).unwrap(),
-        json!([{"events": ["email.message_received"], "condition": "Is this urgent?"}])
+        json!([{"events": ["document.created"], "condition": "Is this urgent?"}])
     );
     for condition in [json!(""), json!("   "), json!("x".repeat(501)), json!(3)] {
         assert!(
             serde_json::from_value::<crate::domain::event_trigger::EventFilters>(json!([
-                {"events": ["email.message_received"], "condition": condition}
+                {"events": ["document.created"], "condition": condition}
             ]))
             .is_err(),
             "{condition}"

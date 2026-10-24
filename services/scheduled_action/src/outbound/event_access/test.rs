@@ -107,13 +107,6 @@ async fn mints_entity_specific_receipts_for_exact_owner_and_entity() {
     let owner = MacroUserIdStr::parse_from_str("macro|owner@macro.com").unwrap();
     for (name, kind, permission) in [
         (
-            "email.message_received",
-            EntityType::EmailThread,
-            EntityPermission::AccessLevel {
-                access_level: AccessLevel::View,
-            },
-        ),
-        (
             "document.deleted",
             EntityType::Document,
             EntityPermission::AccessLevel {

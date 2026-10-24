@@ -15,10 +15,6 @@ use channels::domain::{
     ports::ChannelService,
 };
 use documents::domain::ports::DocumentRepo;
-use email::domain::{
-    models::{ContactInfo, ParsedMessage},
-    ports::EmailContentService,
-};
 use entity_access::domain::models::{EntityAccessReceipt, ViewAccessLevel, ViewOnly};
 use lexical_client::{LexicalClient, parse_markdown::MarkdownTarget};
 use macro_user_id::user_id::MacroUserIdStr;
@@ -56,12 +52,9 @@ const MAX_TEXT_CHARS: usize = 8_000;
 /// Longest call transcript passed on, in characters: about half an hour of
 /// conversation, and still well inside what Jev reads.
 const MAX_TRANSCRIPT_CHARS: usize = 24_000;
-/// Messages per thread page searched for the triggering email, newest first.
-const EMAIL_PAGE: i64 = 20;
 const MARKDOWN_FILE_TYPE: &str = "md";
 
-pub struct EventContentAdapter<E, M, C, D, P, K> {
-    email: E,
+pub struct EventContentAdapter<M, C, D, P, K> {
     messages: M,
     channels: C,
     documents: D,
@@ -70,9 +63,8 @@ pub struct EventContentAdapter<E, M, C, D, P, K> {
     markdown: LexicalClient,
 }
 
-impl<E, M, C, D, P, K> EventContentAdapter<E, M, C, D, P, K> {
+impl<M, C, D, P, K> EventContentAdapter<M, C, D, P, K> {
     pub fn new(
-        email: E,
         messages: M,
         channels: C,
         documents: D,
@@ -81,7 +73,6 @@ impl<E, M, C, D, P, K> EventContentAdapter<E, M, C, D, P, K> {
         markdown: LexicalClient,
     ) -> Self {
         Self {
-            email,
             messages,
             channels,
             documents,
@@ -92,9 +83,8 @@ impl<E, M, C, D, P, K> EventContentAdapter<E, M, C, D, P, K> {
     }
 }
 
-impl<E, M, C, D, P, K> EventContentReader for EventContentAdapter<E, M, C, D, P, K>
+impl<M, C, D, P, K> EventContentReader for EventContentAdapter<M, C, D, P, K>
 where
-    E: EmailContentService,
     M: MessageReader,
     C: ChannelService,
     D: DocumentRepo,
@@ -112,9 +102,8 @@ where
     }
 }
 
-impl<E, M, C, D, P, K> RoutineEventReader for EventContentAdapter<E, M, C, D, P, K>
+impl<M, C, D, P, K> RoutineEventReader for EventContentAdapter<M, C, D, P, K>
 where
-    E: EmailContentService,
     M: MessageReader,
     C: ChannelService,
     D: DocumentRepo,
@@ -137,8 +126,6 @@ where
     reason = "read once per run and consumed at once"
 )]
 enum EventContent {
-    /// The triggering email; None once it is gone from the thread's latest page.
-    Email(Option<ParsedMessage>),
     Channel {
         channel: ChannelMetadata,
         /// None for events without a message, and once the message is gone.
@@ -160,9 +147,8 @@ struct ChannelMessage {
     thread: Option<MessageThread>,
 }
 
-impl<E, M, C, D, P, K> EventContentAdapter<E, M, C, D, P, K>
+impl<M, C, D, P, K> EventContentAdapter<M, C, D, P, K>
 where
-    E: EmailContentService,
     M: MessageReader,
     C: ChannelService,
     D: DocumentRepo,
@@ -176,9 +162,6 @@ where
     ) -> Result<EventContent, Report> {
         let event = &run.pending.event;
         match &run.access {
-            EventAccessCapability::EmailThread(receipt) => Ok(EventContent::Email(
-                self.email(receipt.clone(), event).await?,
-            )),
             EventAccessCapability::Channel(receipt) => {
                 self.channel(owner, receipt.clone(), event).await
             }
@@ -198,22 +181,6 @@ where
             Err(CallError::NotFound(_)) => Ok(None),
             Err(error) => Err(Report::new(error).into_dynamic()),
         }
-    }
-
-    async fn email(
-        &self,
-        receipt: EntityAccessReceipt<ViewAccessLevel>,
-        event: &EventReference,
-    ) -> Result<Option<ParsedMessage>, Report> {
-        let messages = self
-            .email
-            .get_messages_parsed(receipt, 0, EMAIL_PAGE)
-            .await
-            .map_err(|error| Report::new(error).into_dynamic())?
-            .unwrap_or_default();
-        Ok(messages
-            .into_iter()
-            .find(|message| Some(message.db_id) == event.message_id()))
     }
 
     async fn channel(
@@ -325,12 +292,6 @@ where
 /// The classifier's view of the content.
 fn content_json(event: &EventReference, content: &EventContent) -> Value {
     match content {
-        EventContent::Email(message) => json!({
-            "email": message.as_ref().map_or_else(
-                || unavailable("the email is no longer available"),
-                email_json,
-            ),
-        }),
         EventContent::Channel { channel, message } => {
             let mut value = json!({
                 "channel": {
@@ -393,34 +354,6 @@ fn truncate_to(text: &str, max_chars: usize) -> String {
         Some((end, _)) => format!("{}…", &text[..end]),
         None => text.to_owned(),
     }
-}
-
-fn contact(contact: &ContactInfo) -> Value {
-    json!({ "name": contact.name, "email": contact.email })
-}
-
-/// The reply-free body, else the full text, else the snippet; bounded.
-fn email_body(message: &ParsedMessage) -> Option<String> {
-    message
-        .body_parsed
-        .as_deref()
-        .or(message.body_text.as_deref())
-        .or(message.snippet.as_deref())
-        .map(truncate)
-}
-
-fn email_json(message: &ParsedMessage) -> Value {
-    let body = email_body(message);
-    json!({
-        "subject": message.subject,
-        "from": message.from.as_ref().map(contact),
-        "to": message.to.iter().map(contact).collect::<Vec<_>>(),
-        "cc": message.cc.iter().map(contact).collect::<Vec<_>>(),
-        "received_at": message.internal_date_ts.or(message.sent_at),
-        "labels": message.labels.iter().map(|label| &label.name).collect::<Vec<_>>(),
-        "has_attachments": message.has_attachments,
-        "body": body,
-    })
 }
 
 fn channel_type(channel_type: ChannelType) -> &'static str {

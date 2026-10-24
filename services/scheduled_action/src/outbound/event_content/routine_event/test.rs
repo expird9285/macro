@@ -5,7 +5,6 @@ use call::domain::{
 use channels::domain::models::{ChannelMetadata, ChannelType as ChannelKind};
 use chrono::{DateTime, TimeZone, Utc};
 use document_sub_type::DocumentSubType;
-use email::domain::models::{ContactInfo, ParsedLabel, ParsedMessage};
 use macro_user_id::user_id::MacroUserIdStr;
 use macro_uuid::Uuid;
 use messages::domain::models::{Message, MessageParent, MessageThread, ThreadState};
@@ -21,8 +20,7 @@ use serde_json::json;
 use system_properties::SystemPropertyKey;
 use trigger_context::{
     CallSnapshot, CallStartedSnapshot, ChannelType, ContextMessage, ContextPerson, ContextThread,
-    DiscussionContext, DiscussionSurface, EmailSnapshot, ReplyTarget, RoutineEvent, TaskSnapshot,
-    TranscriptLine,
+    DiscussionContext, DiscussionSurface, ReplyTarget, RoutineEvent, TaskSnapshot, TranscriptLine,
 };
 
 use super::super::{ChannelMessage, EventContent, MAX_TRANSCRIPT_CHARS};
@@ -330,83 +328,6 @@ fn a_task_status_change_carries_the_task_as_it_reads_now() {
                     email: Some("sam@example.com".into()),
                 }],
                 project: None,
-            },
-        }
-    );
-}
-
-#[test]
-fn a_received_email_carries_its_headers_and_reply_free_body() {
-    let event: EventReference = serde_json::from_value(json!({
-        "event_id": "01928f3e-6a2b-7c3d-8e4f-0123456789cd",
-        "event_name": "email.message_received",
-        "entity_id": "01928f3e-6a2b-7c3d-8e4f-00000000e7a1",
-        "message_id": "01928f3e-6a2b-7c3d-8e4f-00000000e3e5",
-    }))
-    .unwrap();
-    let received_at = Utc.with_ymd_and_hms(2026, 10, 5, 9, 30, 0).unwrap();
-    let content = EventContent::Email(Some(ParsedMessage {
-        db_id: Uuid::parse_str("01928f3e-6a2b-7c3d-8e4f-00000000e3e5").unwrap(),
-        link_id: Uuid::nil(),
-        thread_db_id: Uuid::parse_str("01928f3e-6a2b-7c3d-8e4f-00000000e7a1").unwrap(),
-        subject: Some("Invoice #42".into()),
-        snippet: Some("Please find attached".into()),
-        from: Some(ContactInfo {
-            email: "billing@vendor.com".into(),
-            name: Some("Vendor Billing".into()),
-            photo_url: Some("https://example.com/p.png".into()),
-        }),
-        to: vec![
-            ContactInfo {
-                email: "dana@example.com".into(),
-                name: None,
-                photo_url: None,
-            },
-            ContactInfo {
-                email: "ap@example.com".into(),
-                name: Some("Accounts Payable".into()),
-                photo_url: None,
-            },
-        ],
-        cc: Vec::new(),
-        bcc: vec![ContactInfo {
-            email: "hidden@example.com".into(),
-            name: None,
-            photo_url: None,
-        }],
-        labels: vec![ParsedLabel {
-            provider_id: "INBOX".into(),
-            name: "Inbox".into(),
-        }],
-        body_parsed: Some("Your invoice for October is $420.".into()),
-        body_text: Some("full text with quoted replies".into()),
-        body_html_sanitized: None,
-        body_macro: None,
-        body_replyless: None,
-        internal_date_ts: Some(received_at),
-        sent_at: None,
-        is_read: false,
-        is_starred: false,
-        is_sent: false,
-        is_draft: false,
-        has_attachments: true,
-        created_at: received_at,
-        updated_at: received_at,
-    }));
-
-    assert_eq!(
-        routine_event(&event, content).unwrap(),
-        RoutineEvent::EmailReceived {
-            email: EmailSnapshot {
-                thread_id: Uuid::parse_str("01928f3e-6a2b-7c3d-8e4f-00000000e7a1").unwrap(),
-                subject: "Invoice #42".into(),
-                from: "Vendor Billing <billing@vendor.com>".into(),
-                to: vec![
-                    "dana@example.com".into(),
-                    "Accounts Payable <ap@example.com>".into(),
-                ],
-                received_at,
-                body: "Your invoice for October is $420.".into(),
             },
         }
     );

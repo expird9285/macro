@@ -1,7 +1,7 @@
 //! Routine-owned event eligibility and exact selector matching.
 //!
 //! Adapters strip the broker envelope into [`IncomingEvent`]. Only explicitly
-//! allowlisted human actions, inbound emails and call lifecycle events become
+//! allowlisted human actions and call lifecycle events become
 //! compact [`EventReference`]s.
 
 use activity::Actor;
@@ -11,7 +11,6 @@ use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use document_sub_type::DocumentSubType;
 use documents::domain::events::DocumentTopicEvent;
-use email::domain::events::EmailTopicEvent;
 use jev::domain::YesNoQuestion;
 use macro_user_id::user_id::MacroUserIdStr;
 use macro_uuid::Uuid;
@@ -170,8 +169,6 @@ pub enum EventName {
     TaskPriorityChanged,
     #[serde(rename = "task.property_changed")]
     TaskPropertyChanged,
-    #[serde(rename = "email.message_received")]
-    EmailMessageReceived,
     #[serde(rename = "channel.created")]
     ChannelCreated,
     #[serde(rename = "channel.message_posted")]
@@ -198,7 +195,6 @@ impl EventName {
             Self::TaskStatusChanged => "task.status_changed",
             Self::TaskPriorityChanged => "task.priority_changed",
             Self::TaskPropertyChanged => "task.property_changed",
-            Self::EmailMessageReceived => "email.message_received",
             Self::ChannelCreated => "channel.created",
             Self::ChannelMessagePosted => "channel.message_posted",
             Self::ChannelMentioned => "channel.mentioned",
@@ -218,7 +214,6 @@ impl EventName {
             | Self::TaskStatusChanged
             | Self::TaskPriorityChanged
             | Self::TaskPropertyChanged => EventEntityType::Document,
-            Self::EmailMessageReceived => EventEntityType::EmailThread,
             Self::CallStarted | Self::CallEnded => EventEntityType::Call,
             Self::ChannelCreated
             | Self::ChannelMessagePosted
@@ -235,7 +230,6 @@ impl EventName {
                 | Self::ChannelMentioned
                 | Self::ChannelMessagePatched
                 | Self::ChannelMessageAttachmentCreated
-                | Self::EmailMessageReceived
         )
     }
 
@@ -254,7 +248,6 @@ impl EventName {
 pub enum EventEntityType {
     Document,
     Channel,
-    EmailThread,
     Call,
 }
 
@@ -277,7 +270,7 @@ pub struct EventFilter {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(value_type = Option<Vec<String>>)]
     ids: Option<Vec<Uuid>>,
-    /// Yes/no question about the triggering content, e.g. "Is this email an
+    /// Yes/no question about the triggering content, e.g. "Is this document an
     /// invoice?". The routine runs only when the answer is yes.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(value_type = Option<String>, max_length = 500)]
@@ -534,7 +527,6 @@ pub enum EventPayload {
     Channel(ChannelTopicEvent),
     Message(MessageFact),
     Property(PropertyTopicEvent),
-    Email(EmailTopicEvent),
     Call(CallTopicEvent),
 }
 
@@ -604,8 +596,8 @@ fn document_actor(
 }
 
 impl IncomingEvent {
-    /// Mentions belong to the mentioned user, inbound mail to its inbox owner,
-    /// a started call to who created it, and an ended call to who joined it.
+    /// Mentions belong to the mentioned user, a started call to who created
+    /// it, and an ended call to who joined it.
     /// Entity access is checked separately at admission and dispatch. These
     /// audience restrictions never turn an event into an access grant.
     pub fn is_for_owner(&self, owner: &MacroUserIdStr<'static>) -> bool {
@@ -613,7 +605,6 @@ impl IncomingEvent {
             EventPayload::Message(MessageFact::Mentioned(data)) => {
                 data.mentioned.entity_type == "user" && data.mentioned.entity_id == owner.as_ref()
             }
-            EventPayload::Email(EmailTopicEvent::MessageReceived(data)) => &data.owner == owner,
             EventPayload::Call(CallTopicEvent::Started(data)) => &data.created_by == owner,
             EventPayload::Call(CallTopicEvent::RecordArchived(data)) => {
                 data.participants.contains(owner)
@@ -721,19 +712,6 @@ impl IncomingEvent {
                 let id = Uuid::parse_str(id).map_err(|_| EventRejection::InvalidEntityId)?;
                 (name, id, None)
             }
-            EventPayload::Email(EmailTopicEvent::MessageReceived(data)) => {
-                // The email domain emits this only for newly received mail,
-                // never sent messages, drafts or historical backfills.
-                if data.is_spam_or_trash {
-                    return Err(EventRejection::UnsupportedEvent);
-                }
-                (
-                    EventName::EmailMessageReceived,
-                    data.thread_id,
-                    Some(data.message_id),
-                )
-            }
-            EventPayload::Email(_) => return Err(EventRejection::UnsupportedEvent),
             EventPayload::Call(CallTopicEvent::Started(data)) => {
                 // The creator is always a Macro account; the call is theirs.
                 (EventName::CallStarted, data.call_id, None)

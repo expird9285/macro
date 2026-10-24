@@ -278,18 +278,6 @@ fn event_content(
     + use<>,
 > {
     Ok(EventContentAdapter::new(
-        email::domain::service::EmailServiceImpl::new(
-            email::outbound::EmailPgRepo::new(db.clone()),
-            frecency::domain::services::FrecencyQueryServiceImpl::new(
-                frecency::outbound::postgres::FrecencyPgStorage::new(db.clone()),
-            ),
-            email::domain::ports::NoOpEnqueuer,
-            crm::domain::service::NoOpCrmService,
-            entity_access_management::domain::service::EntityAccessManagementServiceImpl::new(
-                entity_access_management::outbound::PgRepository::new(db.clone()),
-            ),
-            0,
-        ),
         messages::domain::service::MessageService::new(
             messages::outbound::pg_message_repo::PgMessageRepository::new(db.clone()),
             messages::domain::ports::NoMessageEventPublisher,

@@ -1069,7 +1069,7 @@ async fn a_manual_run_tells_the_agent_its_owner_started_it() {
         name: "Inbox triage".into(),
         trigger: serde_json::from_value(json!({
             "type": "events",
-            "filters": [{"events": ["email.message_received"]}],
+            "filters": [{"events": ["document.created"]}],
         }))
         .unwrap(),
         kind: ActionKind::Agent,
@@ -1111,7 +1111,7 @@ async fn a_manual_run_tells_the_agent_its_owner_started_it() {
             },
             instructions: "Label my new email.".into(),
             triggers: vec![ContextRoutineTrigger::Events {
-                events: vec!["email.message_received".into()],
+                events: vec!["document.created".into()],
                 entity_ids: Vec::new(),
                 condition: None,
             }],

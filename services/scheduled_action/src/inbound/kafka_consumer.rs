@@ -10,7 +10,6 @@ use std::time::Duration;
 use call::domain::events::CallMacroEvent;
 use channels::domain::broker_events::ChannelMacroEvent;
 use documents::domain::events::DocumentMacroEvent;
-use email::domain::events::EmailMacroEvent;
 use kafka_util::{GroupName, InitialOffset, KafkaEventConsumer};
 use macro_event_broker::{
     EventBrokerError, EventConsumer, KafkaConsumerAdapter, MacroEvent as _,
@@ -31,7 +30,6 @@ macro_event_broker::declare_topics!(
     ChannelMacroEvent,
     MessageMacroEvent,
     PropertyMacroEvent,
-    EmailMacroEvent,
     CallMacroEvent
 );
 
@@ -98,14 +96,6 @@ fn incoming_event(event: DeclaredMacroEvent) -> IncomingEvent {
                 event_id: envelope.event_id,
                 schema_version: envelope.schema_version,
                 payload: EventPayload::Property(envelope.event.clone()),
-            }
-        }
-        DeclaredMacroEvent::EmailMacroEvent(event) => {
-            let envelope = event.event();
-            IncomingEvent {
-                event_id: envelope.event_id,
-                schema_version: envelope.schema_version,
-                payload: EventPayload::Email(envelope.event.clone()),
             }
         }
         DeclaredMacroEvent::CallMacroEvent(event) => {

@@ -1,6 +1,5 @@
 use chrono::{TimeZone, Utc};
 use document_sub_type::DocumentSubType;
-use email::domain::models::ParsedLabel;
 use messages::domain::models::{BotSenderProfile, MessageParent};
 use model_owner::Owner;
 use models_properties::{DataType, PropertyOwner};
@@ -22,79 +21,13 @@ fn event(name: &str, message_id: Option<Uuid>) -> EventReference {
     .unwrap()
 }
 
-fn email() -> ParsedMessage {
-    let at = Utc.with_ymd_and_hms(2026, 10, 5, 9, 30, 0).unwrap();
-    ParsedMessage {
-        db_id: Uuid::nil(),
-        link_id: Uuid::nil(),
-        thread_db_id: Uuid::nil(),
-        subject: Some("Invoice #42".into()),
-        snippet: Some("Please find attached".into()),
-        from: Some(ContactInfo {
-            email: "billing@vendor.com".into(),
-            name: Some("Vendor Billing".into()),
-            photo_url: Some("https://example.com/p.png".into()),
-        }),
-        to: vec![ContactInfo {
-            email: "owner@example.com".into(),
-            name: None,
-            photo_url: None,
-        }],
-        cc: Vec::new(),
-        bcc: vec![ContactInfo {
-            email: "hidden@example.com".into(),
-            name: None,
-            photo_url: None,
-        }],
-        labels: vec![ParsedLabel {
-            provider_id: "INBOX".into(),
-            name: "Inbox".into(),
-        }],
-        body_parsed: Some("Your invoice for October is $420.".into()),
-        body_text: Some("full text with quoted replies".into()),
-        body_html_sanitized: None,
-        body_macro: None,
-        body_replyless: None,
-        internal_date_ts: Some(at),
-        sent_at: None,
-        is_read: false,
-        is_starred: false,
-        is_sent: false,
-        is_draft: false,
-        has_attachments: true,
-        created_at: at,
-        updated_at: at,
-    }
-}
-
-#[test]
-fn emails_carry_headers_and_the_reply_free_body_but_not_bcc() {
-    assert_eq!(
-        email_json(&email()),
-        json!({
-            "subject": "Invoice #42",
-            "from": {"name": "Vendor Billing", "email": "billing@vendor.com"},
-            "to": [{"name": null, "email": "owner@example.com"}],
-            "cc": [],
-            "received_at": "2026-10-05T09:30:00Z",
-            "labels": ["Inbox"],
-            "has_attachments": true,
-            "body": "Your invoice for October is $420.",
-        })
-    );
-    let mut snippet_only = email();
-    snippet_only.body_parsed = None;
-    snippet_only.body_text = None;
-    assert_eq!(email_json(&snippet_only)["body"], "Please find attached");
-}
-
 #[test]
 fn envelope_names_the_event_and_the_owner() {
-    let event = event("email.message_received", Some(Uuid::nil()));
-    let value = envelope(&owner(), &event, json!({"email": {"subject": "Hi"}}));
-    assert_eq!(value["event"], "email.message_received");
+    let event = event("document.created", None);
+    let value = envelope(&owner(), &event, json!({"document": {"name": "Hi"}}));
+    assert_eq!(value["event"], "document.created");
     assert_eq!(value["routine_owner"], "owner@example.com");
-    assert_eq!(value["email"], json!({"subject": "Hi"}));
+    assert_eq!(value["document"], json!({"name": "Hi"}));
     assert_eq!(
         value["occurred_at"],
         serde_json::to_value(event.published_at()).unwrap()

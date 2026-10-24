@@ -6,7 +6,6 @@ use std::collections::HashMap;
 use call::domain::models::CallRecord;
 use channel_sender::ChannelSender;
 use channels::domain::models::{ChannelMetadata, ChannelType as ChannelKind};
-use email::domain::models::{ContactInfo, ParsedMessage};
 use macro_user_id::user_id::MacroUserIdStr;
 use macro_uuid::Uuid;
 use messages::domain::models::{Message, MessageThread};
@@ -19,13 +18,11 @@ use rootcause::Report;
 use system_properties::SystemPropertyKey;
 use trigger_context::{
     CallSnapshot, CallStartedSnapshot, ChannelType, ContextMessage, ContextPerson, ContextThread,
-    DiscussionContext, DiscussionSurface, DocumentSnapshot, EmailSnapshot, ReplyTarget,
-    RoutineEvent, TaskSnapshot, TranscriptLine,
+    DiscussionContext, DiscussionSurface, DocumentSnapshot, ReplyTarget, RoutineEvent,
+    TaskSnapshot, TranscriptLine,
 };
 
-use super::{
-    ChannelMessage, EventContent, MAX_TRANSCRIPT_CHARS, email_body, truncate, truncate_to,
-};
+use super::{ChannelMessage, EventContent, MAX_TRANSCRIPT_CHARS, truncate, truncate_to};
 use crate::domain::event_trigger::{EventName, EventReference};
 
 #[cfg(test)]
@@ -34,7 +31,7 @@ mod test;
 /// Messages of a discussion passed on, the triggering message included.
 const MAX_THREAD_MESSAGES: usize = 20;
 
-/// `Err` when the event's message or email is gone, or the content read does
+/// `Err` when the event's message is gone, or the content read does
 /// not belong to the event.
 pub(super) fn routine_event(
     event: &EventReference,
@@ -47,15 +44,6 @@ pub(super) fn routine_event(
             properties,
             markdown,
         } => document_event(name, document, &properties, markdown.as_deref()),
-        EventContent::Email(message) => match (name, message) {
-            (EventName::EmailMessageReceived, Some(message)) => Ok(RoutineEvent::EmailReceived {
-                email: email_snapshot(event.entity_id(), &message),
-            }),
-            (EventName::EmailMessageReceived, None) => {
-                Err(rootcause::report!("the email is no longer available"))
-            }
-            (name, _) => Err(mismatch(name)),
-        },
         EventContent::Channel { channel, message } => {
             channel_event(name, event.entity_id(), channel, message)
         }
@@ -208,20 +196,6 @@ fn option_label(property: &EntityPropertyInfo, ids: &[Uuid]) -> Option<String> {
     })
 }
 
-fn email_snapshot(thread_id: Uuid, message: &ParsedMessage) -> EmailSnapshot {
-    EmailSnapshot {
-        thread_id,
-        subject: message.subject.clone().unwrap_or_default(),
-        from: message.from.as_ref().map(address).unwrap_or_default(),
-        to: message.to.iter().map(address).collect(),
-        received_at: message
-            .internal_date_ts
-            .or(message.sent_at)
-            .unwrap_or(message.created_at),
-        body: email_body(message).unwrap_or_default(),
-    }
-}
-
 fn call_started_snapshot(call_id: Uuid, record: CallRecord) -> Result<CallStartedSnapshot, Report> {
     if record.call_id != call_id {
         return Err(mismatch(EventName::CallStarted));
@@ -310,13 +284,6 @@ pub(super) fn call_transcript(record: &CallRecord) -> (Vec<TranscriptLine>, bool
         ));
     }
     (lines, false)
-}
-
-fn address(contact: &ContactInfo) -> String {
-    match &contact.name {
-        Some(name) => format!("{name} <{}>", contact.email),
-        None => contact.email.clone(),
-    }
 }
 
 /// The triggering message with its discussion up to it. A top-level message
