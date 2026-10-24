@@ -24,7 +24,6 @@ use channels::domain::ports::ChannelService;
 use chat::domain::ports::ChatService;
 use databases::domain::ports::DatabasesService;
 use documents_hex::domain::ports::DocumentService;
-use email::domain::ports::EmailService;
 use entity_access::domain::{
     models::{AccessError, EditAccessLevel, EntityAccessReceipt, RequiredPermission},
     ports::EntityAccessService,
@@ -63,20 +62,13 @@ pub enum LifecycleError {
     Internal(rootcause::Report),
 }
 
-/// Document and email-thread mutations still orchestrated directly against
-/// persistence instead of a domain service.
+/// Document mutations still orchestrated directly against persistence instead
+/// of a domain service.
 ///
 /// Each method should migrate behind the domain port that owns its entity
 /// kind and become a capability-trait impl there (projects already
 /// graduated); delete this trait once it is empty.
 pub trait EntityLifecycleService: Send + Sync + 'static {
-    /// Update an email thread's share policy.
-    fn update_thread_share_policy(
-        &self,
-        actor: &EntityMutationActor,
-        entity: &Entity<'static>,
-        policy: UpdateSharePermissionRequestV2,
-    ) -> impl Future<Output = Result<Vec<Entity<'static>>, LifecycleError>> + Send;
     /// Restore a document.
     fn restore_document(
         &self,
@@ -156,12 +148,11 @@ where
 
 /// Unified entity mutation router wired from the domain services.
 #[derive(Clone)]
-pub struct DssEntityMutationService<D, H, C, K, E, P, Databases, Forms, A, L> {
+pub struct DssEntityMutationService<D, H, C, K, P, Databases, Forms, A, L> {
     documents: Arc<D>,
     chats: Arc<H>,
     channels: Arc<C>,
     calls: Arc<K>,
-    email: Arc<E>,
     projects: Arc<P>,
     databases: Arc<Databases>,
     forms: Arc<Forms>,
@@ -169,8 +160,8 @@ pub struct DssEntityMutationService<D, H, C, K, E, P, Databases, Forms, A, L> {
     lifecycle: Arc<L>,
 }
 
-impl<D, H, C, K, E, P, Databases, Forms, A, L>
-    DssEntityMutationService<D, H, C, K, E, P, Databases, Forms, A, L>
+impl<D, H, C, K, P, Databases, Forms, A, L>
+    DssEntityMutationService<D, H, C, K, P, Databases, Forms, A, L>
 {
     /// Compose the unified mutation router from domain services.
     #[expect(
@@ -182,7 +173,6 @@ impl<D, H, C, K, E, P, Databases, Forms, A, L>
         chats: Arc<H>,
         channels: Arc<C>,
         calls: Arc<K>,
-        email: Arc<E>,
         projects: Arc<P>,
         databases: Arc<Databases>,
         forms: Arc<Forms>,
@@ -194,7 +184,6 @@ impl<D, H, C, K, E, P, Databases, Forms, A, L>
             chats,
             channels,
             calls,
-            email,
             projects,
             databases,
             forms,
@@ -204,8 +193,8 @@ impl<D, H, C, K, E, P, Databases, Forms, A, L>
     }
 }
 
-impl<D, H, C, K, E, P, Databases, Forms, A, L>
-    DssEntityMutationService<D, H, C, K, E, P, Databases, Forms, A, L>
+impl<D, H, C, K, P, Databases, Forms, A, L>
+    DssEntityMutationService<D, H, C, K, P, Databases, Forms, A, L>
 where
     D: DocumentService
         + RenameEntity
@@ -223,7 +212,6 @@ where
         + DuplicateEntity,
     C: ChannelService + RenameEntity + DeleteEntityPermanently,
     K: CallService + RenameEntity + UpdateEntitySharePolicy + DeleteEntityPermanently,
-    E: EmailService + MoveEntity,
     P: ProjectService
         + RenameEntity
         + MoveEntity
@@ -466,10 +454,6 @@ where
                 self.move_with(&*self.chats, actor, &requested, project_id)
                     .await
             }
-            EntityType::EmailThread => {
-                self.move_with(&*self.email, actor, &requested, project_id)
-                    .await
-            }
             EntityType::Project => {
                 self.move_with(&*self.projects, actor, &requested, project_id)
                     .await
@@ -478,6 +462,7 @@ where
             | EntityType::Team
             | EntityType::Channel
             | EntityType::ChannelMessage
+            | EntityType::EmailThread
             | EntityType::Call
             | EntityType::ForeignEntity
             | EntityType::StaticFile
@@ -528,13 +513,13 @@ where
                 self.share_with(&*self.projects, actor, &requested, policy)
                     .await
             }
-            EntityType::EmailThread => self.share_email_thread(actor, &requested, policy).await,
             // Channels grant access through participant roles and channel
             // messages inherit from their channel; neither has a share policy.
             EntityType::User
             | EntityType::Team
             | EntityType::Channel
             | EntityType::ChannelMessage
+            | EntityType::EmailThread
             | EntityType::ForeignEntity
             | EntityType::StaticFile
             | EntityType::CrmCompany
@@ -555,27 +540,6 @@ where
             }
         };
         result.and_then(success)
-    }
-
-    /// Email threads still update share policy through the lifecycle port.
-    async fn share_email_thread(
-        &self,
-        actor: &EntityMutationActor,
-        requested: &Entity<'static>,
-        policy: UpdateSharePermissionRequestV2,
-    ) -> Result<Vec<EntityMutationEffect>, EntityMutationErrorCode> {
-        self.receipt::<entity_access::domain::models::OwnerAccessLevel>(actor, requested)
-            .await?;
-        let affected = self
-            .lifecycle
-            .update_thread_share_policy(actor, requested, policy)
-            .await
-            .map_err(lifecycle_failure)?;
-        Ok(
-            std::iter::once(EntityMutationEffect::updated(requested.clone()))
-                .chain(affected.into_iter().map(EntityMutationEffect::updated))
-                .collect(),
-        )
     }
 
     #[tracing::instrument(skip_all, fields(entity_type = %requested.entity_type, entity_id = %requested.entity_id))]
@@ -774,8 +738,8 @@ where
     }
 }
 
-impl<D, H, C, K, E, P, Databases, Forms, A, L> EntityMutationService
-    for DssEntityMutationService<D, H, C, K, E, P, Databases, Forms, A, L>
+impl<D, H, C, K, P, Databases, Forms, A, L> EntityMutationService
+    for DssEntityMutationService<D, H, C, K, P, Databases, Forms, A, L>
 where
     D: DocumentService
         + RenameEntity
@@ -793,7 +757,6 @@ where
         + DuplicateEntity,
     C: ChannelService + RenameEntity + DeleteEntityPermanently,
     K: CallService + RenameEntity + UpdateEntitySharePolicy + DeleteEntityPermanently,
-    E: EmailService + MoveEntity,
     P: ProjectService
         + RenameEntity
         + MoveEntity

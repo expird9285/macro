@@ -4,12 +4,12 @@
 
 Documents feature: deployable service (DSS) hosting document/item CRUD, the
 "Soup" GraphQL API, and most cross-entity concerns — history, annotations,
-threads, pins, recents, notifications, folders, activity.
+pins, recents, notifications, folders, activity.
 
 ## Start here
 
 - `src/api.rs`: route module list — `documents`, `items`, `entity`,
-  `folders_query`, `graphql_soup`, `threads`, `annotations`, `history`,
+  `folders_query`, `graphql_soup`, `annotations`, `history`,
   `pins`, `recents`, `notification`, `instructions`, `internal`.
 - `/databases/query` mounts the `databases_sql` HTTP adapter, sharing the database/access services and the primary Soup reader; SQL authorization stays in its domain service.
 - `src/api/graphql_soup.rs`: the `/soup/graphql` (+ `/soup/graphql/ws`
@@ -35,7 +35,7 @@ threads, pins, recents, notifications, folders, activity.
 ## Scope
 
 - Owns: document/item HTTP CRUD, the Soup GraphQL schema, and cross-entity
-  surfaces (history, annotations, threads, pins, recents, notifications,
+  surfaces (history, annotations, pins, recents, notifications,
   folders, saved views, activity).
 - Not here: document content/collaboration itself → `crates/collab_surface`
   and the sync service; AI chat → `document_cognition_service`.

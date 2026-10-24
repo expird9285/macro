@@ -26,8 +26,6 @@ env_vars! {
     pub struct BulkUploadRequestsTable;
     pub struct UploadStagingBucket;
     pub struct SyncServiceAuthKey;
-    /// Existing authentication-service internal credential, also used by email-service.
-    pub struct AuthenticationServiceSecretKey;
     pub struct OpensearchUrl;
     pub struct OpensearchUsername;
     pub struct OpensearchPassword;
@@ -53,10 +51,6 @@ env_vars! {
     pub struct DocumentPermissionJwt;
     pub struct GithubWebhookSecretKey;
     pub struct GithubSyncAppPemSecretKey;
-    pub struct CalWebhookSecretKey;
-    pub struct CalEventTypeContentNamesKey;
-    pub struct MetaPixelId;
-    pub struct MetaAccessToken;
     #[derive(Clone)]
     pub struct DocumentStorageServiceAuthKey;
 }
@@ -80,9 +74,6 @@ maybe_env_vars! {
     pub struct CallRecordingS3AccessKey;
     /// AWS secret key for call recording S3 uploads.
     pub struct CallRecordingS3Secret;
-    /// Optional Meta test event code — routes events to Meta's test events
-    /// view instead of production tracking.
-    pub struct MetaTestEventCode;
 }
 
 /// The configuration parameters for the application.
@@ -117,11 +108,6 @@ pub struct Config {
     pub bulk_upload_requests_table: BulkUploadRequestsTable,
     pub upload_staging_bucket: UploadStagingBucket,
     pub sync_service_auth_key: LocalOrRemoteSecret<SyncServiceAuthKey>,
-    /// Credential for resolving the selected inbox's Google grant.
-    pub authentication_service_secret_key: LocalOrRemoteSecret<AuthenticationServiceSecretKey>,
-    /// Match email-service's undo-send window for GraphQL delivery.
-    #[macro_config_default(10)]
-    pub sent_undo_delay_secs: u32,
     pub opensearch_url: OpensearchUrl,
     pub opensearch_username: OpensearchUsername,
     pub opensearch_password: OpensearchPassword,
@@ -138,10 +124,6 @@ pub struct Config {
     pub cohere_api_key: CohereApiKey,
     pub github_webhook_secret_key: LocalOrRemoteSecret<GithubWebhookSecretKey>,
     pub github_sync_app_pem_secret_key: LocalOrRemoteSecret<GithubSyncAppPemSecretKey>,
-    pub cal_webhook_secret_key: CalWebhookSecretKey,
-    pub cal_event_type_content_names_key: CalEventTypeContentNamesKey,
-    pub meta_pixel_id: MetaPixelId,
-    pub meta_access_token: MetaAccessToken,
     pub document_storage_service_auth_key: DocumentStorageServiceAuthKey,
     /// The internal api key
     pub internal_api_key: InternalApiKey,
@@ -153,17 +135,6 @@ pub struct Config {
     /// The environment we are in
     #[macro_config_default(Environment::new_or_prod())]
     pub environment: Environment,
-
-    /// Whether calendar events participate in search. Off by default so a
-    /// deployed environment can carry the code before its calendar index has
-    /// been created and backfilled — with this false, calendar events are
-    /// dropped from the searched set no matter what a request asks for.
-    #[macro_config_default(false)]
-    pub calendar_search_enabled: bool,
-
-    /// Enable read-only calendar projections shared with current teammates.
-    #[macro_config_default(false)]
-    pub calendar_team_sharing_enabled: bool,
 
     /// Enable Slack import creation and uploads. Existing receipts remain
     /// readable, finalizable and cancellable when this switch is off.
@@ -188,12 +159,6 @@ pub struct Config {
     #[macro_config_default(20)]
     pub document_limit: u64,
 
-    /// Master switch for calendar event reminder dispatch. When `false`
-    /// (the default) the worker drains its queue without delivering, so
-    /// synced reminder schedules produce no notifications until enabled.
-    #[macro_config_default(false)]
-    pub calendar_reminder_dispatch_enabled: bool,
-
     /// Lets a team-scoped bot with no acting user own the documents it creates.
     pub enable_non_user_owners: EnableNonUserOwners,
 
@@ -217,7 +182,6 @@ pub struct Config {
     pub call_recording_s3_region: CallRecordingS3Region,
     pub call_recording_s3_access_key: CallRecordingS3AccessKey,
     pub call_recording_s3_secret: CallRecordingS3Secret,
-    pub meta_test_event_code: MetaTestEventCode,
 }
 
 impl Config {

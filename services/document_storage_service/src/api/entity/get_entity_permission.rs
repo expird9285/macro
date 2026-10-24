@@ -21,7 +21,7 @@ pub enum EntityPermissionResponse {
     path = "/entity/{entity_type}/{entity_id}/permissions",
     operation_id = "get_entity_permission",
     params(
-        ("entity_type" = String, Path, description = "Entity type (document, chat, project, thread, email_thread, channel)"),
+        ("entity_type" = String, Path, description = "Entity type (document, chat, project, channel)"),
         ("entity_id" = String, Path, description = "Entity ID"),
     ),
     responses(

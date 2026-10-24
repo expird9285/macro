@@ -1,5 +1,5 @@
-//! Adapter for document and email-thread lifecycle operations that still use
-//! the legacy database clients.
+//! Adapter for document lifecycle operations that still use the legacy
+//! database clients.
 
 use std::sync::Arc;
 
@@ -14,7 +14,6 @@ use entity_mutation::EntityMutationActor;
 use macro_event_broker::MacroEventBroker;
 use macro_sha_count_client::Redis;
 use model_entity::{Entity, EntityType};
-use models_permissions::share_permission::UpdateSharePermissionRequestV2;
 use sqlx::PgPool;
 
 /// Wrap a legacy client failure as an internal lifecycle error.
@@ -53,40 +52,6 @@ impl<B: MacroEventBroker> DssEntityLifecycleAdapter<B> {
 }
 
 impl<B: MacroEventBroker> EntityLifecycleService for DssEntityLifecycleAdapter<B> {
-    async fn update_thread_share_policy(
-        &self,
-        _actor: &EntityMutationActor,
-        entity: &Entity<'static>,
-        policy: UpdateSharePermissionRequestV2,
-    ) -> Result<Vec<Entity<'static>>, LifecycleError> {
-        // Threads get their share-permission row lazily; mirror the REST
-        // middleware's get-or-create so a first-time share succeeds. The
-        // caller has already proven Owner access, so the thread exists.
-        let permission =
-            macro_middleware::cloud_storage::thread::ensure_thread_exists::insert_thread_share_permissions(
-                &self.db,
-                &entity.entity_id,
-            )
-            .await
-            .map_err(|error| internal!(error))?;
-        let thread_id = uuid::Uuid::parse_str(&entity.entity_id)
-            .map_err(|error| LifecycleError::InvalidInput(format!("invalid thread id: {error}")))?;
-        let mut transaction = self.db.begin().await.map_err(|error| internal!(error))?;
-        macro_db_client::share_permission::edit::edit_thread_permission(
-            &mut transaction,
-            &thread_id,
-            &permission.share_permission_id,
-            &policy,
-        )
-        .await
-        .map_err(|error| internal!(error))?;
-        transaction
-            .commit()
-            .await
-            .map_err(|error| internal!(error))?;
-        Ok(Vec::new())
-    }
-
     async fn restore_document(
         &self,
         _actor: &EntityMutationActor,

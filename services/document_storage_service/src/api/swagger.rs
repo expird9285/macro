@@ -22,7 +22,7 @@ use crate::{
             self,
             recently_deleted::{RecentlyDeletedResponse, RecentlyDeletedResponseData},
         },
-        saved_views, threads, user_document_view_location,
+        saved_views, user_document_view_location,
     },
     model::{
         request::{
@@ -186,10 +186,6 @@ use models_permissions::share_permission::channel_share_permission::UpdateOperat
 use models_soup::call_record::{SoupCallRecord, SoupCallRecordParticipant};
 use models_soup::chat::SoupChat;
 use models_soup::document::SoupDocument;
-use models_soup::email_thread::{
-    SoupAttachment, SoupContact, SoupEmailThreadPreview, SoupEnrichedEmailThreadPreview, SoupLabel,
-    SoupLabelListVisibility, SoupLabelType, SoupMessageListVisibility,
-};
 use models_soup::foreign_entity::SoupForeignEntity;
 use models_soup::project::SoupProject;
 use projects_hex::inbound::axum_router::delete_project::{
@@ -215,11 +211,6 @@ use utoipa::OpenApi;
     paths(
         dictation::inbound::axum_router::transcribe_handler,
         health::health_handler,
-        calendar_events::inbound::axum_router::list_occurrences,
-        calendar_events::inbound::axum_router::mention_previews,
-        calendar_events::inbound::axum_router::event_ics,
-        calendar_events::inbound::axum_router::list_team_out_of_office,
-        calendar_events::inbound::team_router::list_team_calendar,
 
         // annotations
         annotations::get::get_document_anchors_handler,
@@ -441,10 +432,6 @@ use utoipa::OpenApi;
         access_requests::inbound::axum_router::direct_handler,
         access_requests::inbound::axum_router::set_direct_handler,
         access_requests::inbound::axum_router::remove_direct_handler,
-        // reminders
-        reminders::inbound::axum_router::get_email_followup_handler,
-        reminders::inbound::axum_router::set_email_followup_handler,
-        reminders::inbound::axum_router::email_collection::list_email_reminders_handler,
         // initiatives
         initiative::inbound::axum_router::list::list_initiatives_handler,
         initiative::inbound::axum_router::create::create_initiative_handler,
@@ -487,9 +474,6 @@ use utoipa::OpenApi;
         github_pull_requests::inbound::changes_router::get_github_pull_request_changes_handler,
         github_pull_requests::inbound::changes_router::get_github_pull_request_changes_patch_handler,
 
-        // threads
-        threads::edit_thread::edit_thread_handler,
-
         // /recents
         recents::recently_deleted::handler,
         saved_views::create_view_handler,
@@ -503,36 +487,6 @@ use utoipa::OpenApi;
 
         // /internal/sync_service
         sync_service_hex::inbound::axum_router::bulk_wakeup_handler,
-
-        // /crm
-        crm::inbound::pipelines::create,
-        crm::inbound::pipelines::list,
-        crm::inbound::pipelines::read,
-        crm::inbound::pipelines::table,
-        crm::inbound::pipelines::rows,
-        crm::inbound::pipelines::query_rows,
-        crm::inbound::pipelines::apply_ops,
-        crm::inbound::pipelines::rename,
-        crm::inbound::pipelines::share,
-        crm::inbound::pipelines::permissions,
-        crm::inbound::pipelines::update_permissions,
-        crm::inbound::pipelines::trash,
-        crm::inbound::axum_router::set_email_sync::handler,
-        crm::inbound::axum_router::set_company_hidden::handler,
-        crm::inbound::axum_router::set_company_name::handler,
-        crm::inbound::axum_router::set_contact_hidden::handler,
-        crm::inbound::axum_router::set_contact_name::handler,
-        crm::inbound::axum_router::list_company_contacts::handler,
-        crm::inbound::axum_router::get_contact::handler,
-        crm::inbound::axum_router::get_contact_by_email::handler,
-        crm::inbound::axum_router::search_contacts::handler,
-        crm::inbound::axum_router::get_company::handler,
-        crm::inbound::axum_router::create_company::handler,
-        crm::inbound::axum_router::create_contact::handler,
-        crm::inbound::axum_router::team_settings::get_handler,
-        crm::inbound::axum_router::team_settings::update_handler,
-        crm::inbound::axum_router::stages::replace_handler,
-        crm::inbound::axum_router::stages::reset_handler,
     ),
     components(
         schemas(
@@ -611,24 +565,6 @@ use utoipa::OpenApi;
             DocumentPermissionsTokenRequest,
             ExportDocumentResponse,
             SyncServiceVersionID,
-            calendar_events::inbound::axum_router::CalendarOccurrenceItem,
-            calendar_events::inbound::axum_router::CalendarOccurrenceResponse,
-            calendar_events::inbound::axum_router::CalendarMentionPreviewRequest,
-            calendar_events::inbound::axum_router::CalendarMentionPreviewRequestItem,
-            calendar_events::inbound::axum_router::CalendarMentionPreviewResponse,
-            calendar_events::inbound::axum_router::CalendarMentionPreviewItem,
-            calendar_events::inbound::axum_router::CalendarMentionPreviewKind,
-            calendar_events::inbound::axum_router::TeamOutOfOfficeItem,
-            calendar_events::inbound::axum_router::TeamOutOfOfficeResponse,
-            calendar_events::domain::team::TeamCalendarPage,
-            calendar_events::domain::team::TeamCalendarItem,
-            calendar_events::domain::team::TeamCalendarContent,
-            calendar_events::domain::team::TeamCalendarDetails,
-            calendar_events::domain::team::TeamCalendarMember,
-            calendar_events::domain::team::TeamCalendarSharing,
-            calendar_events::domain::team::TeamCalendarCoverage,
-            calendar_events::domain::models::CalendarMentionEvent,
-            calendar_events::domain::models::CalendarSyncStatus,
             SoupItemWithProperties,
             SoupApiItem,
             SoupDocument<SoupPropertiesField>,
@@ -756,14 +692,6 @@ use utoipa::OpenApi;
             SurfaceState,
             SoupApiSort,
             SoupPage,
-            SoupEnrichedEmailThreadPreview<SoupPropertiesField>,
-            SoupEmailThreadPreview,
-            SoupAttachment,
-            SoupContact,
-            SoupLabel,
-            SoupLabelListVisibility,
-            SoupMessageListVisibility,
-            SoupLabelType,
             PostSoupRequest,
             PostSoupAstRequest,
             PostGroupedSoupAstInitialRequest,
@@ -969,25 +897,6 @@ use utoipa::OpenApi;
             // Sync service
             sync_service_hex::domain::models::BulkWakeupRequest,
             sync_service_hex::domain::models::BulkWakeupResponse,
-
-            // CRM
-            crm::inbound::axum_router::set_email_sync::SetEmailSyncRequest,
-            crm::inbound::axum_router::set_company_hidden::SetCompanyHiddenRequest,
-            crm::inbound::axum_router::set_company_name::SetCompanyNameRequest,
-            crm::inbound::axum_router::set_contact_hidden::SetContactHiddenRequest,
-            crm::inbound::axum_router::set_contact_name::SetContactNameRequest,
-            crm::inbound::axum_router::list_company_contacts::CrmContactResponse,
-            crm::inbound::axum_router::get_company::CrmCompanyResponse,
-            crm::inbound::axum_router::get_company::CrmDomainResponse,
-            crm::inbound::axum_router::create_company::CreateCrmCompanyRequest,
-            crm::inbound::axum_router::create_contact::CreateCrmContactRequest,
-            crm::inbound::axum_router::stages::ReplaceCrmStagesRequest,
-            crm::inbound::axum_router::stages::CrmStageInput,
-            crm::inbound::axum_router::stages::CrmStagesResponse,
-            crm::inbound::axum_router::stages::CrmStageResponse,
-            crm::inbound::axum_router::team_settings::CrmTeamSettingsResponse,
-            crm::inbound::axum_router::team_settings::UpdateCrmTeamSettingsRequest,
-            crm::domain::model::CrmPermissionRole,
         ),
     ),
     tags(

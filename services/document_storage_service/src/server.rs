@@ -9,10 +9,7 @@ use crate::{
             TaskPropertiesAdapter,
         },
     },
-    config::{
-        self, CalEventTypeContentNamesKey, CalWebhookSecretKey, Config, Environment,
-        MetaAccessToken, MetaPixelId, MetaTestEventCode,
-    },
+    config::{self, Config, Environment},
     outbound,
     service::{self, s3::S3},
 };
@@ -20,19 +17,8 @@ use agent_session_realtime::{
     domain::service::AgentSessionLogConsumerService,
     outbound::redis_stream::consumer::RedisLogStreamConsumer,
 };
-use analytics_client::{AnalyticsClient, AnalyticsClientConfig, MetaConfig};
 use anyhow::Context;
 use bots::{domain::service::BotServiceImpl, outbound::pg_bots_repo::PgBotsRepo};
-use cal::{
-    domain::service::{CalConfig, CalEventMeta, CalWebhookServiceImpl},
-    inbound::cal_webhook_router::CalWebhookRouterState,
-    outbound::analytics_client::AnalyticsClientSink,
-};
-use calendar_events::domain::reminder_dispatch::CalendarReminderDispatchService;
-use calendar_events::inbound::axum_router::CalendarRouterState;
-use calendar_events::inbound::dispatch_worker::CalendarReminderDispatchWorker;
-use calendar_events::outbound::notification_notifier::NotificationCalendarReminderNotifier;
-use calendar_events::outbound::sqs_dispatch_queue::SqsCalendarDispatchQueue;
 use call::{
     domain::service::CallServiceImpl,
     inbound::axum_router::{CallRouterState, InternalCallRouterState, WebhookRouterState},
@@ -75,10 +61,6 @@ use documents_hex::inbound::axum_router::DocumentRouterState;
 use documents_hex::outbound::pg_document_repo::PgDocumentRepo;
 use documents_hex::outbound::s3_upload_url::S3UploadUrlAdapter;
 use dynamodb_client::DynamodbClient;
-use email::{
-    domain::{ports::ReadonlyEmailPreviewAdapter, service::EmailServiceImpl},
-    outbound::EmailPgRepo,
-};
 use embedding::embedding_provider::openai::TextEmbedding3Small;
 use entity_registry::OwnerGrantPolicy;
 use entity_registry_db_utils::OwnedEntityRegistrar;
@@ -153,17 +135,8 @@ use properties::{
     NotificationServiceImpl, PermissionServiceImpl, PropertiesPgRepo, PropertiesServiceImpl,
 };
 use rate_limit::{RateLimitServiceImpl, RedisRateLimitAdapter};
-use reminders::{
-    domain::service::dispatch::ReminderDispatchService,
-    inbound::{axum_router::RemindersRouterState, dispatch_worker::DispatchWorker},
-    outbound::{
-        notification_notifier::NotificationReminderNotifier, pg_reminders_repo::PgRemindersRepo,
-        sqs_dispatch_queue::SqsDispatchQueue,
-    },
-};
 use scheduled_action::domain::read_service::ScheduledActionReadServiceImpl;
 use scheduled_action::outbound::pg_scheduled_action_repo::PgScheduledActionRepo;
-use secretsmanager_client::SecretManager;
 use soup::{
     domain::service::SoupImpl, inbound::axum_router::SoupRouterState,
     outbound::pg_soup_repo::PgSoupRepo,
@@ -278,14 +251,9 @@ pub async fn run() -> anyhow::Result<()> {
     let document_delete_queue = macro_queues::DocumentDeleteQueue::new();
     let contacts_queue = macro_queues::ContactsQueue::new();
     let notification_queue = macro_queues::NotificationIngressQueue::new();
-    let gmail_ops_queue = macro_queues::GmailOpsQueue::new();
-    let reminder_dispatch_queue = macro_queues::ReminderDispatchQueue::new();
-    let calendar_reminder_dispatch_queue = macro_queues::CalendarReminderDispatchQueue::new();
     let sqs_client = sqs_client::SQS::new(aws_sdk_sqs::Client::new(&aws_config))
         .search_event_queue(&search_event_queue)
-        .document_delete_queue(&document_delete_queue)
-        .gmail_ops_queue(&gmail_ops_queue)
-        .email_scheduled_queue(&macro_queues::EmailScheduledQueue::new());
+        .document_delete_queue(&document_delete_queue);
     let webhook_event_queue = webhook::outbound::SqsWebhookQueue::new(
         Arc::new(sqs_client.clone()),
         macro_queues::WebhookEventQueue::new().to_string(),
@@ -379,49 +347,6 @@ pub async fn run() -> anyhow::Result<()> {
 
     let frecency_storage = FrecencyPgStorage::new(db.clone());
     let frecency_service = FrecencyQueryServiceImpl::new(frecency_storage.clone());
-    // DSS only reads CRM rows — no-op resolver keeps reqwest/scraper
-    // out of this binary.
-    let crm_service = crm::domain::service::CrmServiceImpl::new(
-        crm::outbound::companies_repo::CompaniesRepositoryImpl::new(db.clone()),
-        crm::outbound::no_op_resolver::NoOpCompanyMetadataResolver,
-    );
-    let email_service = EmailServiceImpl::new(
-        EmailPgRepo::new(db.clone()),
-        frecency_service.clone(),
-        sqs_client.clone(),
-        crm_service.clone(),
-        entity_access_management::domain::service::EntityAccessManagementServiceImpl::new(
-            entity_access_management::outbound::PgRepository::new(db.clone()),
-        ),
-        config.sent_undo_delay_secs,
-    )
-    .with_sender_provider(email::outbound::GmailSenderProvider::new(
-        gmail_client::GmailClient::without_watch(),
-        email::outbound::GmailTokenProviderImpl::lazy(
-            redis_client.clone(),
-            Arc::new(authentication_service_client::AuthServiceClient::new(
-                config
-                    .authentication_service_secret_key
-                    .as_ref()
-                    .to_string(),
-                macro_service_urls::AuthServiceUrl::new()?.to_string(),
-            )),
-        ),
-    ))
-    .with_macro_event_broker(macro_event_broker.clone());
-    let readonly_email_service = ReadonlyEmailPreviewAdapter(
-        EmailServiceImpl::new(
-            EmailPgRepo::new(readonly_db.clone()),
-            frecency_service.clone(),
-            sqs_client.clone(),
-            crm_service.clone(),
-            entity_access_management::domain::service::EntityAccessManagementServiceImpl::new(
-                entity_access_management::outbound::PgRepository::new(readonly_db.clone()),
-            ),
-            0,
-        )
-        .with_macro_event_broker(macro_event_broker.clone()),
-    );
     let system_properties_service =
         SystemPropertiesServiceImpl::new(PgSystemPropertiesRepository::new(db.clone()));
     let ingress_queue = SqsQueue::new(
@@ -689,37 +614,6 @@ pub async fn run() -> anyhow::Result<()> {
         entity_access_service.clone(),
         authorization_state.clone(),
     );
-
-    // Cal.com webhooks → Meta Lead events. Both secrets are loaded here
-    // (rather than on Config) to keep cal/Meta wiring colocated.
-    let cal_webhook_secret = secretsmanager_client
-        .get_maybe_secret_value(env, CalWebhookSecretKey::new()?)
-        .await?;
-    let cal_event_type_content_names_secret = secretsmanager_client
-        .get_maybe_secret_value(env, CalEventTypeContentNamesKey::new()?)
-        .await?;
-
-    let analytics_client = Arc::new(AnalyticsClient::new(AnalyticsClientConfig {
-        google_analytics: None,
-        meta: Some(MetaConfig {
-            pixel_id: MetaPixelId::new()?.as_ref().to_string(),
-            access_token: MetaAccessToken::new()?.as_ref().to_string(),
-            test_event_code: MetaTestEventCode::new().map(|v| v.as_ref().to_string()),
-        }),
-        posthog: None,
-    }));
-
-    let cal_event_type_meta: std::collections::HashMap<u64, CalEventMeta> =
-        serde_json::from_str(cal_event_type_content_names_secret.as_ref())
-            .context("CalEventTypeContentNames secret must be a JSON object mapping eventTypeId (u64) to { content_name: string, value: number (USD) }")?;
-    let cal_webhook_service = CalWebhookServiceImpl::new(
-        CalConfig {
-            webhook_secret: cal_webhook_secret.as_ref().to_string(),
-            event_type_meta: cal_event_type_meta,
-        },
-        AnalyticsClientSink::new(analytics_client.clone()),
-    );
-    let cal_webhook_state = CalWebhookRouterState::new(cal_webhook_service);
 
     // Call service (LiveKit)
     let transcription_agent_name = config
@@ -1089,52 +983,6 @@ pub async fn run() -> anyhow::Result<()> {
         }
     });
 
-    // Links archived calls to the CRM records of the people on them.
-    let crm_call_link_brokers = config.kafka_brokers.as_ref().to_string();
-    consumer_tracker.spawn({
-        let cancellation_token = consumer_cancellation_token.clone();
-        let consumer = crm::inbound::call_archived::CallArchivedConsumer::new(
-            crm::domain::call_links::CallRecordLinker::new(
-                call::domain::service::CallRecordQueryServiceImpl::new(PgCallRepo::new(
-                    db.clone(),
-                )),
-                crm::outbound::call_link::PgCallCrmLinker::new(
-                    db.clone(),
-                    (*system_properties_service).clone(),
-                ),
-            ),
-        );
-        async move {
-            loop {
-                if cancellation_token.is_cancelled() {
-                    break;
-                }
-
-                tracing::info!("starting CRM call-link consumer");
-                let result = consumer
-                    .run(&crm_call_link_brokers, cancellation_token.cancelled())
-                    .await;
-
-                if cancellation_token.is_cancelled() {
-                    break;
-                }
-
-                match result {
-                    Ok(()) => tracing::error!("CRM call-link consumer exited unexpectedly"),
-                    Err(error) => {
-                        tracing::error!(error = ?error, "CRM call-link consumer exited unexpectedly");
-                    }
-                }
-
-                tokio::select! {
-                    biased;
-                    _ = cancellation_token.cancelled() => break,
-                    _ = tokio::time::sleep(Duration::from_secs(5)) => {}
-                }
-            }
-        }
-    });
-
     let call_internal_state = InternalCallRouterState::new(call_service.clone());
 
     // Create the SQS worker for delete document processing before config is moved.
@@ -1349,8 +1197,7 @@ pub async fn run() -> anyhow::Result<()> {
     // Wire Macro AI to react to mentions with the classic in-channel chat
     // reply. The router posts replies through the channel service we just
     // built and runs the agent loop in-process with the channel-bot toolset:
-    // a channel has no composer to finish a chat-deferred user tool in, so
-    // calendar event creation executes directly and SendEmail is unavailable.
+    // a channel has no composer to finish a chat-deferred user tool in.
     // Agent sessions belong to a different bot entirely
     // (`bot_id::MACRO_NEW_BOT_ID`, served by the harness), so the two paths
     // can never answer the same mention.
@@ -1403,11 +1250,6 @@ pub async fn run() -> anyhow::Result<()> {
             )
             .with_admission(admission.clone()),
         ),
-        Arc::new(channel_bots::outbound::PrimaryCalendarTimeZones::new(
-            Arc::new(calendar_events::domain::service::CalendarService::new(
-                calendar_events::outbound::pg::PgCalendarRepository::new(readonly_db.clone()),
-            )),
-        )),
         Arc::new(channel_bots::outbound::LexicalCommentMarks::new(
             (*lexical_client).clone(),
         )),
@@ -1454,25 +1296,6 @@ pub async fn run() -> anyhow::Result<()> {
         entity_access_service: entity_access_service.clone(),
         authorization_state: authorization_state.clone(),
     };
-
-    // Held by value here and behind an `Arc` in the router state: the impl is a
-    // pool handle, so cloning is cheap and `SoupImpl` needs an owned service.
-    // Additional connections for guards spanning email I/O. HTTP requests and
-    // dispatch share this budget, independently of the main data pool.
-    let followup_lock_capacity = match config.environment {
-        Environment::Production => 32,
-        Environment::Develop => 16,
-        Environment::Local => 8,
-    };
-    let email_followups = reminders::domain::email_followup::service::EmailFollowupService::new(
-        PgRemindersRepo::with_followup_lock_capacity(db.clone(), followup_lock_capacity),
-        email_service.clone(),
-    );
-    let reminders_service =
-        reminders::domain::email_followup::reminder_service::EmailRemindersService::new(
-            email_followups.clone(),
-        )
-        .with_entity_access((*entity_access_service).clone());
 
     let document_creator = documents_hex::domain::create::DocumentCreator::new(
         document_service.clone(),
@@ -1527,21 +1350,6 @@ pub async fn run() -> anyhow::Result<()> {
         ),
         macro_event_broker.clone(),
     ));
-    let pipeline_service = Arc::new(crm::domain::pipelines::PipelineServiceImpl::new(
-        crm::outbound::pipelines::PgPipelineRepo::new(
-            db.clone(),
-            databases::outbound::pg_cell_store::PgCellStore::new(
-                db.clone(),
-                properties::outbound::properties_pg_repo::PropertiesPgRepo::new(db.clone()),
-            ),
-        ),
-        databases_service.clone(),
-        entity_access_service.clone(),
-        crm::outbound::stage_definitions::PropertiesStageDefinitionStore::new(
-            properties_service.clone(),
-        ),
-    ));
-
     let database_webhooks_service = Arc::new(database_webhooks::wiring::build_service(
         db.clone(),
         databases_service.clone(),
@@ -1564,25 +1372,21 @@ pub async fn run() -> anyhow::Result<()> {
     // realtime patch hydration, which runs right after the write it announces.
     // Lists retain the replica reader. Reuse Soup hydration so detail and
     // mutation metadata include viewer history.
-    let primary_entity_soup = Arc::new(
-        SoupImpl::new(
-            PgSoupRepo::new(readonly_pool::ReadOnlyPool(db.clone())),
-            frecency_service.clone(),
-            ReadonlyEmailPreviewAdapter(email_service.clone()),
-            ChannelListServiceImpl::new(
-                PgChannelsRepo::new(db.clone()),
-                PgChannelsRepo::new(db.clone()),
-                frecency_storage.clone(),
-            )
-            .with_agent_dm_profiles(agent_dm_profiles),
-            call::domain::service::CallRecordQueryServiceImpl::new(PgCallRepo::new(db.clone())),
-            crm_service.clone(),
-            GithubPullRequestServiceImpl::new(
-                ForeignEntityServiceImpl::new(PgForeignEntityRepo::new(db.clone())),
-                PgGithubPullRequestRepo::new(db.clone()),
-            ),
+    let primary_entity_soup = Arc::new(SoupImpl::new(
+        PgSoupRepo::new(readonly_pool::ReadOnlyPool(db.clone())),
+        frecency_service.clone(),
+        ChannelListServiceImpl::new(
+            PgChannelsRepo::new(db.clone()),
+            PgChannelsRepo::new(db.clone()),
+            frecency_storage.clone(),
+        )
+        .with_agent_dm_profiles(agent_dm_profiles),
+        call::domain::service::CallRecordQueryServiceImpl::new(PgCallRepo::new(db.clone())),
+        GithubPullRequestServiceImpl::new(
+            ForeignEntityServiceImpl::new(PgForeignEntityRepo::new(db.clone())),
+            PgGithubPullRequestRepo::new(db.clone()),
         ),
-    );
+    ));
 
     // SQL predicates and follow-up reads use the primary, matching the catalog
     // versions and writes; replica lag must not select stale rows for an edit.
@@ -1598,15 +1402,10 @@ pub async fn run() -> anyhow::Result<()> {
 
     let favorites_service = Arc::new(FavoritesServiceImpl::new(PgFavoritesRepo::new(db.clone())));
 
-    // Keep the replica-backed Soup reader alongside the primary-backed email
-    // writer in SoupRouterState. REST and GraphQL lists share this reader;
-    // only email mutations and their reply loader use the writer service, so
-    // normal list traffic never switches to the primary.
     let soup_service = Arc::new(
         SoupImpl::new(
             PgSoupRepo::new(readonly_pool::ReadOnlyPool(readonly_db.clone())),
             frecency_service,
-            readonly_email_service.clone(),
             ChannelListServiceImpl::new(
                 PgChannelsRepo::new(readonly_db.clone()),
                 PgChannelsRepo::new(readonly_db.clone()),
@@ -1621,7 +1420,6 @@ pub async fn run() -> anyhow::Result<()> {
             call::domain::service::CallRecordQueryServiceImpl::new(PgCallRepo::new(
                 readonly_db.clone(),
             )),
-            crm_service.clone(),
             GithubPullRequestServiceImpl::new(
                 ForeignEntityServiceImpl::new(PgForeignEntityRepo::new(readonly_db.clone())),
                 PgGithubPullRequestRepo::new(readonly_db.clone()),
@@ -1868,113 +1666,6 @@ pub async fn run() -> anyhow::Result<()> {
     let user_api_key_service = Arc::new(UserApiKeyServiceImpl::new(PgUserApiKeysRepo::new(
         db.clone(),
     )));
-    let calendar_read_service = Arc::new(calendar_events::domain::service::CalendarService::new(
-        calendar_events::outbound::pg::PgCalendarRepository::new(readonly_db.clone()),
-    ));
-    let graphql_calendar_context = graphql_calendar::CalendarGraphqlContext::new(
-        calendar_read_service.clone(),
-        Arc::new(
-            calendar_events::domain::changes::CalendarChangeService::new(
-                calendar_events::outbound::pg::PgCalendarRepository::new(readonly_db.clone()),
-            ),
-        ),
-    );
-    // Team policy reads use the primary so a sharing downgrade cannot be
-    // served from a lagging replica. The GraphQL own-calendar feed retains
-    // its existing readonly-pool routing.
-    let calendar_state = CalendarRouterState::new(
-        Arc::new(
-            calendar_events::domain::service::CalendarService::new(
-                calendar_events::outbound::pg::PgCalendarRepository::new(db.clone()),
-            )
-            .with_team_sharing_enabled(config.calendar_team_sharing_enabled),
-        ),
-        authorization_state.clone(),
-    );
-    // Calendar writes belong to calendar_service; each GraphQL mutation then
-    // answers from the primary so it reads the state its write committed.
-    let graphql_calendar_mutation_context = graphql_calendar::CalendarGraphqlMutationContext::new(
-        Arc::new(
-            calendar_events::outbound::calendar_service_mutations::CalendarServiceMutations::new(
-                macro_service_urls::CalendarServiceUrl::new()
-                    .context("calendar service url")?
-                    .to_string(),
-                config.internal_api_key.to_string(),
-            ),
-        ),
-        Arc::new(
-            calendar_events::domain::changes::CalendarChangeService::new(
-                calendar_events::outbound::pg::PgCalendarRepository::new(db.clone()),
-            ),
-        ),
-    );
-
-    // Reminder dispatch. An EventBridge rule drops a sweep tick on this queue
-    // every minute; the sweep fans one message out per due firing, onto the
-    // same queue, and every task in the pool delivers them in parallel.
-    let reminder_dispatch_worker = {
-        let queue = SqsDispatchQueue::new(
-            aws_sdk_sqs::Client::new(&aws_config),
-            reminder_dispatch_queue.to_string(),
-        );
-        let dispatch_service = ReminderDispatchService::new(
-            PgRemindersRepo::new(db.clone()),
-            NotificationReminderNotifier::new((*notification_ingress_service).clone()),
-            queue.clone(),
-        );
-        DispatchWorker::new(
-            reminders::domain::email_followup::dispatch::EmailReminderDispatch::new(
-                dispatch_service,
-                email_followups.clone(),
-            ),
-            queue,
-        )
-    };
-
-    consumer_tracker.spawn({
-        let cancellation_token = consumer_cancellation_token.clone();
-        async move {
-            tracing::info!("starting reminder dispatch worker");
-            reminder_dispatch_worker.run(cancellation_token).await;
-            tracing::info!("reminder dispatch worker stopped");
-        }
-    });
-
-    // Calendar event reminder dispatch: same sweep/deliver shape as reminders,
-    // on its own queue. Behind a master switch — when off, the worker drains
-    // the minutely tick so the queue neither backs up nor dead-letters.
-    let calendar_reminder_dispatch_worker = {
-        let queue = SqsCalendarDispatchQueue::new(
-            aws_sdk_sqs::Client::new(&aws_config),
-            calendar_reminder_dispatch_queue.to_string(),
-        );
-        let dispatch_service = CalendarReminderDispatchService::new(
-            calendar_events::outbound::pg::PgCalendarRepository::new(db.clone()),
-            NotificationCalendarReminderNotifier::new((*notification_ingress_service).clone()),
-            queue.clone(),
-        );
-        CalendarReminderDispatchWorker::new(dispatch_service, queue)
-    };
-
-    consumer_tracker.spawn({
-        let cancellation_token = consumer_cancellation_token.clone();
-        let enabled = config.calendar_reminder_dispatch_enabled;
-        async move {
-            if enabled {
-                tracing::info!("starting calendar reminder dispatch worker");
-                calendar_reminder_dispatch_worker
-                    .run(cancellation_token)
-                    .await;
-                tracing::info!("calendar reminder dispatch worker stopped");
-            } else {
-                tracing::info!("calendar reminder dispatch disabled; draining its queue");
-                calendar_reminder_dispatch_worker
-                    .drain(cancellation_token)
-                    .await;
-            }
-        }
-    });
-
     let redis_sha_client = Arc::new(Redis::new(redis_client));
 
     let document_purger = Arc::new(documents_hex::domain::purge::DocumentPurger::new(
@@ -2007,7 +1698,6 @@ pub async fn run() -> anyhow::Result<()> {
             chat_mutation_service,
             channels_service.clone(),
             call_service.clone(),
-            Arc::new(email_service.clone()),
             project_service.clone(),
             databases_service.clone(),
             forms_service.clone(),
@@ -2038,14 +1728,10 @@ pub async fn run() -> anyhow::Result<()> {
     // too: GraphQL notification writes publish no realtime update.
     let graphql_work_feed_context = complete_graph::WorkFeedGraphqlContext::new(
         work_feed::domain::service::WorkFeedServiceImpl::new(
-            work_feed::outbound::source::SoupWorkFeedSource::new(
-                soup_service.clone(),
-                Arc::new(email_service.clone()),
-            ),
+            work_feed::outbound::source::SoupWorkFeedSource::new(soup_service.clone()),
             work_feed::outbound::notifications::ReaderWorkFeedNotifications::new(
                 graphql_notification_reader.clone(),
             ),
-            work_feed::outbound::mail::EmailWorkFeedMail::new(Arc::new(email_service.clone())),
             work_feed::outbound::signals::SoupRealtimeWorkFeedSignals::new(
                 KafkaSoupRealtimePublisher::new(macro_event_broker.clone()),
             ),
@@ -2064,7 +1750,6 @@ pub async fn run() -> anyhow::Result<()> {
         contacts_ingress: contacts_ingress.clone(),
         soup_router_state: SoupRouterState::from_arc(
             soup_service.clone(),
-            email_service.clone(),
             entity_access_service.clone(),
             authorization_state.clone(),
         )
@@ -2090,45 +1775,28 @@ pub async fn run() -> anyhow::Result<()> {
             authorization_state.clone(),
         ),
         slack_state,
-        reminders_state: RemindersRouterState::new(
-            Arc::new(reminders_service),
-            entity_access_service.clone(),
-            authorization_state.clone(),
-        ),
         access_requests_state: access_requests::inbound::axum_router::AccessRequestsRouterState {
             service: access_requests_service,
             authorization_state: authorization_state.clone(),
         },
         graphql_initiative_entity_loader: graphql_initiative::InitiativeEntityLoader(
-            graphql_soup::soup_item_loader(
-                primary_entity_soup.clone(),
-                Arc::new(email_service.clone()),
-                entity_access_service.as_ref().clone(),
-            ),
+            graphql_soup::soup_item_loader(primary_entity_soup.clone()),
         ),
         graphql_agent_session_entity_loader: graphql_soup::AgentSessionEntityLoader(
-            graphql_soup::soup_item_loader(
-                primary_entity_soup.clone(),
-                Arc::new(email_service.clone()),
-                entity_access_service.as_ref().clone(),
-            ),
+            graphql_soup::soup_item_loader(primary_entity_soup.clone()),
         ),
         graphql_primary_soup_item_loader: graphql_soup::PrimarySoupItemLoader(
             graphql_soup::soup_item_loader_with_team_access(
                 primary_entity_soup,
-                Arc::new(email_service.clone()),
                 entity_access_service.as_ref().clone(),
             ),
         ),
         // Ordinary single-entity GraphQL reads use the replica-backed Soup
-        // and email readers. Subscription hydration, `soupEntity`, and
-        // mutation replies above read the primary.
+        // reader. Subscription hydration and `soupEntity` read the primary.
         graphql_soup_item_loader: graphql_soup::soup_item_loader_with_team_access(
             soup_service.clone(),
-            Arc::new(readonly_email_service),
             entity_access_service.as_ref().clone(),
         ),
-        graphql_crm_context: graphql_crm::CrmGraphqlContext::new(pipeline_service.clone()),
         graphql_initiative_context: graphql_initiative::InitiativeGraphqlContext::new(
             initiative_service.clone(),
             entity_access_service.clone(),
@@ -2136,8 +1804,6 @@ pub async fn run() -> anyhow::Result<()> {
         graphql_scheduled_action_context: ScheduledActionGraphqlContext::new(
             scheduled_action_read_service,
         ),
-        graphql_calendar_context,
-        graphql_calendar_mutation_context,
         initiative_state: InitiativeRouterState::new(
             initiative_service,
             entity_access_service.clone(),
@@ -2224,7 +1890,6 @@ pub async fn run() -> anyhow::Result<()> {
         frecency_storage,
         channel_list_state,
         entity_access_service: entity_access_service.clone(),
-        calendar_state,
         projects_state: ProjectRouterState {
             service: project_service,
             access_service: entity_access_service.clone(),
@@ -2264,24 +1929,7 @@ pub async fn run() -> anyhow::Result<()> {
         webhook_state,
         sse_stream_state,
         call_internal_state,
-        cal_webhook_state,
         entity_access_management_service,
-        pipeline_state: crm::inbound::pipelines::PipelineRouterState {
-            service: pipeline_service,
-            access: entity_access_service.clone(),
-            authorization: authorization_state.clone(),
-        },
-        crm_state: crm::inbound::axum_router::CrmRouterState {
-            service: Arc::new(crm_service),
-            stage_service: Arc::new(crm::domain::stages::CrmStageServiceImpl::new(
-                crm::outbound::companies_repo::CompaniesRepositoryImpl::new(db.clone()),
-                crm::outbound::stage_definitions::PropertiesStageDefinitionStore::new(
-                    properties_service.clone(),
-                ),
-            )),
-            entity_access_service: entity_access_service.clone(),
-            authorization_state: authorization_state.clone(),
-        },
         owned_purge_state,
     };
 

@@ -22,16 +22,13 @@ use crate::api::context::{
     EntityAccessService, ProjectService,
 };
 use crate::api::items::get_item_ids;
-use crate::api::threads::get_thread_access_level;
 use crate::api::{documents::get_documents_metadata, items::validate_item_ids};
 use axum::{
     Router,
     routing::{delete, get, post, put},
 };
 use macro_authorization::{InternalOnly, MacroAuthorizationExtractor};
-use macro_middleware::cloud_storage::{
-    document::ensure_document_exists, thread::ensure_thread_exists,
-};
+use macro_middleware::cloud_storage::document::ensure_document_exists;
 
 /// Internal routes authenticate through extractors on each handler.
 /// These routes are not part of the public Swagger documentation.
@@ -178,13 +175,6 @@ pub fn router(state: ApiContext) -> Router<ApiContext> {
         .route(
             "/history/{item_type}/{item_id}",
             delete(delete_history::delete_history_handler),
-        )
-        .route(
-            "/threads/{thread_id}/access_level",
-            get(get_thread_access_level::handler).layer(axum::middleware::from_fn_with_state(
-                state.clone(),
-                ensure_thread_exists::handler,
-            )),
         )
         .route(
             "/users/populate_items",

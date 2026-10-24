@@ -1,6 +1,6 @@
 # Welcome to Macro!
 
-Macro is an extremely fast, unified interface for all your work—email, messages, tasks, docs, and AI agents, all linked together in one database. 
+Macro is an extremely fast, unified interface for all your work—messages, tasks, docs, and AI agents, all linked together in one database. 
 
 We've prepared some starter docs to help you get a sense of the power of **Macro**. Press `cmd + k` to take a peek!
 
@@ -12,7 +12,7 @@ Let's walk around together and see what **Macro** can do. As you're reading, try
 
 # Unified Input
 
-In **Macro**, anywhere that you can type—whether it's a document, an email, a message—you have access to a host of powerful tools.
+In **Macro**, anywhere that you can type—whether it's a document or a message—you have access to a host of powerful tools.
 
 For example, you can always type @ to open the **mentions** menu. Go ahead, try it.
 
@@ -41,7 +41,7 @@ Other tools available wherever you are typing:
 Macro is built to be driven from the keyboard.
 
 - `cmd + k` — jump to anything by name
-- `c` — create anything (then `d` for a doc, `t` for a task, `e` for an email, `m` for a channel, `a` for an AI chat)
+- `c` — create anything (then `d` for a doc, `t` for a task, `m` for a channel, `a` for an AI chat)
 - `/` — search everything in your workspace
 - `j` / `k` — move down / up in any list
 - `e` — mark done
@@ -69,22 +69,16 @@ There's a bunch of other fancy stuff documents can do:
 
 # Triage everything from one inbox
 
-Press `g` then `i` to open your unified **inbox**: emails, channel messages, task assignments, doc mentions, and agent results—all in one list.
+Press `g` then `i` to open your unified **inbox**: channel messages, task assignments, doc mentions, and agent results—all in one list.
 
-- **Signal** is what needs your attention. **Noise** is everything else (newsletters, promos), filtered by AI.
+- **Signal** is what needs your attention. **Noise** is everything else, filtered by AI.
 - Move with `j`/`k`, preview with `space`, open with `enter`, and mark items as done with `e` to get to inbox zero.
-
----
-
-# Connect *all* your email accounts
-
-Macro is a full email client that syncs with Gmail and Google Workspace—no migration needed. Connect one or more accounts in **Settings**, and every message lands in a single unified inbox. When you compose, you pick which address sends.
 
 ---
 
 # Put agents to work
 
-Press `c` then `a` to chat with an agent, or mention **@Macro** in any channel. Agents see your whole workspace — docs, emails, messages, call transcripts — so they can summarize discussions, answer questions, draft documents, and create tasks. You can also schedule **automations** (daily reminders, weekly summaries) that deliver results straight to your inbox.
+Press `c` then `a` to chat with an agent, or mention **@Macro** in any channel. Agents see your whole workspace — docs, messages, call transcripts — so they can summarize discussions, answer questions, draft documents, and create tasks. You can also schedule **automations** (daily reminders, weekly summaries) that deliver results straight to your inbox.
 
 ---
 

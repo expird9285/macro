@@ -6,9 +6,7 @@ For us this process often starts in our Bug Reports channel. Someone reports a b
 
 Now there is a bidirectional link between the initial report and the task itself, so that no matter where conversation happens, the context never gets lost.
 
-Task creation might also happen in response to a customer support email. A task can be created directly from the email itself.
-
-Other times, tasks will be assigned to you. When a task is assigned to you it shows up in your inbox, alongside channel messages, emails, and PR updates.
+Other times, tasks will be assigned to you. When a task is assigned to you it shows up in your inbox, alongside channel messages and PR updates.
 
 Sometimes we'll write up documents describing new features. We can then ask the Macro agent to create tasks based on the document and assign them to people.
 

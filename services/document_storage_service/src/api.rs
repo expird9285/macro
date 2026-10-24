@@ -42,7 +42,6 @@ mod user_document_view_location;
 mod entity;
 mod items;
 pub(crate) mod swagger;
-mod threads;
 
 // Constants
 // auth based constants
@@ -95,8 +94,7 @@ fn api_router(state: ApiContext) -> Router {
         authorization_state: state.authorization_state.clone(),
     };
 
-    // Webhook router is outside auth — LiveKit validates via its own JWT,
-    // cal.com validates via HMAC signature.
+    // Webhook router is outside auth — LiveKit validates via its own JWT.
     let webhook_router = Router::new()
         .nest(
             "/call/guest-chat",
@@ -111,10 +109,6 @@ fn api_router(state: ApiContext) -> Router {
                 state.call_webhook_state.clone(),
                 state.call_public_rate_limiter.clone(),
             ),
-        )
-        .nest(
-            "/cal",
-            cal::inbound::cal_webhook_router::cal_webhook_router(state.cal_webhook_state.clone()),
         );
 
     // Internal call router — agent-authenticated via x-macro-internal-call header.
@@ -153,12 +147,6 @@ fn api_router(state: ApiContext) -> Router {
         )
         .nest("/instructions", instructions::router())
         .nest("/items", items_router(state.clone()))
-        .nest(
-            "/threads",
-            threads::router(state.clone()).layer(axum::middleware::from_fn(
-                macro_middleware::connection_drop_prevention_handler,
-            )),
-        )
         .nest(
             "/user_document_view_location",
             user_document_view_location::router(state.clone()).layer(axum::middleware::from_fn(
@@ -221,20 +209,6 @@ fn api_router(state: ApiContext) -> Router {
             channels::inbound::list_router::channel_list_router(state.channel_list_state.clone()),
         )
         .nest("/entity", entity::router())
-        .merge(calendar_events::inbound::axum_router::calendar_router(
-            state.calendar_state.clone(),
-        ))
-        .merge(calendar_events::inbound::team_router::team_calendar_router(
-            calendar_events::inbound::team_router::CalendarTeamRouterState::new(
-                std::sync::Arc::new(calendar_events::domain::team::CalendarTeamServiceImpl::new(
-                    calendar_events::outbound::pg_team::PgCalendarTeamRepository::new(
-                        state.db.clone(),
-                    ),
-                    state.config.calendar_team_sharing_enabled,
-                )),
-                state.authorization_state.clone(),
-            ),
-        ))
         .nest(
             "/channels",
             channels::inbound::axum_router::channels_router(state.channels_state.clone()),
@@ -270,10 +244,6 @@ fn api_router(state: ApiContext) -> Router {
         .nest(
             "/slack",
             slack_integration::inbound::axum_router::slack_router(state.slack_state.clone()),
-        )
-        .nest(
-            "/reminders",
-            reminders::inbound::axum_router::reminders_router(state.reminders_state.clone()),
         )
         .nest(
             "/entities",
@@ -335,13 +305,6 @@ fn api_router(state: ApiContext) -> Router {
                 webhook::inbound::stream_router::webhook_stream_router(
                     state.sse_stream_state.clone(),
                 ),
-            ),
-        )
-        .nest(
-            "/crm",
-            crm::inbound::axum_router::crm_router(state.crm_state.clone()).nest(
-                "/pipelines",
-                crm::inbound::pipelines::router(state.pipeline_state.clone()),
             ),
         )
         .merge(

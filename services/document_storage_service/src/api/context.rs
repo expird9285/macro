@@ -8,14 +8,6 @@ use bots::{
     inbound::{axum_router::BotsRouterState, channel_webhook_router::ChannelBotWebhookRouterState},
     outbound::pg_bots_repo::PgBotsRepo,
 };
-use cal::{
-    domain::service::CalWebhookServiceImpl, inbound::cal_webhook_router::CalWebhookRouterState,
-    outbound::analytics_client::AnalyticsClientSink,
-};
-use calendar_events::{
-    domain::service::CalendarService, inbound::axum_router::CalendarRouterState,
-    outbound::pg::PgCalendarRepository,
-};
 use call::{
     domain::service::CallServiceImpl,
     inbound::axum_router::{CallRouterState, InternalCallRouterState, WebhookRouterState},
@@ -55,10 +47,6 @@ use documents_hex::outbound::document_purge::{
 use documents_hex::outbound::pg_document_repo::PgDocumentRepo;
 use documents_hex::outbound::s3_upload_url::S3UploadUrlAdapter;
 use dynamodb_client::DynamodbClient;
-use email::{
-    domain::{ports::ReadonlyEmailPreviewAdapter, service::EmailServiceImpl},
-    outbound::EmailPgRepo,
-};
 use entity_access::{domain::service::EntityAccessServiceImpl, outbound::PgAccessRepository};
 use favorites::{
     domain::{mutation_service::FavoritesMutationServiceImpl, service::FavoritesServiceImpl},
@@ -133,9 +121,6 @@ use properties::{
     inbound::axum_router::PropertiesRouterState,
 };
 use readonly_pool::ReadOnlyPool;
-use reminders::{
-    inbound::axum_router::RemindersRouterState, outbound::pg_reminders_repo::PgRemindersRepo,
-};
 use search_service::SearchHandlerState;
 use soup::{
     domain::service::SoupImpl, inbound::axum_router::SoupRouterState,
@@ -166,60 +151,15 @@ use webhook::{
 /// Event broker shared by DSS services.
 pub(crate) type DssEventBroker = MacroEventBrokerService<KafkaEventPublisher, TaskTracker>;
 
-/// CRM service for DSS — no-op resolver since DSS doesn't populate.
-pub(crate) type DssCrmService = crm::domain::service::CrmServiceImpl<
-    crm::outbound::companies_repo::CompaniesRepositoryImpl,
-    crm::outbound::no_op_resolver::NoOpCompanyMetadataResolver,
->;
-
-pub(crate) type DssEmailService = EmailServiceImpl<
-    EmailPgRepo,
-    FrecencyQueryServiceImpl<FrecencyPgStorage>,
-    sqs_client::SQS,
-    DssCrmService,
-    EntityAccessManagementService,
-    DssEventBroker,
->;
-
-/// CRM router state.
-pub(crate) type DssCrmStageService = crm::domain::stages::CrmStageServiceImpl<
-    crm::outbound::companies_repo::CompaniesRepositoryImpl,
-    crm::outbound::stage_definitions::PropertiesStageDefinitionStore<PropertiesService>,
->;
-
-pub(crate) type DssPipelineService = crm::domain::pipelines::PipelineServiceImpl<
-    crm::outbound::pipelines::PgPipelineRepo<
-        databases::outbound::pg_cell_store::PgCellStore<PropertiesPgRepo>,
-    >,
-    DatabasesServiceType,
-    EntityAccessService,
-    crm::outbound::stage_definitions::PropertiesStageDefinitionStore<PropertiesService>,
->;
-pub(crate) type DssPipelineState = crm::inbound::pipelines::PipelineRouterState<
-    DssPipelineService,
-    EntityAccessService,
-    AuthorizationService,
->;
-
-pub(crate) type DssCrmState = crm::inbound::axum_router::CrmRouterState<
-    DssCrmService,
-    DssCrmStageService,
-    EntityAccessService,
-    AuthorizationService,
->;
-
 pub(crate) type DssSoupService = SoupImpl<
     PgSoupRepo,
     FrecencyQueryServiceImpl<FrecencyPgStorage>,
-    ReadonlyEmailPreviewAdapter<DssEmailService>,
     ChannelListServiceImpl<PgChannelsRepo, PgChannelsRepo, FrecencyPgStorage>,
     call::domain::service::CallRecordQueryServiceImpl<call::outbound::pg_call_repo::PgCallRepo>,
-    DssCrmService,
     GithubPullRequestServiceType,
 >;
 
-type DssSoupState =
-    SoupRouterState<DssSoupService, DssEmailService, EntityAccessService, AuthorizationService>;
+type DssSoupState = SoupRouterState<DssSoupService, EntityAccessService, AuthorizationService>;
 
 /// Realtime Soup consumer service used by GraphQL subscriptions.
 pub(crate) type DssSoupRealtimeService = SoupRealtimeConsumerService<SoupTopicConsumer>;
@@ -245,7 +185,6 @@ pub(crate) type DssGraphqlSoupSchema = complete_graph::SharedSoupSchema<
     DssSoupRealtimeService,
     DssNotificationRealtimeService,
     DssActivityRealtimeService,
-    DssEmailService,
     EntityAccessService,
     AuthorizationService,
     ApiContext,
@@ -256,7 +195,6 @@ pub(crate) type DssGraphqlSoupSchema = complete_graph::SharedSoupSchema<
     ai_tools::ToolNotificationService,
     Arc<ai_tools::ToolNotificationService>,
     complete_graph::PropertiesEntityPropertyReader<PropertiesService, EntityAccessService>,
-    complete_graph::EmailServiceEmailContentReader<DssEmailService, EntityAccessService>,
     Arc<FavoritesServiceType>,
     Arc<EntityAccessService>,
     DssActivityReader,
@@ -285,12 +223,6 @@ pub(crate) type PropertiesHandlerState =
 
 /// Type alias for the entity access service.
 pub(crate) type EntityAccessService = EntityAccessServiceImpl<PgAccessRepository>;
-
-/// Calendar occurrence query service.
-pub(crate) type DssCalendarService = CalendarService<PgCalendarRepository>;
-
-/// Calendar occurrence router state.
-pub(crate) type DssCalendarState = CalendarRouterState<DssCalendarService, AuthorizationService>;
 
 /// Adapter implementing [`TaskPropertiesPort`] for the system properties service.
 pub(crate) struct TaskPropertiesAdapter {
@@ -531,7 +463,6 @@ pub(crate) type DssEntityMutationService =
         DssChatMutationService,
         DssChannelService,
         DssCallService,
-        DssEmailService,
         ProjectService,
         DatabasesServiceType,
         FormsServiceType,
@@ -698,19 +629,6 @@ pub(crate) type DssSlackState = slack_integration::inbound::axum_router::SlackRo
     AuthorizationService,
 >;
 
-/// Type alias for the reminders service.
-pub(crate) type RemindersServiceType =
-    reminders::domain::email_followup::reminder_service::EmailRemindersService<
-        PgRemindersRepo,
-        DssEmailService,
-        reminders::domain::ports::SystemClock,
-        EntityAccessService,
-    >;
-
-/// Type alias for the reminders router state.
-pub(crate) type DssRemindersState =
-    RemindersRouterState<RemindersServiceType, EntityAccessService, AuthorizationService>;
-
 /// Initiative description surfaces, backed by the shared collab-surface service.
 pub(crate) type InitiativeDescriptionSurfacesType =
     initiative_description::InitiativeDescriptionSurfacesAdapter<CollabSurfaceServiceType>;
@@ -787,12 +705,6 @@ pub(crate) type GithubPullRequestIndexServiceType =
 pub(crate) type DssGithubPullRequestIndexState =
     PullRequestIndexRouterState<GithubPullRequestIndexServiceType, AuthorizationService>;
 
-/// Type alias for the cal.com webhook service.
-pub(crate) type CalWebhookServiceType = CalWebhookServiceImpl<AnalyticsClientSink>;
-
-/// Type alias for the cal.com webhook router state.
-pub(crate) type DssCalWebhookState = CalWebhookRouterState<CalWebhookServiceType>;
-
 /// Type alias for the product webhook service.
 pub(crate) type DssWebhookService =
     WebhookServiceImpl<PgWebhookRepo, ReqwestWebhookValidationClient, DssEventBroker>;
@@ -847,15 +759,11 @@ pub(crate) struct ApiContext {
     pub favorites_mutation_service: Arc<FavoritesMutationServiceType>,
     pub channel_labels_state: DssChannelLabelsState,
     pub user_api_key_state: DssUserApiKeyState,
-    pub reminders_state: DssRemindersState,
     pub access_requests_state: AccessRequestsState,
     pub slack_state: DssSlackState,
     pub initiative_state: DssInitiativeState,
-    pub graphql_crm_context: graphql_crm::CrmGraphqlContext,
     pub graphql_initiative_context: graphql_initiative::InitiativeGraphqlContext,
     pub graphql_scheduled_action_context: graphql_scheduled_action::ScheduledActionGraphqlContext,
-    pub graphql_calendar_context: graphql_calendar::CalendarGraphqlContext,
-    pub graphql_calendar_mutation_context: graphql_calendar::CalendarGraphqlMutationContext,
     pub graphql_work_feed_context: complete_graph::WorkFeedGraphqlContext,
     pub graphql_initiative_entity_loader: graphql_initiative::InitiativeEntityLoader,
     pub graphql_agent_session_entity_loader: graphql_soup::AgentSessionEntityLoader,
@@ -887,7 +795,6 @@ pub(crate) struct ApiContext {
     /// Legacy channel list router state.
     pub channel_list_state: DssChannelListState,
     pub entity_access_service: Arc<EntityAccessService>,
-    pub calendar_state: DssCalendarState,
     pub documents_state: DocumentsState,
     pub projects_state: ProjectsState,
     pub channels_state: DssChannelsState,
@@ -905,11 +812,8 @@ pub(crate) struct ApiContext {
     pub webhook_state: DssWebhookState,
     pub sse_stream_state: DssSseStreamState,
     pub call_internal_state: DssCallInternalState,
-    pub cal_webhook_state: DssCalWebhookState,
     pub entity_access_management_service: EntityAccessManagementService,
-    pub crm_state: DssCrmState,
     pub owned_purge_state: DssOwnedPurgeState,
-    pub pipeline_state: DssPipelineState,
 }
 
 env_var! {
@@ -924,9 +828,6 @@ impl From<&ApiContext> for PropertiesHandlerState {
             ctx.entity_access_service.clone(),
             ctx.authorization_state.clone(),
         )
-        .with_managed_team_definitions([
-            crm::domain::stages::CRM_TEAM_STAGE_DEFINITION_NAME.to_string(),
-        ])
     }
 }
 
@@ -941,7 +842,6 @@ impl From<&ApiContext> for SearchHandlerState {
         SearchHandlerState {
             db: ctx.readonly_db.clone(),
             opensearch_client: ctx.opensearch_client.clone(),
-            entity_access_service: ctx.entity_access_service.clone(),
             authorization_state: ctx.authorization_state.clone(),
             agent_session_search_metadata: Arc::new(AgentSessionSearchMetadataServiceImpl::new(
                 PgAgentSessionRepo::new(
@@ -952,7 +852,6 @@ impl From<&ApiContext> for SearchHandlerState {
                 ),
             ))
                 as Arc<dyn AgentSessionSearchMetadataService>,
-            calendar_search_enabled: ctx.config.calendar_search_enabled,
         }
     }
 }
@@ -960,16 +859,5 @@ impl From<&ApiContext> for SearchHandlerState {
 impl FromRef<ApiContext> for SearchHandlerState {
     fn from_ref(ctx: &ApiContext) -> Self {
         SearchHandlerState::from(ctx)
-    }
-}
-
-/// `#[derive(FromRef)]` only exposes direct field types, so hand the email
-/// router state out of the nested soup router state for email-link extractors
-/// that key off `EmailRouterState`.
-impl FromRef<ApiContext>
-    for email::inbound::axum::previews_router::EmailRouterState<DssEmailService>
-{
-    fn from_ref(ctx: &ApiContext) -> Self {
-        FromRef::from_ref(&ctx.soup_router_state)
     }
 }
