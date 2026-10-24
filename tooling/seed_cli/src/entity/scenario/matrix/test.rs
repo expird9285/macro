@@ -129,17 +129,6 @@ fn expected_matrix_covers_owner_team_channel_public_edges() {
     );
     assert_eq!(level(&rows, "call:dm-huddle", "bob"), None);
 
-    // Email: owner and delegate both act as owners; nobody else sees it.
-    assert_eq!(
-        level(&rows, "email:alice-inbox/welcome", "alice"),
-        Some(AccessLevel::Owner)
-    );
-    assert_eq!(
-        level(&rows, "email:alice-inbox/welcome", "bob"),
-        Some(AccessLevel::Owner)
-    );
-    assert_eq!(level(&rows, "email:alice-inbox/welcome", "carol"), None);
-
     // Channels resolve to view for active participants only.
     assert_eq!(level(&rows, "channel:eng", "dave"), Some(AccessLevel::View));
     assert_eq!(level(&rows, "channel:eng", "carol"), None);
@@ -231,14 +220,12 @@ fn team_link_share_fails_closed_when_owner_has_no_team() {
 fn expected_matrix_row_count_matches_entities() {
     let spec = example();
     let rows = expected_matrix(&spec);
-    let email_threads: usize = spec.emails.values().map(|a| a.threads.len()).sum();
     let expected = spec.channels.len()
         + spec.projects.len()
         + spec.documents.len()
         + spec.tasks.len()
         + spec.chats.len()
-        + spec.calls.len()
-        + email_threads;
+        + spec.calls.len();
     assert_eq!(rows.len(), expected);
 }
 

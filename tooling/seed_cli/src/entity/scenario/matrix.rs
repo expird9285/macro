@@ -245,30 +245,6 @@ pub fn expected_matrix(spec: &ScenarioSpec) -> Vec<ExpectedRow> {
         });
     }
 
-    for (account_key, account) in &spec.emails {
-        for (thread_key, thread) in &account.threads {
-            let mut levels: BTreeMap<String, AccessLevel> = BTreeMap::new();
-            levels.insert(account.owner.clone(), AccessLevel::Owner);
-            for delegate in &account.delegated_to {
-                levels.insert(delegate.clone(), AccessLevel::Owner);
-            }
-            let share_rows: Vec<apply::AccessRow> = thread
-                .share
-                .iter()
-                .map(|s| apply::share_to_row(spec, s))
-                .collect();
-            for (user, level) in levels_from_rows(spec, &share_rows, &account.owner, None, None) {
-                apply::max_level(&mut levels, &user, level);
-            }
-            rows.push(ExpectedRow {
-                label: format!("email:{account_key}/{thread_key}"),
-                entity_id: spec.email_thread_id(account_key, thread_key).to_string(),
-                entity_type: EntityType::EmailThread,
-                levels,
-            });
-        }
-    }
-
     rows
 }
 

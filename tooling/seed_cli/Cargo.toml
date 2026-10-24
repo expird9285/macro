@@ -7,7 +7,6 @@ version = "0.1.0"
 [dependencies]
 anyhow = { workspace = true }
 aws-sdk-s3 = { workspace = true }
-base64 = { workspace = true }
 channels = { path = "../../crates/channels", default-features = false, features = ["outbound"] }
 chrono = { workspace = true }
 clap = { workspace = true }
@@ -15,8 +14,6 @@ comms_db_client = { path = "../../crates/comms_db_client" }
 entity_access = { path = "../../crates/entity_access", default-features = false, features = ["outbound"] }
 entity_access_db_utils = { path = "../../crates/entity_access_db_utils" }
 fusionauth = { path = "../../crates/fusionauth" }
-jsonwebtoken = { workspace = true }
-futures = { workspace = true }
 lexical_client = { path = "../../crates/lexical_client" }
 macro_aws_config = { path = "../../crates/macro_aws_config", features = ["s3"] }
 macro_db_client = { path = "../../crates/macro_db_client" }
@@ -32,8 +29,6 @@ model-entity = { path = "../../crates/model-entity" }
 model_owner = { path = "../../crates/model_owner" }
 models_permissions = { path = "../../crates/models_permissions" }
 models_properties = { path = "../../crates/models_properties" }
-rand = { workspace = true }
-reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 properties = { path = "../../crates/properties", default-features = false, features = ["outbound"] }

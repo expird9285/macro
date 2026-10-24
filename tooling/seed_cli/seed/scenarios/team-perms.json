@@ -137,35 +137,6 @@
       "duration_minutes": 10
     }
   },
-  "emails": {
-    "alice-inbox": {
-      "owner": "alice",
-      "delegated_to": ["bob"],
-      "threads": {
-        "welcome": {
-          "subject": "Welcome to Acme",
-          "from": "founders@example.com",
-          "body": "Welcome aboard! Here's everything you need to get started.",
-          "unread": true
-        },
-        "renewal": {
-          "subject": "Contract renewal",
-          "from": "legal@example.com",
-          "body": "The renewal is attached, please review by Friday."
-        }
-      }
-    },
-    "dave-inbox": {
-      "owner": "dave",
-      "threads": {
-        "invoice": {
-          "subject": "Invoice #42",
-          "from": "billing@example.com",
-          "body": "Your invoice for June is attached."
-        }
-      }
-    }
-  },
   "messages": [
     {
       "channel": "eng",

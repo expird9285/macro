@@ -26,7 +26,6 @@ const MARKED_TABLES: &[(&str, &str, &str)] = &[
     ("documents", "\"Document\"", "id"),
     ("chats", "\"Chat\"", "id"),
     ("calls", "call_records", "id"),
-    ("inboxes", "email_links", "id"),
     ("messages", "comms_messages", "id"),
 ];
 
@@ -110,17 +109,6 @@ fn kind_checks(spec: &ScenarioSpec) -> Vec<KindCheck> {
                 spec.calls
                     .keys()
                     .map(|k| (k, spec.call_id(k).to_string()))
-                    .collect(),
-            ),
-        },
-        KindCheck {
-            label: "inboxes",
-            table: "email_links",
-            id_column: "id",
-            expected: pairs(
-                spec.emails
-                    .keys()
-                    .map(|k| (k, spec.email_link_id(k).to_string()))
                     .collect(),
             ),
         },

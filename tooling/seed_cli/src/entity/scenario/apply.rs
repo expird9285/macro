@@ -19,16 +19,8 @@ use macro_db_client::document::v2::create::CreateDocumentArgs;
 use macro_user_id::user_id::MacroUserIdStr;
 use model::document::FileType;
 use model::item::ShareableItemType;
-use models_email::email::service::address::ContactInfo;
-use models_email::email::service::label::{
-    Label, LabelListVisibility, LabelType, MessageListVisibility,
-};
-use models_email::email::service::link::{Link, UserProvider};
-use models_email::email::service::message::Message;
-use models_email::email::service::thread::Thread;
 use models_permissions::share_permission::{LinkShare, SharePermissionV2};
 use models_properties::service::property_value::PropertyValue;
-use uuid::Uuid;
 
 use super::reset::{reset_contacts_outbox_statement, reset_statements};
 use super::spec::{
@@ -37,33 +29,10 @@ use super::spec::{
 use super::{sql_string, values_sql};
 use crate::config::SeedCliContext;
 
-#[cfg(test)]
-mod test;
-
-fn scenario_body_html_sanitized(body_html: Option<&str>, body_text: &str) -> String {
-    let raw = body_html
-        .map(str::to_string)
-        .unwrap_or_else(|| format!("<p>{body_text}</p>"));
-    email_utils::sanitize_email_html(&raw)
-}
-
 /// Canonical blank-markdown loro snapshot, matching the one production uses
 /// to initialize empty documents.
 const MARKDOWN_GOLDEN_SNAPSHOT: &[u8] =
     include_bytes!("../../../../../static_assets/markdown-golden.1.bin");
-
-/// System labels created for every seeded inbox.
-const EMAIL_SYSTEM_LABELS: &[&str] = &[
-    "INBOX",
-    "SENT",
-    "UNREAD",
-    "STARRED",
-    "IMPORTANT",
-    "DRAFT",
-    "TRASH",
-    "SPAM",
-    "CATEGORY_PERSONAL",
-];
 
 impl From<ShareLevel> for AccessLevel {
     fn from(level: ShareLevel) -> Self {
@@ -186,7 +155,6 @@ pub async fn apply(
     seed_tasks(ctx, spec).await?;
     seed_chats(ctx, spec).await?;
     seed_calls(ctx, spec).await?;
-    seed_emails(ctx, spec).await?;
     seed_messages(ctx, spec).await?;
 
     println!("\nScenario `{}` applied.", spec.scenario);
@@ -311,19 +279,11 @@ async fn seed_teams(ctx: &SeedCliContext, spec: &ScenarioSpec) -> anyhow::Result
     });
     let member_values = values_sql(member_rows);
 
-    let crm_values = values_sql(spec.teams.iter().map(|(key, team)| {
-        vec![
-            sql_string(&spec.team_id(key).to_string()),
-            if team.crm_enabled { "true" } else { "false" }.to_string(),
-        ]
-    }));
-
     let statements = vec![
         format!(
             "INSERT INTO team (id, name, owner_id, subscription_id, seat_count) VALUES\n  {team_values}"
         ),
         format!("INSERT INTO team_user (user_id, team_id, team_role) VALUES\n  {member_values}"),
-        format!("INSERT INTO team_crm_settings (team_id, crm_enabled) VALUES\n  {crm_values}"),
     ];
 
     ctx.db.execute_statements(&statements).await
@@ -911,205 +871,6 @@ async fn seed_calls(ctx: &SeedCliContext, spec: &ScenarioSpec) -> anyhow::Result
         println!("  call `{key}` -> {call_id}");
     }
     Ok(())
-}
-
-async fn seed_emails(ctx: &SeedCliContext, spec: &ScenarioSpec) -> anyhow::Result<()> {
-    if spec.emails.is_empty() {
-        return Ok(());
-    }
-    println!("Seeding {} inboxes", spec.emails.len());
-    let now = Utc::now();
-
-    for (key, account) in &spec.emails {
-        let owner = &spec.users[&account.owner];
-        let address = account
-            .address
-            .clone()
-            .unwrap_or_else(|| owner.email.clone());
-        let link_id = spec.email_link_id(key);
-
-        let macro_id = MacroUserIdStr::parse_from_str(spec.user_id(&account.owner).leak())
-            .context("valid inbox owner id")?;
-        let email_str = macro_user_id::email::EmailStr::try_from(address.clone())
-            .map_err(|e| anyhow::anyhow!("invalid inbox address {address}: {e:?}"))?;
-        let is_primary = Link::derive_is_primary(&macro_id, &email_str);
-
-        let link = ctx
-            .db
-            .upsert_email_link(Link {
-                id: link_id,
-                macro_id,
-                fusionauth_user_id: spec.user_id(&account.owner),
-                email_address: email_str,
-                provider: UserProvider::Gmail,
-                is_sync_active: true,
-                is_primary,
-                needs_reauth: false,
-                last_sync_error_at: None,
-                created_at: now,
-                updated_at: now,
-            })
-            .await?;
-
-        let labels: Vec<Label> = EMAIL_SYSTEM_LABELS
-            .iter()
-            .map(|id| Label {
-                id: None,
-                link_id: link.id,
-                provider_label_id: (*id).to_string(),
-                name: Some((*id).to_string()),
-                created_at: now,
-                message_list_visibility: Some(MessageListVisibility::Show),
-                label_list_visibility: Some(LabelListVisibility::LabelShow),
-                type_: Some(LabelType::System),
-            })
-            .collect();
-        ctx.db.insert_email_labels(labels).await?;
-
-        for (thread_index, (thread_key, thread_spec)) in account.threads.iter().enumerate() {
-            let thread = build_thread(
-                spec,
-                key,
-                thread_key,
-                thread_spec,
-                link.id,
-                &address,
-                now - Duration::minutes(i64::from(
-                    thread_spec
-                        .sent_minutes_ago
-                        .unwrap_or((thread_index as u32 + 1) * 60),
-                )),
-            );
-            let thread_id = thread.db_id.to_string();
-            ctx.db.insert_email_thread(thread, link.id).await?;
-
-            let rows: Vec<AccessRow> = thread_spec
-                .share
-                .iter()
-                .map(|s| share_to_row(spec, s))
-                .collect();
-            apply_access_rows(ctx, &thread_id, EntityType::EmailThread, &rows).await?;
-            println!("  inbox `{key}` thread `{thread_key}` -> {thread_id}");
-        }
-
-        for delegate in &account.delegated_to {
-            ctx.db
-                .insert_macro_user_link(
-                    &spec.user_id(delegate),
-                    &spec.user_id(&account.owner),
-                    link.id,
-                )
-                .await?;
-            println!("  inbox `{key}` delegated to `{delegate}`");
-        }
-    }
-    Ok(())
-}
-
-#[allow(clippy::too_many_arguments)]
-fn build_thread(
-    spec: &ScenarioSpec,
-    account_key: &str,
-    thread_key: &str,
-    thread_spec: &super::spec::EmailThreadSpec,
-    link_id: Uuid,
-    owner_address: &str,
-    sent_at: DateTime<Utc>,
-) -> Thread {
-    let thread_id = spec.email_thread_id(account_key, thread_key);
-    let message_id = spec.email_message_id(account_key, thread_key);
-    let provider_id = format!("seed-{}-{account_key}-{thread_key}", spec.scenario);
-
-    let from_address = thread_spec
-        .from
-        .clone()
-        .unwrap_or_else(|| "sender@example.com".to_string());
-    let body_text = thread_spec.body.clone().unwrap_or_else(|| {
-        format!(
-            "{}\n\n(seeded by scenario `{}`)",
-            thread_spec.subject, spec.scenario
-        )
-    });
-    let snippet: String = body_text.chars().take(100).collect();
-
-    let mut label_ids = vec!["INBOX".to_string(), "CATEGORY_PERSONAL".to_string()];
-    if thread_spec.unread {
-        label_ids.push("UNREAD".to_string());
-    }
-    let labels: Vec<Label> = label_ids
-        .iter()
-        .map(|lid| Label {
-            id: None,
-            link_id,
-            provider_label_id: lid.clone(),
-            name: Some(lid.clone()),
-            created_at: sent_at,
-            message_list_visibility: None,
-            label_list_visibility: None,
-            type_: None,
-        })
-        .collect();
-
-    let message = Message {
-        db_id: message_id,
-        provider_id: Some(format!("{provider_id}-m0")),
-        thread_db_id: thread_id,
-        provider_thread_id: Some(provider_id.clone()),
-        replying_to_id: None,
-        global_id: None,
-        link_id,
-        subject: Some(thread_spec.subject.clone()),
-        snippet: Some(snippet),
-        provider_history_id: None,
-        internal_date_ts: Some(sent_at),
-        sent_at: Some(sent_at),
-        size_estimate: None,
-        is_read: !thread_spec.unread,
-        is_starred: false,
-        is_sent: false,
-        is_draft: false,
-        scheduled_send_time: None,
-        has_attachments: false,
-        from: Some(ContactInfo {
-            email: from_address,
-            name: None,
-            photo_url: None,
-        }),
-        to: vec![ContactInfo {
-            email: owner_address.to_string(),
-            name: None,
-            photo_url: None,
-        }],
-        cc: vec![],
-        bcc: vec![],
-        labels,
-        body_text: Some(body_text.clone()),
-        body_html_sanitized: Some(scenario_body_html_sanitized(
-            thread_spec.body_html.as_deref(),
-            &body_text,
-        )),
-        body_macro: None,
-        attachments: vec![],
-        attachments_draft: vec![],
-        attachments_forwarded: vec![],
-        headers_json: None,
-        created_at: sent_at,
-        updated_at: sent_at,
-    };
-
-    Thread {
-        db_id: thread_id,
-        provider_id: Some(provider_id),
-        link_id,
-        inbox_visible: true,
-        is_read: !thread_spec.unread,
-        latest_inbound_message_ts: Some(sent_at),
-        latest_outbound_message_ts: None,
-        latest_non_spam_message_ts: Some(sent_at),
-        created_at: sent_at,
-        updated_at: sent_at,
-        messages: vec![message],
-    }
 }
 
 async fn seed_messages(ctx: &SeedCliContext, spec: &ScenarioSpec) -> anyhow::Result<()> {

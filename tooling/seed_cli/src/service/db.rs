@@ -18,7 +18,6 @@ use comms_db_client::messages::create_message_mentions::CreateMessageMentionOpti
 use comms_db_client::messages::seed_message::SeedMessageOptions;
 use comms_db_client::model::SimpleMention;
 use model::document::DocumentMetadata;
-use models_email::email::service;
 use models_permissions::share_permission::SharePermissionV2;
 use models_permissions::share_permission::access_level::AccessLevel;
 use models_permissions::share_permission::team_share::TeamShareCreation;
@@ -228,52 +227,6 @@ impl SeedDb {
         tx.commit().await?;
 
         Ok(())
-    }
-
-    /// Fetch an email link by its ID.
-    #[tracing::instrument(skip(self), err)]
-    pub async fn get_email_link(
-        &self,
-        link_id: uuid::Uuid,
-    ) -> anyhow::Result<Option<service::link::Link>> {
-        let result = email_db_client::links::get::fetch_link_by_id(&self.inner, link_id).await?;
-        Ok(result)
-    }
-
-    /// Upsert an email link (connects a user to an email provider).
-    #[tracing::instrument(skip(self), err)]
-    pub async fn upsert_email_link(
-        &self,
-        link: service::link::Link,
-    ) -> anyhow::Result<service::link::Link> {
-        let mut conn = self.inner.acquire().await?;
-        let result = email_db_client::links::insert::upsert_link(&mut conn, link).await?;
-        Ok(result)
-    }
-
-    /// Insert or update email labels for a link.
-    #[tracing::instrument(skip(self), err)]
-    pub async fn insert_email_labels(
-        &self,
-        labels: Vec<service::label::Label>,
-    ) -> anyhow::Result<()> {
-        email_db_client::labels::insert::insert_or_update_labels(&self.inner, labels).await
-    }
-
-    /// Insert an email thread with all its messages, contacts, recipients, and labels.
-    #[tracing::instrument(skip(self), err)]
-    pub async fn insert_email_thread(
-        &self,
-        thread: service::thread::Thread,
-        link_id: uuid::Uuid,
-    ) -> anyhow::Result<uuid::Uuid> {
-        let id = email_db_client::threads::insert::insert_thread_and_messages(
-            &self.inner,
-            thread,
-            link_id,
-        )
-        .await?;
-        Ok(id)
     }
 
     /// Execute a list of standalone SQL statements inside one transaction.
@@ -572,27 +525,6 @@ impl SeedDb {
         }
 
         transaction.commit().await?;
-        Ok(())
-    }
-
-    /// Delegate an email link from its owner to another user.
-    #[tracing::instrument(skip(self), err)]
-    pub async fn insert_macro_user_link(
-        &self,
-        primary_macro_id: &str,
-        child_macro_id: &str,
-        link_id: uuid::Uuid,
-    ) -> anyhow::Result<()> {
-        sqlx::query!(
-            r#"INSERT INTO macro_user_links (primary_macro_id, child_macro_id, link_id)
-               VALUES ($1, $2, $3)
-               ON CONFLICT DO NOTHING"#,
-            primary_macro_id,
-            child_macro_id,
-            link_id,
-        )
-        .execute(&self.inner)
-        .await?;
         Ok(())
     }
 

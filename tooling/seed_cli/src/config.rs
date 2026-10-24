@@ -32,15 +32,6 @@ maybe_env_vars! {
     pub struct InternalApiSecretKey;
     /// frontend dev server port, for the per-persona URLs apply prints
     pub struct FrontendPort;
-    /// Google OAuth client id for the gmail entity (local Internal client)
-    pub struct GoogleClientId;
-    /// Google OAuth client secret for the gmail entity (in local mode this
-    /// env var holds the secret value itself)
-    pub struct GoogleClientSecretKey;
-    /// JSON map of test-account email -> refresh token for the gmail entity
-    pub struct GmailTestAccountTokens;
-    /// GCP service-account key JSON for `gmail forward` (Pub/Sub subscriber)
-    pub struct GmailForwarderSaKey;
 }
 
 /// Clients for initializing native markdown document content.

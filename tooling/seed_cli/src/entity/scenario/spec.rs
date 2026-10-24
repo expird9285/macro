@@ -170,9 +170,6 @@ pub struct TeamSpec {
     /// Members and their roles (the owner is implicit).
     #[serde(default)]
     pub members: BTreeMap<String, TeamMemberRole>,
-    /// Whether the team has CRM enabled.
-    #[serde(default)]
-    pub crm_enabled: bool,
 }
 
 /// A channel in the scenario.
@@ -350,52 +347,6 @@ fn default_true() -> bool {
     true
 }
 
-/// An email thread in a seeded inbox.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EmailThreadSpec {
-    /// Subject line.
-    pub subject: String,
-    /// External sender email address.
-    #[serde(default)]
-    pub from: Option<String>,
-    /// Plain-text body. Defaults to a short generated body.
-    #[serde(default)]
-    pub body: Option<String>,
-    /// Raw HTML body. Apply runs it through [`email_utils::sanitize_email_html`]
-    /// before writing `body_html_sanitized`. When omitted, the plaintext body
-    /// is wrapped in a paragraph and sanitized.
-    #[serde(default)]
-    pub body_html: Option<String>,
-    /// Whether the thread is unread.
-    #[serde(default)]
-    pub unread: bool,
-    /// How long ago the message arrived, in minutes. Defaults to staggered
-    /// recent times.
-    #[serde(default)]
-    pub sent_minutes_ago: Option<u32>,
-    /// Access grants on the thread (beyond inbox ownership/delegation).
-    #[serde(default)]
-    pub share: Vec<ShareSpec>,
-}
-
-/// A connected inbox (email link) plus its threads.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EmailAccountSpec {
-    /// Owner user key.
-    pub owner: String,
-    /// Mailbox address. Defaults to the owner's email.
-    #[serde(default)]
-    pub address: Option<String>,
-    /// User keys this inbox is delegated to (shared-inbox access).
-    #[serde(default)]
-    pub delegated_to: Vec<String>,
-    /// Threads keyed by a scenario-local name.
-    #[serde(default)]
-    pub threads: BTreeMap<String, EmailThreadSpec>,
-}
-
 /// A channel message in the scenario.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -447,9 +398,6 @@ pub struct ScenarioSpec {
     /// Archived calls keyed by a short name.
     #[serde(default)]
     pub calls: BTreeMap<String, CallSpec>,
-    /// Email inboxes keyed by a short name.
-    #[serde(default)]
-    pub emails: BTreeMap<String, EmailAccountSpec>,
     /// Channel messages, posted in order.
     #[serde(default)]
     pub messages: Vec<MessageSpec>,
@@ -550,29 +498,6 @@ impl ScenarioSpec {
     /// The derived call uuid for a call key.
     pub fn call_id(&self, key: &str) -> Uuid {
         derive_id(&self.scenario, "call", key)
-    }
-
-    /// The derived email link uuid for an inbox key.
-    pub fn email_link_id(&self, key: &str) -> Uuid {
-        derive_id(&self.scenario, "email_link", key)
-    }
-
-    /// The derived email thread uuid for `(inbox key, thread key)`.
-    pub fn email_thread_id(&self, account: &str, thread: &str) -> Uuid {
-        derive_id(
-            &self.scenario,
-            "email_thread",
-            &format!("{account}/{thread}"),
-        )
-    }
-
-    /// The derived email message uuid for `(inbox key, thread key)`.
-    pub fn email_message_id(&self, account: &str, thread: &str) -> Uuid {
-        derive_id(
-            &self.scenario,
-            "email_message",
-            &format!("{account}/{thread}"),
-        )
     }
 
     /// The derived channel message uuid for a message index.
@@ -940,30 +865,6 @@ impl ScenarioSpec {
             }
             if call.duration_minutes == Some(0) {
                 errors.push(format!("call `{key}` duration_minutes must be positive"));
-            }
-        }
-
-        for (key, account) in &self.emails {
-            user_exists(&mut errors, &format!("inbox `{key}` owner"), &account.owner);
-            for delegate in &account.delegated_to {
-                user_exists(&mut errors, &format!("inbox `{key}` delegate"), delegate);
-                if delegate == &account.owner {
-                    errors.push(format!("inbox `{key}` cannot be delegated to its owner"));
-                }
-            }
-            for (thread_key, thread) in &account.threads {
-                if let Some(from) = thread.from.as_deref()
-                    && !from.contains('@')
-                {
-                    errors.push(format!(
-                        "inbox `{key}` thread `{thread_key}` sender `{from}` must be an email address"
-                    ));
-                }
-                check_shares(
-                    &mut errors,
-                    &format!("inbox `{key}` thread `{thread_key}`"),
-                    &thread.share,
-                );
             }
         }
 

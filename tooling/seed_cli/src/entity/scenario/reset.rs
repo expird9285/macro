@@ -26,7 +26,6 @@ pub fn reset_statements(marker: &str) -> Vec<String> {
     SELECT dp."sharePermissionId" AS id FROM "DocumentPermission" dp WHERE dp."documentId" LIKE '{m}'
     UNION SELECT cp."sharePermissionId" FROM "ChatPermission" cp WHERE cp."chatId" LIKE '{m}'
     UNION SELECT pp."sharePermissionId" FROM "ProjectPermission" pp WHERE pp."projectId" LIKE '{m}'
-    UNION SELECT tp."sharePermissionId" FROM "EmailThreadPermission" tp WHERE tp."threadId" LIKE '{m}'
 ),
 del_document_permissions AS (
     DELETE FROM "DocumentPermission" WHERE "documentId" LIKE '{m}'
@@ -36,9 +35,6 @@ del_chat_permissions AS (
 ),
 del_project_permissions AS (
     DELETE FROM "ProjectPermission" WHERE "projectId" LIKE '{m}'
-),
-del_email_thread_permissions AS (
-    DELETE FROM "EmailThreadPermission" WHERE "threadId" LIKE '{m}'
 ),
 del_channel_share_permissions AS (
     DELETE FROM "ChannelSharePermission"
@@ -64,15 +60,11 @@ DELETE FROM "SharePermission" WHERE id IN (SELECT id FROM sp_ids)"#
         // Participants, messages, attachments, and reactions cascade with
         // the channel.
         format!("DELETE FROM comms_channels WHERE id::text LIKE '{m}'"),
-        // Threads, messages, labels, contacts, and macro_user_links cascade
-        // with the link.
-        format!("DELETE FROM email_links WHERE id::text LIKE '{m}'"),
         format!("DELETE FROM \"Document\" WHERE id LIKE '{m}'"),
         format!("DELETE FROM \"Chat\" WHERE id LIKE '{m}'"),
         format!("DELETE FROM \"Project\" WHERE id LIKE '{m}'"),
         format!("DELETE FROM team_invite WHERE team_id::text LIKE '{m}'"),
         format!("DELETE FROM team_user WHERE team_id::text LIKE '{m}'"),
-        // team_crm_settings cascades with the team.
         format!("DELETE FROM team WHERE id::text LIKE '{m}'"),
         format!(
             r#"DELETE FROM "RolesOnUsers" WHERE "userId" IN (SELECT id FROM "User" WHERE "macro_user_id"::text LIKE '{m}')"#

@@ -3,8 +3,6 @@
 pub mod channel;
 pub mod channel_message;
 pub mod document;
-pub mod email;
-pub mod gmail;
 pub mod scenario;
 pub mod user;
 
@@ -23,10 +21,6 @@ pub enum EntityCommand {
     ChannelMessage(channel_message::ChannelMessageArgs),
     /// Document commands
     Document(document::DocumentArgs),
-    /// Manage email seed data
-    Email(email::EmailArgs),
-    /// Seed real Gmail test mailboxes via the Gmail API
-    Gmail(gmail::GmailArgs),
     /// Apply predefined seed scenarios
     Scenario(scenario::ScenarioArgs),
 }
@@ -56,8 +50,6 @@ impl EntityCommand {
             EntityCommand::Channel(args) => args.execute(ctx).await,
             EntityCommand::ChannelMessage(args) => args.execute(ctx).await,
             EntityCommand::Document(args) => args.execute(ctx).await,
-            EntityCommand::Email(args) => args.execute(ctx).await,
-            EntityCommand::Gmail(args) => args.execute().await,
             EntityCommand::Scenario(args) => args.execute(ctx).await,
         }
     }
