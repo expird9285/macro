@@ -4,13 +4,11 @@ use std::sync::Arc;
 
 use cowlike::CowLike;
 use document_sub_type::DocumentSubType;
-use email::domain::models::PreviewView;
 use filter_ast::Expr;
 use item_filters::ast::{
-    EntityFilterAst, calendar_event::CalendarEventLiteral, call::CallLiteral,
-    channel::ChannelLiteral, channel::ChannelThreadLiteral, chat::ChatLiteral,
-    crm_company::CrmCompanyLiteral, document::DocumentLiteral, email::EmailLiteral,
-    foreign_entity::ForeignEntityLiteral, project::ProjectLiteral,
+    EntityFilterAst, call::CallLiteral, channel::ChannelLiteral, channel::ChannelThreadLiteral,
+    chat::ChatLiteral, document::DocumentLiteral, foreign_entity::ForeignEntityLiteral,
+    project::ProjectLiteral,
 };
 use macro_user_id::user_id::MacroUserIdStr;
 use models_pagination::{SimpleSortMethod, TypeEraseCursor};
@@ -51,25 +49,17 @@ impl<S> Clone for SoupSkillLister<S> {
 fn skill_only_filter() -> EntityFilterAst {
     EntityFilterAst {
         favorites_only: None,
-        crm_association: None,
         document_filter: Some(Arc::new(Expr::val(DocumentLiteral::SubType(
             DocumentSubType::Skill,
         )))),
         project_filter: Some(Arc::new(Expr::val(ProjectLiteral::ProjectId(Uuid::nil())))),
         chat_filter: Some(Arc::new(Expr::val(ChatLiteral::ChatId(Uuid::nil())))),
-        email_filter: item_filters::ast::EmailFilterAst {
-            tree: Some(Arc::new(Expr::val(EmailLiteral::ThreadId(Uuid::nil())))),
-            crm_scope: None,
-        },
         channel_filter: Some(Arc::new(Expr::val(ChannelLiteral::ChannelId(Uuid::nil())))),
         channel_thread_filter: Some(Arc::new(Expr::val(ChannelThreadLiteral::ThreadId(
             Uuid::nil(),
         )))),
         call_filter: Some(Arc::new(Expr::val(CallLiteral::CallId(Uuid::nil())))),
-        crm_company_filter: Some(Arc::new(Expr::val(CrmCompanyLiteral::Id(Uuid::nil())))),
-        crm_contact_filter: None,
         foreign_entity_filter: Some(Arc::new(Expr::val(ForeignEntityLiteral::Id(Uuid::nil())))),
-        calendar_event_filter: Some(Arc::new(Expr::val(CalendarEventLiteral::Id(Uuid::nil())))),
         // Reminders are opt-in: leaving the filter empty excludes them.
         github_pull_request_filter: None,
         initiative_filter: None,
@@ -103,10 +93,6 @@ impl<S: SoupService> SkillLister for SoupSkillLister<S> {
                     user: user_id.copied().into_owned(),
                     // Most recently updated first.
                     sort_direction: SoupSortDirection::default(),
-                    // Emails are force-filtered out above, so the preview view
-                    // and inbox links never come into play.
-                    email_preview_view: PreviewView::default(),
-                    link_ids: Vec::new(),
                 },
                 None,
             )

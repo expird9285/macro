@@ -56,7 +56,6 @@ impl SkillSearcher for SearchServiceSkillSearcher {
             },
             filters: entity_filters_from_include(vec![UnifiedSearchIndex::Documents], base_filters),
             search_on: models_search::SearchOn::Name,
-            include_crm: false,
             collapse: None,
         };
 
