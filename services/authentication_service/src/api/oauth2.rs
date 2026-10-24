@@ -1,7 +1,7 @@
 use crate::{
     account_link_state::{
-        AccountLinkState, AccountLinkStateError, AccountLinkStateKey, AdminConsentState,
-        LinkProvider, SignedState, verify_signed_state,
+        AccountLinkState, AccountLinkStateError, AccountLinkStateKey, LinkProvider,
+        verify_account_link_state,
     },
     api::login::sso::{is_allowed_original_url, redact_original_url_for_logging},
     config::BASE_URL,
@@ -14,7 +14,6 @@ mod account_link;
 mod github;
 mod google;
 mod login;
-mod microsoft;
 
 #[cfg(test)]
 mod test;
@@ -78,8 +77,6 @@ impl From<&AccountLinkState> for OAuthState {
 enum CallbackState {
     /// A signed token issued by one of the `/link/*` handlers.
     AccountLink(AccountLinkState),
-    /// A signed token issued with a tenant-wide admin-consent URL.
-    AdminConsent(AdminConsentState),
     /// Unsigned sign-in state. Never carries a `link_id`.
     Login(OAuthState),
 }
@@ -88,7 +85,6 @@ impl CallbackState {
     fn original_url(&self) -> Option<&str> {
         match self {
             Self::AccountLink(state) => state.original_url.as_deref(),
-            Self::AdminConsent(state) => Some(&state.original_url),
             Self::Login(state) => state.original_url.as_deref(),
         }
     }
@@ -97,8 +93,6 @@ impl CallbackState {
 /// Why a consent screen came back without an authorization code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ConsentFailure {
-    /// The directory lets only an administrator consent to Macro's permissions.
-    AdminConsentRequired,
     /// The person on the consent screen declined or closed it.
     Cancelled,
     /// Anything else the provider reported.
@@ -106,53 +100,20 @@ enum ConsentFailure {
 }
 
 impl ConsentFailure {
-    /// Classifies the provider's `error` and `error_description`.
-    ///
-    /// Entra reports "Need admin approval" as `access_denied` with
-    /// `AADSTS65001` in the description (`AADSTS90094` for the admin-consent
-    /// endpoint itself); some tenants answer `consent_required` or
-    /// `interaction_required` instead.
-    fn classify(error: Option<&str>, error_description: Option<&str>) -> Self {
-        let code = error_description.and_then(aadsts_code);
-        if matches!(code, Some("AADSTS65001" | "AADSTS90094"))
-            || matches!(error, Some("consent_required" | "interaction_required"))
-        {
-            return Self::AdminConsentRequired;
-        }
+    /// Classifies the provider's `error`.
+    fn classify(error: Option<&str>) -> Self {
         if error == Some("access_denied") {
             return Self::Cancelled;
         }
         Self::Failed
     }
 
-    /// The `email_link_error` query value the app reads.
+    /// The `link_error` query value the app reads.
     fn as_str(self) -> &'static str {
         match self {
-            Self::AdminConsentRequired => "admin_consent_required",
             Self::Cancelled => "cancelled",
             Self::Failed => "failed",
         }
-    }
-}
-
-/// The `AADSTS` error code at the start of an Entra `error_description`, such
-/// as `AADSTS65001`. Only the code is kept: the rest of the description names
-/// the user, the app, and the tenant.
-fn aadsts_code(error_description: &str) -> Option<&str> {
-    let start = error_description.find("AADSTS")?;
-    let code = &error_description[start..];
-    let end = code["AADSTS".len()..]
-        .find(|character: char| !character.is_ascii_digit())
-        .map_or(code.len(), |digits| "AADSTS".len() + digits);
-    Some(&code[..end]).filter(|code| code.len() > "AADSTS".len())
-}
-
-/// The `provider` query value the app reads, named for the inbox provider.
-fn provider_query_value(provider: LinkProvider) -> &'static str {
-    match provider {
-        LinkProvider::Google => "gmail",
-        LinkProvider::Github => "github",
-        LinkProvider::Microsoft => "outlook",
     }
 }
 
@@ -192,23 +153,15 @@ fn parse_callback_state(
         return Ok(CallbackState::Login(state));
     }
 
-    let (state, issued_for) = match verify_signed_state(raw, key, current_timestamp)
-        .map_err(CallbackStateError::Signed)?
-    {
-        SignedState::AccountLink(state) => {
-            let issued_for = state.provider;
-            (CallbackState::AccountLink(state), issued_for)
-        }
-        SignedState::AdminConsent(state) => {
-            let issued_for = state.provider;
-            (CallbackState::AdminConsent(state), issued_for)
-        }
-    };
-    if issued_for.as_str() != provider {
-        return Err(CallbackStateError::ProviderMismatch { issued_for });
+    let state = verify_account_link_state(raw, key, current_timestamp)
+        .map_err(CallbackStateError::Signed)?;
+    if state.provider.as_str() != provider {
+        return Err(CallbackStateError::ProviderMismatch {
+            issued_for: state.provider,
+        });
     }
 
-    Ok(state)
+    Ok(CallbackState::AccountLink(state))
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -220,12 +173,7 @@ pub(in crate::api) struct Params {
     #[serde(default)]
     error: Option<String>,
     #[serde(default)]
-    error_description: Option<String>,
-    #[serde(default)]
     error_reason: Option<String>,
-    /// `True` when a Microsoft administrator granted tenant-wide consent.
-    #[serde(default)]
-    admin_consent: Option<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -310,46 +258,16 @@ async fn verify_pending_link_owner(
     Ok(())
 }
 
-/// Sends the administrator's browser back to the app with the result of a
-/// tenant-wide consent request. Microsoft reports success with
-/// `admin_consent=True` and a refusal with `error`; neither carries a code.
-fn admin_consent_outcome(params: &Params, consent: &AdminConsentState) -> Response {
-    let provider = provider_query_value(consent.provider);
-    let granted = params
-        .admin_consent
-        .as_deref()
-        .is_some_and(|value| value.eq_ignore_ascii_case("true"));
-    let outcome: (&str, &str) = if granted {
-        tracing::info!(provider, "admin consent granted");
-        ("email_link_notice", "admin_consent_granted")
-    } else {
-        let failure =
-            ConsentFailure::classify(params.error.as_deref(), params.error_description.as_deref());
-        tracing::info!(
-            provider,
-            error = ?params.error,
-            aadsts_code = params.error_description.as_deref().and_then(aadsts_code),
-            outcome = failure.as_str(),
-            "admin consent not granted"
-        );
-        ("email_link_error", failure.as_str())
-    };
-    account_link::build_return_redirect(&consent.original_url, &[outcome, ("provider", provider)])
-        .unwrap_or_else(IntoResponse::into_response)
-}
-
 /// Answers a consent screen that came back without an authorization code.
 ///
 /// A link flow started from a page in the app, which explains the outcome in
-/// place, so it is sent back there with an `email_link_error`. Sign-in has no
+/// place, so it is sent back there with a `link_error`. Sign-in has no
 /// such page and keeps the error body.
 fn consent_failure_response(link_state: Option<&AccountLinkState>, params: &Params) -> Response {
-    let failure =
-        ConsentFailure::classify(params.error.as_deref(), params.error_description.as_deref());
+    let failure = ConsentFailure::classify(params.error.as_deref());
     tracing::info!(
         error = ?params.error,
         error_reason = ?params.error_reason,
-        aadsts_code = params.error_description.as_deref().and_then(aadsts_code),
         outcome = failure.as_str(),
         "oauth2 callback received without code"
     );
@@ -361,8 +279,8 @@ fn consent_failure_response(link_state: Option<&AccountLinkState>, params: &Para
             original_url,
             &[
                 ("link_id", &link_state.link_id.to_string()),
-                ("email_link_error", failure.as_str()),
-                ("provider", provider_query_value(link_state.provider)),
+                ("link_error", failure.as_str()),
+                ("provider", link_state.provider.as_str()),
             ],
         )
         .unwrap_or_else(IntoResponse::into_response);
@@ -384,7 +302,7 @@ fn consent_failure_response(link_state: Option<&AccountLinkState>, params: &Para
         operation_id = "oauth2_callback",
         responses(
             (status = 200),
-            (status = 303, description = "Back to the app with link identifiers, an `email_link_error`, or an `email_link_notice`"),
+            (status = 303, description = "Back to the app with link identifiers or a `link_error`"),
             (status = 307),
             (status = 304, body=ErrorResponse),
             (status = 400, body=ErrorResponse),
@@ -462,9 +380,6 @@ pub(in crate::api) async fn handler(
     })?;
 
     let (link_state, state) = match state {
-        CallbackState::AdminConsent(consent) => {
-            return Ok(admin_consent_outcome(&params, &consent));
-        }
         CallbackState::Login(state) => (None, state),
         CallbackState::AccountLink(link_state) => {
             let state = OAuthState::from(&link_state);
@@ -486,7 +401,6 @@ pub(in crate::api) async fn handler(
             .await
             .map(|r| r.into_response())
             .map_err(|e| e.into_response()),
-        "microsoft" => microsoft::handler(&ctx, code, &state).await,
         _ => Err(error_response(
             StatusCode::NOT_IMPLEMENTED,
             "oauth2 callback not implemented for this provider",

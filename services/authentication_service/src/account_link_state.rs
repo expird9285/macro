@@ -1,6 +1,6 @@
 //! Signed, expiring OAuth `state` for account-link flows.
 //!
-//! `/link/gmail`, `/link/github`, and `/link/outlook` send the browser to a
+//! `/link/github` sends the browser to a
 //! provider's consent screen with a `state` parameter that comes back, as
 //! sent, to `/oauth2/{provider}/callback`. The callback uses it to find the
 //! pending `in_progress_user_link` row and to decide where to redirect, so a
@@ -11,9 +11,6 @@
 //! The token is `base64url(payload).base64url(signature)`, without padding,
 //! where the signature is HMAC-SHA256 over the encoded payload. This mirrors
 //! the GitHub App installation state in the `github` crate.
-//!
-//! The same key signs the `state` of a Microsoft tenant-wide admin-consent
-//! request ([`AdminConsentState`]), which returns to the same callback.
 
 use std::sync::Arc;
 
@@ -44,21 +41,15 @@ const MIN_SECRET_LENGTH: usize = 32;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum LinkProvider {
-    /// Gmail (and Google Calendar) linking.
-    Google,
     /// GitHub account linking.
     Github,
-    /// Microsoft Outlook linking.
-    Microsoft,
 }
 
 impl LinkProvider {
     /// The `{provider}` segment of `/oauth2/{provider}/callback`.
     pub(crate) fn as_str(self) -> &'static str {
         match self {
-            Self::Google => "google",
             Self::Github => "github",
-            Self::Microsoft => "microsoft",
         }
     }
 }
@@ -107,45 +98,6 @@ impl AccountLinkState {
             exp: (chrono::Utc::now() + ACCOUNT_LINK_STATE_TTL).timestamp(),
         }
     }
-}
-
-/// Signed `state` for a tenant-wide admin-consent request.
-///
-/// An administrator completes this flow from a copied link, often days later
-/// and from a different device, so it names no pending link or user and does
-/// not expire. The callback only redirects to the allow-listed `original_url`
-/// with the outcome, which is all a replay could do. The required `kind`
-/// field is what keeps an [`AccountLinkState`] token, which has none, from
-/// verifying as this type.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct AdminConsentState {
-    /// The payload discriminator; always [`AdminConsentKind::AdminConsent`].
-    pub kind: AdminConsentKind,
-    /// Which callback may complete this state.
-    pub provider: LinkProvider,
-    /// Where to send the browser once the administrator has answered.
-    pub original_url: String,
-}
-
-/// The `kind` of an [`AdminConsentState`] payload.
-///
-/// A one-variant enum rather than a `#[serde(tag)]` on the struct: serde
-/// writes a struct tag but does not check it when deserializing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum AdminConsentKind {
-    AdminConsent,
-}
-
-/// What a signed `state` token verified as.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(untagged)]
-pub(crate) enum SignedState {
-    /// A tenant-wide admin-consent request. Tried first: its `kind` field is
-    /// required, so an account-link payload never matches.
-    AdminConsent(AdminConsentState),
-    /// A pending account link.
-    AccountLink(AccountLinkState),
 }
 
 /// An error encountered while signing or verifying account-link state.
@@ -205,22 +157,7 @@ pub(crate) fn sign_account_link_state(
     state: &AccountLinkState,
     key: &AccountLinkStateKey,
 ) -> Result<String, AccountLinkStateError> {
-    sign_payload(state, key)
-}
-
-/// Serialize and sign an admin-consent state.
-pub(crate) fn sign_admin_consent_state(
-    state: &AdminConsentState,
-    key: &AccountLinkStateKey,
-) -> Result<String, AccountLinkStateError> {
-    sign_payload(state, key)
-}
-
-fn sign_payload<T: Serialize>(
-    payload: &T,
-    key: &AccountLinkStateKey,
-) -> Result<String, AccountLinkStateError> {
-    let json = serde_json::to_vec(payload).map_err(|_| AccountLinkStateError::Serialization)?;
+    let json = serde_json::to_vec(state).map_err(|_| AccountLinkStateError::Serialization)?;
     let encoded_payload = URL_SAFE_NO_PAD.encode(json);
     let signature = signature_for(encoded_payload.as_bytes(), key);
 
@@ -230,18 +167,17 @@ fn sign_payload<T: Serialize>(
     ))
 }
 
-/// Verify and deserialize a signed `state` token of either kind.
+/// Verify and deserialize a signed `state` token.
 ///
-/// `current_timestamp` is expressed in Unix seconds. An account-link token is
-/// expired when the current timestamp is equal to or later than its `exp`
-/// value; admin-consent tokens do not expire (see [`AdminConsentState`]). The
+/// `current_timestamp` is expressed in Unix seconds. A token is expired when
+/// the current timestamp is equal to or later than its `exp` value. The
 /// signature is checked before the payload is decoded, so nothing in a
 /// rejected token is ever interpreted.
-pub(crate) fn verify_signed_state(
+pub(crate) fn verify_account_link_state(
     token: &str,
     key: &AccountLinkStateKey,
     current_timestamp: i64,
-) -> Result<SignedState, AccountLinkStateError> {
+) -> Result<AccountLinkState, AccountLinkStateError> {
     let (encoded_payload, encoded_signature) = split_token(token)?;
     let signature = URL_SAFE_NO_PAD
         .decode(encoded_signature)
@@ -257,14 +193,12 @@ pub(crate) fn verify_signed_state(
     let json = URL_SAFE_NO_PAD
         .decode(encoded_payload)
         .map_err(|_| AccountLinkStateError::Malformed)?;
-    let state: SignedState =
+    let state: AccountLinkState =
         serde_json::from_slice(&json).map_err(|_| AccountLinkStateError::Malformed)?;
 
-    if let SignedState::AccountLink(link) = &state
-        && current_timestamp >= link.exp
-    {
+    if current_timestamp >= state.exp {
         return Err(AccountLinkStateError::Expired {
-            link_id: link.link_id,
+            link_id: state.link_id,
         });
     }
 

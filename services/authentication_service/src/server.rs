@@ -46,9 +46,7 @@ use macro_authorization::{
     PgUserApiKeyAuthorizationRepo, PgUserApiKeyAuthorizer,
 };
 use macro_event_broker::{KafkaEventPublisher, MacroEventBrokerService};
-use macro_service_urls::{
-    AppServiceUrl, ConnectionGatewayUrl, DocumentStorageServiceUrl, EmailServiceUrl,
-};
+use macro_service_urls::{AppServiceUrl, ConnectionGatewayUrl, DocumentStorageServiceUrl};
 use native_app_service::{
     domain::{models::PlatformData, service::NativeAppServiceImpl},
     outbound::DefaultBundleFetcher,
@@ -88,9 +86,6 @@ use crate::{
         },
     },
     config::{Config, Environment},
-    microsoft_token_cipher::{
-        EnvelopeMicrosoftTokenCipher, KmsDataKeyProvider, MicrosoftTokenCipher,
-    },
     outbound::team_owned_entity_cleanup::TeamOwnedEntityCleanupAdapter,
 };
 use std::{sync::Arc, time::Duration};
@@ -117,16 +112,6 @@ pub async fn run() -> anyhow::Result<()> {
     let gtm_invite_config = config
         .gtm_invite_config()
         .context("invalid GTM invite link configuration")?;
-    let microsoft_credentials = config
-        .microsoft_credentials()
-        .context("invalid Microsoft OAuth configuration")?;
-    let microsoft_token_cipher = microsoft_credentials.as_ref().map(|credentials| {
-        Arc::new(EnvelopeMicrosoftTokenCipher::new(KmsDataKeyProvider::new(
-            aws_sdk_kms::Client::new(&aws_config),
-            credentials.token_kms_key_id.clone(),
-        ))) as Arc<dyn MicrosoftTokenCipher>
-    });
-
     let internal_api_key = config.internal_api_key.clone();
 
     let stripe_webhook_secret = secretsmanager_client
@@ -210,42 +195,12 @@ pub async fn run() -> anyhow::Result<()> {
         google_client_secret,
     )
     .with_public_url(fusionauth_public_url);
-    let auth_client = match microsoft_credentials {
-        Some(credentials) => auth_client.with_microsoft_credentials(
-            credentials.client_id,
-            credentials.client_secret,
-            credentials.tenant_id,
-        ),
-        None => auth_client,
-    };
     tracing::trace!("initialized auth client");
-    let microsoft_auth = microsoft_token_cipher.map(|cipher| {
-        use crate::{
-            domain::microsoft::{MicrosoftAuth, MicrosoftAuthService},
-            outbound::microsoft::{MicrosoftOAuthProvider, PgMicrosoftGrants},
-        };
-        Arc::new(
-            MicrosoftAuthService::new(
-                PgMicrosoftGrants::new(db.clone()),
-                MicrosoftOAuthProvider::new(
-                    Arc::new(auth_client.clone()),
-                    account_link_state_key.clone(),
-                ),
-                cipher,
-            )
-            .with_connections_enabled(config.outlook_connections_enabled),
-        ) as Arc<dyn MicrosoftAuth>
-    });
-
     let document_storage_service_client = DocumentStorageServiceClient::new(
         config.service_internal_auth_key.to_string().clone(),
         DocumentStorageServiceUrl::new()?.to_string(),
     );
     tracing::trace!("initialized document storage service client");
-
-    let email_service_client =
-        email::outbound::EmailServiceHttpClient::new(EmailServiceUrl::new()?.to_string());
-    tracing::trace!("initialized email service client");
 
     let macro_cache_client =
         macro_cache_client::MacroCache::new(config.redis_uri.to_string().as_str());
@@ -283,8 +238,6 @@ pub async fn run() -> anyhow::Result<()> {
 
     let notification_queue = macro_queues::NotificationIngressQueue::new();
     let search_event_queue = macro_queues::SearchEventQueue::new();
-    let link_manager_queue = macro_queues::LinkManagerQueue::new();
-    let email_backfill_queue = macro_queues::EmailBackfillQueue::new();
     let ingress_queue = SqsQueue::new(
         aws_sdk_sqs::Client::new(&macro_aws_config::get_macro_aws_config().await),
         notification_queue.to_string(),
@@ -295,9 +248,7 @@ pub async fn run() -> anyhow::Result<()> {
     tracing::trace!("initialized notification ingress service");
 
     let sqs_client = sqs_client::SQS::new(aws_sdk_sqs::Client::new(&aws_config))
-        .search_event_queue(&search_event_queue)
-        .email_link_manager_queue(&link_manager_queue)
-        .email_backfill_queue(&email_backfill_queue);
+        .search_event_queue(&search_event_queue);
     tracing::trace!("initialized sqs client");
 
     // Initialize analytics client with configured providers
@@ -381,12 +332,9 @@ pub async fn run() -> anyhow::Result<()> {
     let favorites_service = favorites::domain::service::FavoritesServiceImpl::new(
         favorites::outbound::pg_favorites_repo::PgFavoritesRepo::new(db.clone()),
     );
-    let team_crm_settings_repo_impl =
-        teams::outbound::team_crm_settings_repo::TeamCrmSettingsRepositoryImpl::new(db.clone());
 
     let notification_ingress_service = Arc::new(notification_ingress_service);
 
-    let crm_enqueuer = teams::outbound::crm_enqueuer::SqsCrmEnqueuer::new(sqs_client.clone());
     let sqs_client = Arc::new(sqs_client);
     let contacts_ingress = Arc::new(SqsContactsIngress {
         queue: SqsContactsQueue::new(
@@ -595,8 +543,6 @@ pub async fn run() -> anyhow::Result<()> {
         channel_service.clone(),
         user_roles_and_permissions_service.clone(),
         notification_ingress_service.clone(),
-        crm_enqueuer,
-        team_crm_settings_repo_impl,
         team_analytics,
     )
     .with_contacts_enqueuer(contacts_enqueuer)
@@ -618,30 +564,11 @@ pub async fn run() -> anyhow::Result<()> {
         .map_err(|error| anyhow::anyhow!("{error:?}"))?,
     );
 
-    // Cleanup continues while new connections are disabled or OAuth is unconfigured.
-    let grant_repository = crate::outbound::microsoft::PgMicrosoftGrants::new(db.clone());
-    let grant_cleanup = tokio::spawn(async move {
-        let mut interval = tokio::time::interval(MICROSOFT_GRANT_CLEANUP_INTERVAL);
-        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        loop {
-            interval.tick().await;
-            if let Err(error) =
-                crate::domain::microsoft::collect_expired_grants(&grant_repository).await
-            {
-                tracing::error!(?error, "Microsoft grant expiry cleanup failed");
-            }
-        }
-    });
-
     let server_result = api::setup_and_serve(
         ApiContext {
-            inbox_connections: Arc::new(email::domain::inbox_entitlement::InboxConnectionService(
-                email::outbound::EmailPgRepo::new(db.clone()),
-            )),
             db,
             github_link_service: Arc::new(github_link_service_impl),
             auth_client: Arc::new(auth_client),
-            microsoft_auth,
             macro_cache_client: Arc::new(macro_cache_client),
             stripe_client,
             subscription_checkout,
@@ -649,14 +576,12 @@ pub async fn run() -> anyhow::Result<()> {
             subscription_status,
             document_storage_service_client,
             user_deletion,
-            email_service_client: Arc::new(email_service_client),
             ses_client: Arc::new(ses_client),
             notification_ingress_service,
             sqs_client,
             environment: config.environment,
             signup_policy,
             rate_limit_service: rate_limit,
-            calendar_scope_enabled: config.calendar_scope_enabled,
             account_link_state_key,
             jwt_args,
             authorization_state,
@@ -704,8 +629,6 @@ pub async fn run() -> anyhow::Result<()> {
     )
     .await;
 
-    grant_cleanup.abort();
-    let _ = grant_cleanup.await;
     // A sweep interrupted here leaves nothing half done: each settlement
     // step commits on its own and the next sweep, on any replica, resumes.
     if let Some(sweep) = settlement_sweep {
@@ -729,7 +652,6 @@ pub async fn run() -> anyhow::Result<()> {
 }
 
 const EVENT_BROKER_DRAIN_TIMEOUT: Duration = Duration::from_secs(10);
-const MICROSOFT_GRANT_CLEANUP_INTERVAL: Duration = Duration::from_secs(5 * 60);
 
 // SAFETY: this is not a secret value
 const IOS_DEVELOPMENT_TEAM_ID: &str = "TY74Q77JBD";

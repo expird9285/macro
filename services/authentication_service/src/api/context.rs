@@ -58,7 +58,6 @@ use sqlx::PgPool;
 use tokio_util::task::TaskTracker;
 
 use crate::account_link_state::AccountLinkStateKey;
-use crate::domain::microsoft::MicrosoftAuth;
 use crate::service::signup_policy::SignupPolicy;
 
 pub(crate) type NotificationIngressType = SqsNotificationIngress<SqsQueue>;
@@ -108,8 +107,6 @@ pub(crate) type TeamsServiceType = teams::domain::team_service::TeamServiceImpl<
     ChannelServiceType,
     UserRolesAndPermissionsServiceImpl<MacroDB, MacroDB>,
     NotificationIngressType,
-    teams::outbound::crm_enqueuer::SqsCrmEnqueuer,
-    teams::outbound::team_crm_settings_repo::TeamCrmSettingsRepositoryImpl,
     teams::outbound::team_analytics::AnalyticsClientTeamAnalytics,
     teams::outbound::contacts_enqueuer::ContactsIngressEnqueuer<
         SqsContactsIngress<SqsContactsQueue>,
@@ -153,11 +150,8 @@ pub(crate) type AuthorizationService = MacroAuthorizationServiceImpl<MacroAuthJw
 #[derive(Clone, FromRef)]
 pub(crate) struct ApiContext {
     pub db: PgPool,
-    pub inbox_connections:
-        Arc<email::domain::inbox_entitlement::InboxConnectionService<email::outbound::EmailPgRepo>>,
     pub github_link_service: Arc<GithubLinkServiceType>,
     pub auth_client: Arc<fusionauth::FusionAuthClient>,
-    pub microsoft_auth: Option<Arc<dyn MicrosoftAuth>>,
     pub macro_cache_client: Arc<MacroCache>,
     pub stripe_client: Arc<stripe::Client>,
     pub subscription_status: Arc<SubscriptionStatusServiceType>,
@@ -181,7 +175,6 @@ pub(crate) struct ApiContext {
             onboarding::outbound::pg_onboarding_repo::PgOnboardingRepo,
         >,
     >,
-    pub email_service_client: Arc<email::outbound::EmailServiceHttpClient>,
     pub ses_client: Arc<ses_client::Ses>,
     pub notification_ingress_service: Arc<NotificationIngressType>,
     pub sqs_client: Arc<sqs_client::SQS>,
@@ -210,8 +203,6 @@ pub(crate) struct ApiContext {
     /// AI allowances, credits, and overage
     pub ai_billing_service: Arc<AiBillingServiceType>,
     pub ai_payment_gateway: Arc<ai_billing::outbound::StripePaymentGateway>,
-    /// Whether Gmail link consent requests the Google Calendar scope.
-    pub calendar_scope_enabled: bool,
     /// Signs and verifies the `state` on account-link OAuth round trips.
     pub account_link_state_key: AccountLinkStateKey,
 }

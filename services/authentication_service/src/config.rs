@@ -42,10 +42,6 @@ env_vars! {
 maybe_env_vars! {
     /// Browser-reachable FusionAuth origin used for OAuth authorization redirects.
     pub struct FusionAuthPublicUrl;
-    pub struct MicrosoftClientId;
-    pub struct MicrosoftClientSecret;
-    pub struct MicrosoftTenantId;
-    pub struct MicrosoftTokenKmsKeyId;
     pub struct GaMeasurementId;
     pub struct GaApiSecret;
     pub struct MetaPixelId;
@@ -77,9 +73,6 @@ maybe_env_vars! {
 // #[macro_config::from_ref_all]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub struct Config {
-    /// Admit new Outlook accounts only after the deployment is ready. Reconnect is separate.
-    #[macro_config_default(false)]
-    pub outlook_connections_enabled: bool,
     /// Default-off quota admission and prospective usage counting.
     #[macro_config_default(ai_billing::AiUsageEnforcement::Disabled)]
     pub enable_ai_usage_enforcement: ai_billing::AiUsageEnforcement,
@@ -122,14 +115,6 @@ pub struct Config {
     pub google_client_id: GoogleClientId,
     /// Google client secret key
     pub google_client_secret_key: GoogleClientSecretKey,
-    /// Microsoft OAuth client ID.
-    pub microsoft_client_id: MicrosoftClientId,
-    /// Microsoft OAuth client secret.
-    pub microsoft_client_secret: MicrosoftClientSecret,
-    /// Microsoft Entra tenant ID.
-    pub microsoft_tenant_id: MicrosoftTenantId,
-    /// KMS key used to encrypt Microsoft refresh-token data keys.
-    pub microsoft_token_kms_key_id: MicrosoftTokenKmsKeyId,
     /// Stripe secret key
     pub stripe_secret_key: StripeSecretKey,
     /// The port to listen for HTTP requests on.
@@ -188,19 +173,6 @@ pub struct Config {
     pub internal_api_key: InternalApiKey,
     /// Comma-separated Kafka bootstrap servers for the macro event broker.
     pub kafka_brokers: KafkaBrokers,
-    /// Whether Gmail link consent requests the Google Calendar scope. Off by
-    /// default so deployed environments don't ask users for a scope the
-    /// calendar feature isn't using yet.
-    #[macro_config_default(false)]
-    pub calendar_scope_enabled: bool,
-}
-
-/// Complete Microsoft OAuth credentials used to enable Outlook account linking.
-pub(crate) struct MicrosoftCredentials {
-    pub(crate) client_id: String,
-    pub(crate) client_secret: String,
-    pub(crate) tenant_id: String,
-    pub(crate) token_kms_key_id: String,
 }
 
 impl Config {
@@ -243,16 +215,6 @@ impl Config {
         self.account_link_state_key().map(drop)
     }
 
-    /// Resolves Microsoft credentials, enforcing that all values are configured together.
-    pub(crate) fn microsoft_credentials(&self) -> anyhow::Result<Option<MicrosoftCredentials>> {
-        resolve_microsoft_credentials(
-            &self.microsoft_client_id,
-            &self.microsoft_client_secret,
-            &self.microsoft_tenant_id,
-            &self.microsoft_token_kms_key_id,
-        )
-    }
-
     /// Resolves the signup policy for the configured environment.
     pub(crate) fn signup_policy(&self) -> anyhow::Result<SignupPolicy> {
         self.signup_policy_for_environment(self.environment)
@@ -278,36 +240,6 @@ impl Config {
     /// Resolves the offer GTM invite links carry.
     pub(crate) fn gtm_invite_config(&self) -> anyhow::Result<GtmInviteConfig> {
         resolve_gtm_invite_config(&self.gtm_invite_promo_code, &self.gtm_invite_link_ttl_hours)
-    }
-}
-
-fn resolve_microsoft_credentials(
-    client_id: &MicrosoftClientId,
-    client_secret: &MicrosoftClientSecret,
-    tenant_id: &MicrosoftTenantId,
-    token_kms_key_id: &MicrosoftTokenKmsKeyId,
-) -> anyhow::Result<Option<MicrosoftCredentials>> {
-    let client_id = nonblank_value(client_id.value());
-    let client_secret = nonblank_value(client_secret.value());
-    let tenant_id = nonblank_value(tenant_id.value());
-    let token_kms_key_id = nonblank_value(token_kms_key_id.value());
-
-    match (client_id, client_secret, tenant_id) {
-        (None, None, None) => Ok(None),
-        (Some(client_id), Some(client_secret), Some(tenant_id)) => {
-            let token_kms_key_id = token_kms_key_id.context(
-                "MICROSOFT_TOKEN_KMS_KEY_ID must be set to a nonblank value when Microsoft OAuth is enabled",
-            )?;
-            Ok(Some(MicrosoftCredentials {
-                client_id: client_id.to_owned(),
-                client_secret: client_secret.to_owned(),
-                tenant_id: tenant_id.to_owned(),
-                token_kms_key_id: token_kms_key_id.to_owned(),
-            }))
-        }
-        _ => anyhow::bail!(
-            "MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET, and MICROSOFT_TENANT_ID must all be set to nonblank values or all be unset"
-        ),
     }
 }
 

@@ -108,15 +108,6 @@ Both settings are optional plain Doppler values (project
 Links live in the `gtm_invite_link` MacroDB table (crate `gtm_invite`); the
 dashboard reads it through `GET /gtm-invite/links`.
 
-## Shared mailboxes
-
-Internal shared-mailbox grant relocation creates ordinary FusionAuth users for
-mailbox grants. In Develop with the bypass off, those mailbox addresses must be
-listed explicitly in `DEVELOPMENT_SIGNUP_ALLOWLIST_JSON` before relocation
-creates the FusionAuth user. With the bypass on, Develop allows those addresses
-like any other signup. Shared mailboxes get no metadata-based exemption from the
-signup policy.
-
 ## Rollout
 
 1. Configure `DEVELOPMENT_SIGNUP_ALLOWLIST_JSON` in Doppler project
@@ -153,7 +144,7 @@ To allow every public signup in Develop:
 To enforce the allowlist again:
 
 1. Confirm that `DEVELOPMENT_SIGNUP_ALLOWLIST_JSON` lists every non-Macro
-   address that still needs to sign up in Develop, including shared mailboxes.
+   address that still needs to sign up in Develop.
 2. Set `DEVELOPMENT_BYPASS_SIGNUP_ALLOWLIST` to `false` in config `dev`, or
    delete it.
 3. Run the Doppler config validator from rollout step 2.

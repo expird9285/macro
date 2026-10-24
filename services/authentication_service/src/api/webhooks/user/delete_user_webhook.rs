@@ -16,7 +16,6 @@ use sqlx::{Pool, Postgres};
 use tracing::Instrument;
 
 use crate::api::context::{ApiContext, AuthorizationService};
-use sqs_client::email::LinkManagerMessage;
 
 /// Delete user webhook
 #[tracing::instrument(
@@ -123,24 +122,6 @@ async fn delete_user(
     user_ids: Vec<String>,
 ) -> anyhow::Result<()> {
     tracing::info!("deleting user");
-
-    // Enqueue email link deletion via the link manager queue
-    tokio::spawn({
-        let sqs_client = ctx.sqs_client.clone();
-        let fusionauth_user_id = fusionauth_user_id.clone();
-        async move {
-            let message = LinkManagerMessage::DeleteUser {
-                fusionauth_user_id: fusionauth_user_id.clone(),
-            };
-            match sqs_client.enqueue_link_manager_notification(message).await {
-                Ok(_) => tracing::info!("enqueued email link deletion"),
-                Err(e) => {
-                    tracing::error!(error=?e, "unable to enqueue email link deletion");
-                }
-            }
-        }
-        .in_current_span()
-    });
 
     tokio::spawn({
         let user_ids = user_ids.clone();

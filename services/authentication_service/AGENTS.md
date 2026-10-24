@@ -3,8 +3,8 @@
 ## What it is
 
 Account sign-in and identity feature: FusionAuth-backed login, session/JWT
-issuance, signup policy and allowlisting, OAuth/OAuth2 account linking
-(Google/Microsoft/GitHub), subscription checkout status, and account merge/link
+issuance, signup policy and allowlisting, GitHub account linking and Google
+sign-in, subscription checkout status, and account merge/link
 flows.
 
 ## Start here
@@ -22,8 +22,8 @@ flows.
 ## Scope
 
 - Owns: FusionAuth-backed login/session issuance, JWT minting, signup
-  allowlisting, OAuth/OAuth2 account linking, GTM invite links, shared-mailbox
-  relocation signup, introductory trial eligibility and subscription checkout.
+  allowlisting, GitHub account linking, GTM invite links, introductory trial
+  eligibility and subscription checkout.
 - Not here: authorization/permission decisions on other entities →
   `crates/macro_authorization`; metered AI credits → `crates/ai_billing`;
   team lifecycle and seats → `crates/teams`.
@@ -82,20 +82,15 @@ inputs cannot select an agent, and ordinary user credentials remain unattributed
   reauthentication, while infrastructure failures remain server errors.
   Deploy grant-refresh support before releasing clients that omit the pre-OAuth
   disconnect; older callbacks leave an existing grant unchanged.
-- FusionAuth reports a link owner that was deleted as `UserDoesNotExist`. That
-  user has no links or grants left, so answer the route's "not linked" outcome
-  (404 no grant, 200 for an idempotent removal), not a 500.
 - The signup allowlist has a temporary Develop-only bypass
   (`DEVELOPMENT_BYPASS_SIGNUP_ALLOWLIST`) that overrides the allowlist even
   when present; see `README.md` before changing signup behavior.
 - Denial responses and policy errors must never disclose configured allowlist
   addresses; never paste operational addresses into code, logs, or docs.
-- `/oauth2/{provider}/callback` verifies two signed `state` kinds
-  (`src/account_link_state.rs`): account links, which expire, and Microsoft
-  admin-consent returns, which do not. A consent screen that ends without a
-  code redirects a link flow to its `original_url` with `email_link_error`
-  (`admin_consent_required`, `cancelled`, `failed`); only the `AADSTS` code
-  from `error_description` is logged, never the description.
+- `/oauth2/{provider}/callback` verifies a signed, expiring account-link `state`
+  (`src/account_link_state.rs`); GitHub is the only link provider, and Google
+  is sign-in only. A consent screen that ends without a code redirects a link
+  flow to its `original_url` with `link_error` (`cancelled`, `failed`).
 
 ## Related
 

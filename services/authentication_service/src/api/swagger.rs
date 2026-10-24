@@ -13,9 +13,8 @@ use gtm_invite::inbound::axum_router::dto::{
 };
 use model::authentication::login::request::{AppleLoginRequest, PasswordRequest};
 use teams::domain::model::{
-    PatchTeamCrmSettingsRequest, PatchTeamCrmSettingsResponse, PatchTeamMemberPlanRequest,
-    PatchTeamRequest, PatchTeamUserRole, Team, TeamInviteDetails, TeamInviteLinkTeam,
-    TeamInviteLinkToken, TeamMember, TeamPlan, TeamRole, TeamWithMembers,
+    PatchTeamMemberPlanRequest, PatchTeamRequest, PatchTeamUserRole, Team, TeamInviteDetails,
+    TeamInviteLinkTeam, TeamInviteLinkToken, TeamMember, TeamPlan, TeamRole, TeamWithMembers,
 };
 use teams::inbound::axum_router::get_team_invites::TeamInvitesResponse as TeamTeamInvitesResponse;
 use teams::inbound::axum_router::get_user_invites::TeamInvitesResponse as UserTeamInvitesResponse;
@@ -35,8 +34,6 @@ use crate::api::email::resend_fusionauth_verify_user_email::ResendFusionauthVeri
 use crate::api::jwt::macro_api_token::MacroApiTokenResponse;
 use crate::api::link::create_in_progress_link::CreateInProgressLinkResponse;
 use crate::api::link::github::{GithubLinkStatusResponse, InitGithubLinkResponse};
-use crate::api::link::gmail::{GmailLinkStatusResponse, InitGmailLinkResponse};
-use crate::api::link::outlook::InitOutlookLinkResponse;
 use crate::api::merge::create_merge_request::CreateAccountMergeRequest;
 use crate::api::user::get_legacy_user_permissions::GetLegacyUserPermissionsResponse;
 use crate::api::user::get_user_link_exists::UserLinkResponse;
@@ -93,10 +90,6 @@ use model::user::{
                 link::github::init_github_link_handler,
                 link::github::delete_github_link_handler,
                 link::github::check_github_link_status_handler,
-                link::gmail::init_gmail_link_handler,
-                link::gmail::check_gmail_link_status_handler,
-                link::outlook::init_outlook_link_handler,
-                link::outlook::email_connection_providers,
 
                 /// /github_pull_requests
                 github_pull_requests::handler,
@@ -161,7 +154,6 @@ use model::user::{
                 teams::inbound::axum_router::invite_to_team::handler::<crate::api::context::TeamsServiceType, crate::api::context::EntityAccessServiceType, crate::api::context::AuthorizationService>,
                 teams::inbound::axum_router::get_team_invites::handler::<crate::api::context::TeamsServiceType, crate::api::context::EntityAccessServiceType, crate::api::context::AuthorizationService>,
                 teams::inbound::axum_router::patch_team::handler::<crate::api::context::TeamsServiceType, crate::api::context::EntityAccessServiceType, crate::api::context::AuthorizationService>,
-                teams::inbound::axum_router::patch_team_crm_settings::handler::<crate::api::context::TeamsServiceType, crate::api::context::EntityAccessServiceType, crate::api::context::AuthorizationService>,
                 teams::inbound::axum_router::toggle_auto_join_domain::handler::<crate::api::context::TeamsServiceType, crate::api::context::EntityAccessServiceType, crate::api::context::AuthorizationService>,
                 teams::inbound::axum_router::toggle_non_admin_invites::handler::<crate::api::context::TeamsServiceType, crate::api::context::EntityAccessServiceType, crate::api::context::AuthorizationService>,
                 teams::inbound::axum_router::reject_invitation::handler::<crate::api::context::TeamsServiceType, crate::api::context::EntityAccessServiceType, crate::api::context::AuthorizationService>,
@@ -221,9 +213,6 @@ use model::user::{
                         CreateInProgressLinkResponse,
                         InitGithubLinkResponse,
                         GithubLinkStatusResponse,
-                        InitGmailLinkResponse,
-                        GmailLinkStatusResponse,
-                        InitOutlookLinkResponse,
 
                         // GTM invite links
                         GtmInviteLink,
@@ -299,8 +288,6 @@ use model::user::{
                         PatchTeamRequest,
                         PatchTeamMemberPlanRequest,
                         PatchTeamUserRole,
-                        PatchTeamCrmSettingsRequest,
-                        PatchTeamCrmSettingsResponse,
                         ToggleAutoJoinDomainResponse,
                         ToggleNonAdminInvitesResponse,
                         TeamInviteLinkResponse,
