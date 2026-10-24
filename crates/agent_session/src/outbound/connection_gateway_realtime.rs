@@ -233,8 +233,6 @@ impl crate::domain::audience::SessionSubscriptions for ConnectionGatewaySessionS
                 MessageParent::Channel(_) => GatewayEntityType::Channel,
                 MessageParent::Document(_) => GatewayEntityType::Document,
                 MessageParent::Initiative(_) => GatewayEntityType::Initiative,
-                MessageParent::CrmCompany(_) => GatewayEntityType::CrmCompany,
-                MessageParent::CrmContact(_) => GatewayEntityType::CrmContact,
                 MessageParent::Call(_) => GatewayEntityType::Call,
             };
             users.extend(

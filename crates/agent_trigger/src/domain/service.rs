@@ -266,8 +266,6 @@ where
                 MessageParent::Channel(channel_id) => channel_id,
                 MessageParent::Document(_)
                 | MessageParent::Initiative(_)
-                | MessageParent::CrmCompany(_)
-                | MessageParent::CrmContact(_)
                 | MessageParent::Call(_) => {
                     return self.owner_allows(caller, agent.bot.owner.as_ref()).await;
                 }
@@ -304,8 +302,6 @@ where
                 }
                 MessageParent::Document(_)
                 | MessageParent::Initiative(_)
-                | MessageParent::CrmCompany(_)
-                | MessageParent::CrmContact(_)
                 | MessageParent::Call(_) => self.owner_allows(caller, bot.owner.as_ref()).await,
             },
         }

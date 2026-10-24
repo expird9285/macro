@@ -445,8 +445,6 @@ where
                 MessageParent::Channel(_) => "a channel thread",
                 MessageParent::Document(_) => "a document discussion",
                 MessageParent::Initiative(_) => "a project discussion",
-                MessageParent::CrmCompany(_) => "a CRM company discussion",
-                MessageParent::CrmContact(_) => "a CRM contact discussion",
                 MessageParent::Call(_) => "a call chat",
             };
             let (intro, thread_instruction, marker) = match event.trigger {

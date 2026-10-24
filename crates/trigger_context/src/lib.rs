@@ -141,20 +141,6 @@ pub enum DiscussionSurface {
         /// Project name.
         name: String,
     },
-    /// A comment thread on a CRM company.
-    CrmCompanyComment {
-        /// Company id.
-        id: Uuid,
-        /// Company name.
-        name: String,
-    },
-    /// A comment thread on a CRM contact.
-    CrmContactComment {
-        /// Contact id.
-        id: Uuid,
-        /// Contact name.
-        name: String,
-    },
     /// The chat of a call.
     CallChat {
         /// Call id.

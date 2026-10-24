@@ -3603,7 +3603,6 @@ dependencies = [
  "bot_id",
  "channel_sender",
  "chrono",
- "chrono-tz",
  "entity_access",
  "futures",
  "lexical_client",
@@ -11250,8 +11249,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
- "chrono-tz",
- "html-escape",
  "invite_email",
  "macro_user_id",
  "mention_utils",

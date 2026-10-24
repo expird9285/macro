@@ -50,9 +50,7 @@ impl ThreadOrigin {
             MessageParent::Channel(channel_id) => Some(*channel_id),
             MessageParent::Document(_)
             | MessageParent::Call(_)
-            | MessageParent::Initiative(_)
-            | MessageParent::CrmCompany(_)
-            | MessageParent::CrmContact(_) => None,
+            | MessageParent::Initiative(_) => None,
         };
         Self {
             parent,

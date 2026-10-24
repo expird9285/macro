@@ -170,11 +170,11 @@ async fn run(
         ),
     );
     let message_reader = Arc::new(messages::domain::service::MessageService::new(
-        PgMessageRepository::new(pool.clone())
-            .with_initiatives(initiative::domain::lookup::InitiativeLookup::new(
+        PgMessageRepository::new(pool.clone()).with_initiatives(
+            initiative::domain::lookup::InitiativeLookup::new(
                 initiative::outbound::PgInitiativeRepo::new(pool.clone()),
-            ))
-            .with_crm(crm::outbound::lookup::PgCrmParentReader::new(pool.clone())),
+            ),
+        ),
         messages::domain::ports::NoMessageEventPublisher,
     ));
     let people = PgPeopleDirectory::new(pool.clone(), PgBotsRepo::new(pool.clone()));
@@ -187,7 +187,6 @@ async fn run(
             initiative::domain::lookup::InitiativeLookup::new(
                 initiative::outbound::PgInitiativeRepo::new(pool.clone()),
             ),
-            crm::outbound::lookup::PgCrmParentReader::new(pool.clone()),
             call::outbound::pg_call_repo::PgCallRepo::new(pool.clone()),
         ),
         lexical.clone(),

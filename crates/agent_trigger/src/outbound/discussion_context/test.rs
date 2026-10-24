@@ -819,52 +819,6 @@ async fn a_project_comment_names_its_project() {
 }
 
 #[tokio::test]
-async fn a_crm_company_comment_names_its_company() {
-    let parent = MessageParent::CrmCompany(Uuid::from_u128(902));
-    let names = Names {
-        parent: parent.clone(),
-        name: ParentName::Named("Acme".to_owned()),
-    };
-    let context = context_from(
-        reader(&parent, None),
-        names,
-        Lexical::none(),
-        &comment(&parent),
-    )
-    .await;
-    assert_eq!(
-        context.surface,
-        DiscussionSurface::CrmCompanyComment {
-            id: Uuid::from_u128(902),
-            name: "Acme".to_owned(),
-        }
-    );
-}
-
-#[tokio::test]
-async fn a_crm_contact_comment_names_its_contact() {
-    let parent = MessageParent::CrmContact(Uuid::from_u128(903));
-    let names = Names {
-        parent: parent.clone(),
-        name: ParentName::Named("Dana Lee".to_owned()),
-    };
-    let context = context_from(
-        reader(&parent, None),
-        names,
-        Lexical::none(),
-        &comment(&parent),
-    )
-    .await;
-    assert_eq!(
-        context.surface,
-        DiscussionSurface::CrmContactComment {
-            id: Uuid::from_u128(903),
-            name: "Dana Lee".to_owned(),
-        }
-    );
-}
-
-#[tokio::test]
 async fn a_call_chat_names_its_call() {
     let parent = MessageParent::Call(Uuid::from_u128(904));
     let names = Names {

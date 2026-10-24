@@ -158,9 +158,7 @@ impl Access {
         Ok(match parent {
             MessageParent::Document(_)
             | MessageParent::Call(_)
-            | MessageParent::Initiative(_)
-            | MessageParent::CrmCompany(_)
-            | MessageParent::CrmContact(_) => (
+            | MessageParent::Initiative(_) => (
                 entity_access::domain::models::Entity {
                     entity_type: parent.access_entity_type(),
                     entity_id: parent.entity_id(),

@@ -20,7 +20,6 @@ use messages::domain::{
     api::MessageReader,
     events::MessagePostedMetadata,
     models::{Message, MessageParent, MessageThread, ThreadAnchor},
-    ports::CrmParentReader,
     service::MessageView,
 };
 use trigger_context::{
@@ -109,25 +108,21 @@ pub struct ParentNameReader<Channels, Calls> {
     channels: Channels,
     documents: DocumentStorageServiceClient,
     initiatives: Arc<dyn InitiativeReader>,
-    crm: Arc<dyn CrmParentReader>,
     calls: Calls,
 }
 
 impl<Channels, Calls> ParentNameReader<Channels, Calls> {
-    /// Compose the owning readers of channels, documents, projects, CRM
-    /// records and calls.
+    /// Compose the owning readers of channels, documents, projects and calls.
     pub fn new(
         channels: Channels,
         documents: DocumentStorageServiceClient,
         initiatives: impl InitiativeReader,
-        crm: impl CrmParentReader,
         calls: Calls,
     ) -> Self {
         Self {
             channels,
             documents,
             initiatives: Arc::new(initiatives),
-            crm: Arc::new(crm),
             calls,
         }
     }
@@ -183,12 +178,6 @@ impl<Channels: ChannelRepo, Calls: CallRepository> ParentNames
                 .await
                 .map_err(unknown)?
                 .map(|initiative| initiative.name),
-            MessageParent::CrmCompany(_) | MessageParent::CrmContact(_) => self
-                .crm
-                .read_crm_parent(parent)
-                .await
-                .map_err(|error| unknown(anyhow::anyhow!("{error:?}")))?
-                .map(|record| record.name),
             MessageParent::Call(id) => {
                 // A call is named by its own title, else by its channel as
                 // the viewer sees it.
@@ -409,12 +398,6 @@ fn surface(
         }
         (MessageParent::Initiative(id), ParentName::Named(name)) => {
             DiscussionSurface::ProjectComment { id: *id, name }
-        }
-        (MessageParent::CrmCompany(id), ParentName::Named(name)) => {
-            DiscussionSurface::CrmCompanyComment { id: *id, name }
-        }
-        (MessageParent::CrmContact(id), ParentName::Named(name)) => {
-            DiscussionSurface::CrmContactComment { id: *id, name }
         }
         (MessageParent::Call(id), ParentName::Named(title)) => {
             DiscussionSurface::CallChat { id: *id, title }

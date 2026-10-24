@@ -245,9 +245,7 @@ fn announcement_reply_target(announcement: &SessionAnnouncement) -> AgentAnnounc
             MessageParent::Channel(channel_id) => Some(channel_id.to_string()),
             MessageParent::Document(_)
             | MessageParent::Call(_)
-            | MessageParent::Initiative(_)
-            | MessageParent::CrmCompany(_)
-            | MessageParent::CrmContact(_) => None,
+            | MessageParent::Initiative(_) => None,
         },
         target_message_id: announcement.origin_message_id.to_string(),
         target_thread_id: announcement.origin_thread_id.to_string(),
