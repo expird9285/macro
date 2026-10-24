@@ -20,7 +20,7 @@ fn default_resolved() -> bool {
 #[serde(rename_all = "camelCase")]
 #[schemars(
     title = "ResolveComment",
-    description = "Resolve or reopen a comment thread in the Discussion of a document, task, Tasks project, CRM company or CRM contact on behalf of the user. A thread id is enough to find its item. Only use this when explicitly asked to resolve or reopen a comment. Thread ids come from ReadDiscussion, or from ReadContent for a document."
+    description = "Resolve or reopen a comment thread in the Discussion of a document, task, or Tasks project on behalf of the user. A thread id is enough to find its item. Only use this when explicitly asked to resolve or reopen a comment. Thread ids come from ReadDiscussion, or from ReadContent for a document."
 )]
 /// Resolve or reopen a comment thread.
 pub struct ResolveComment {

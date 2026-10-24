@@ -48,12 +48,8 @@ pub enum MessageReferenceKind {
     Form,
     /// A channel.
     Channel,
-    /// An email thread (editors serialize this as `thread`).
-    EmailThread,
     /// A call.
     Call,
-    /// A calendar event.
-    CalendarEvent,
     /// An AI chat.
     Chat,
     /// An AI coding agent session.
@@ -66,10 +62,6 @@ pub enum MessageReferenceKind {
     StaticVideo,
     /// Authored channel group; recipients are resolved separately.
     Group,
-    /// A CRM company.
-    CrmCompany,
-    /// A CRM contact.
-    CrmContact,
     /// An automation reference; recognized separately from message authorization support.
     Automation,
 }
@@ -82,17 +74,13 @@ impl MessageReferenceKind {
             "document" => Self::Document,
             "form" => Self::Form,
             "channel" => Self::Channel,
-            "thread" | "email_thread" | "email" => Self::EmailThread,
             "call" => Self::Call,
-            "calendar_event" => Self::CalendarEvent,
             "chat" => Self::Chat,
             "agent_session" => Self::AgentSession,
             "project" => Self::Project,
             "static/image" => Self::StaticImage,
             "static/video" => Self::StaticVideo,
             "group" => Self::Group,
-            "crm_company" => Self::CrmCompany,
-            "crm_contact" => Self::CrmContact,
             "automation" => Self::Automation,
             _ => return None,
         })

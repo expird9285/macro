@@ -9,7 +9,7 @@ mod test;
 pub struct DiscussionContext {
     /// Parent display name.
     pub name: String,
-    /// Authenticated parent owner; a CRM record may have none.
+    /// Authenticated parent owner, when the parent has one.
     pub owner: Option<String>,
     /// Optional document extension.
     pub file_type: Option<String>,

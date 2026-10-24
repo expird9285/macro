@@ -81,22 +81,6 @@ async fn channel_parent_fk_rejects_missing_channels_and_cascades(pool: PgPool) {
 async fn soft_delete_cleans_only_matching_parent_message_notifications(pool: PgPool) {
     setup(&pool).await;
     let channel = channel(&pool).await;
-    let team = macro_uuid::generate_uuid_v7();
-    let company = macro_uuid::generate_uuid_v7();
-    let contact = macro_uuid::generate_uuid_v7();
-    sqlx::query!(
-        "INSERT INTO team(id, name, owner_id) VALUES ($1, 'test', $2)",
-        team,
-        USER
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
-    sqlx::query!("INSERT INTO crm_companies(id, team_id, first_interaction, last_interaction) VALUES ($1, $2, now(), now())", company, team)
-        .execute(&pool).await.unwrap();
-    sqlx::query!("INSERT INTO crm_contacts(id, company_id, email, first_interaction, last_interaction) VALUES ($1, $2, 'contact@example.com', now(), now())", contact, company)
-        .execute(&pool).await.unwrap();
-
     for (parent_type, parent_id, key) in [
         ("channel", channel.to_string(), "messageId"),
         ("channel", channel.to_string(), "message_id"),
@@ -106,8 +90,6 @@ async fn soft_delete_cleans_only_matching_parent_message_notifications(pool: PgP
             macro_uuid::generate_uuid_v7().to_string(),
             "messageId",
         ),
-        ("crm_company", company.to_string(), "messageId"),
-        ("crm_contact", contact.to_string(), "messageId"),
     ] {
         let message = macro_uuid::generate_uuid_v7();
         sqlx::query!("INSERT INTO comms_messages(id, parent_entity_type, parent_entity_id, sender_id, content) VALUES ($1, $2, $3, $4, 'test')", message, parent_type, parent_id, USER)

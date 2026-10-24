@@ -15,7 +15,7 @@ use crate::domain::ports::{MessageError, MessagePatch};
 #[serde(rename_all = "camelCase")]
 #[schemars(
     title = "EditComment",
-    description = "Replace the text of a comment or reply in the Discussion of a document, task, Tasks project, CRM company or CRM contact. Only a comment's author can edit it, so this edits comments the user wrote and comments this assistant wrote for them. A comment id is enough to find its item. Comment ids come from ReadDiscussion, or from ReadContent for a document. Use only when the user asks to edit a comment."
+    description = "Replace the text of a comment or reply in the Discussion of a document, task, or Tasks project. Only a comment's author can edit it, so this edits comments the user wrote and comments this assistant wrote for them. A comment id is enough to find its item. Comment ids come from ReadDiscussion, or from ReadContent for a document. Use only when the user asks to edit a comment."
 )]
 /// Replace the text of a comment the user or the tool actor wrote.
 pub struct EditComment {

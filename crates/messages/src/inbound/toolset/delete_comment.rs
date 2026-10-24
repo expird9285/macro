@@ -16,7 +16,7 @@ use crate::domain::ports::MessageError;
 #[serde(rename_all = "camelCase")]
 #[schemars(
     title = "DeleteComment",
-    description = "Delete a comment or reply in the Discussion of a document, task, Tasks project, CRM company or CRM contact. Deleting the first comment of a thread deletes the whole thread with its replies. Authors can delete their own comments, and the item's owner can delete any comment. This cannot be undone. A comment id is enough to find its item. Comment ids come from ReadDiscussion, or from ReadContent for a document. Use only when the user explicitly asks to delete a comment; use ResolveComment to close a thread instead."
+    description = "Delete a comment or reply in the Discussion of a document, task, or Tasks project. Deleting the first comment of a thread deletes the whole thread with its replies. Authors can delete their own comments, and the item's owner can delete any comment. This cannot be undone. A comment id is enough to find its item. Comment ids come from ReadDiscussion, or from ReadContent for a document. Use only when the user explicitly asks to delete a comment; use ResolveComment to close a thread instead."
 )]
 /// Delete a comment, or a whole thread by its first comment.
 pub struct DeleteComment {

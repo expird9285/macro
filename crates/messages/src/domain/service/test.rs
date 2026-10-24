@@ -776,14 +776,7 @@ impl MessageReferenceAccess for ReferenceAccess {
 
 #[tokio::test]
 async fn editor_reference_tags_are_authorized_for_posts_and_edits() {
-    for (tag, entity_type) in [
-        ("form", EntityType::Form),
-        ("thread", EntityType::EmailThread),
-        ("email", EntityType::EmailThread),
-        ("email_thread", EntityType::EmailThread),
-        ("call", EntityType::Call),
-        ("calendar_event", EntityType::CalendarEvent),
-    ] {
+    for (tag, entity_type) in [("form", EntityType::Form), ("call", EntityType::Call)] {
         for allowed in [true, false] {
             let mut repo = fixture();
             repo.message.parent = MessageParent::Channel(Uuid::from_u128(20));
@@ -1006,18 +999,13 @@ async fn human_can_post_canonical_agent_mentions_on_documents_and_channels() {
         MessageParent::parse("document", "doc").unwrap(),
         MessageParent::Channel(Uuid::from_u128(20)),
         MessageParent::Initiative(Uuid::from_u128(21)),
-        MessageParent::CrmCompany(Uuid::from_u128(22)),
-        MessageParent::CrmContact(Uuid::from_u128(23)),
         MessageParent::Call(Uuid::from_u128(24)),
     ] {
         let repo = fixture();
         let events = Events::default();
         let service = MessageService::new(repo.clone(), events.clone());
         let (entity_type, permission) = match parent {
-            MessageParent::Document(_)
-            | MessageParent::Initiative(_)
-            | MessageParent::CrmCompany(_)
-            | MessageParent::CrmContact(_) => (
+            MessageParent::Document(_) | MessageParent::Initiative(_) => (
                 parent.access_entity_type(),
                 EntityPermission::AccessLevel {
                     access_level: AccessLevel::Comment,

@@ -1,4 +1,4 @@
-use crate::domain::{mentions::MessageReferenceKind, models::*, ports::*};
+use crate::domain::{models::*, ports::*};
 use channel_sender::ChannelSender;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
@@ -17,7 +17,6 @@ mod test;
 pub struct PgMessageRepository {
     pool: PgPool,
     initiatives: Option<std::sync::Arc<dyn initiative::domain::lookup::InitiativeReader>>,
-    crm: Option<std::sync::Arc<dyn CrmParentReader>>,
 }
 
 #[derive(Deserialize)]
@@ -61,21 +60,12 @@ fn database_error(error: sqlx::Error) -> MessageError {
     MessageError::Repository(rootcause::Report::new(error).into())
 }
 
-/// Email references arrive under several editor aliases; store the canonical one.
-fn stored_attachment_type(entity_type: &str) -> &str {
-    match MessageReferenceKind::parse(entity_type) {
-        Some(MessageReferenceKind::EmailThread) => "email_thread",
-        _ => entity_type,
-    }
-}
-
 impl PgMessageRepository {
     /// Create a repository using the shared MacroDB pool.
     pub fn new(pool: PgPool) -> Self {
         Self {
             pool,
             initiatives: None,
-            crm: None,
         }
     }
 
@@ -87,23 +77,6 @@ impl PgMessageRepository {
     ) -> Self {
         self.initiatives = Some(std::sync::Arc::new(initiatives));
         self
-    }
-
-    /// Supply the owning CRM identity service for company and contact discussions.
-    /// Unconfigured compositions reject CRM operations.
-    pub fn with_crm(mut self, crm: impl CrmParentReader) -> Self {
-        self.crm = Some(std::sync::Arc::new(crm));
-        self
-    }
-
-    async fn crm_parent_exists(&self, parent: &MessageParent) -> Result<bool, MessageError> {
-        let Some(crm) = &self.crm else {
-            return Ok(false);
-        };
-        crm.read_crm_parent(parent)
-            .await
-            .map(|value| value.is_some())
-            .map_err(MessageError::Repository)
     }
 
     /// Fill in what each PDF highlight anchor covers. The highlight owns its
@@ -327,7 +300,7 @@ impl PgMessageRepository {
             let mut retained = Vec::new();
             let mut added = Vec::new();
             for attachment in attachments {
-                let entity_type = stored_attachment_type(&attachment.entity_type);
+                let entity_type = attachment.entity_type.as_str();
                 if let Some(current) = existing.iter().find(|current| {
                     !retained.contains(&current.id)
                         && current.entity_type == entity_type
@@ -571,9 +544,6 @@ impl MessageRepository for PgMessageRepository {
                 return initiatives.read_basic(initiative::domain::models::InitiativeId::from_uuid(*id))
                     .await.map(|value| value.is_some())
                     .map_err(|error| MessageError::Repository(rootcause::report!(error).into()));
-            }
-            MessageParent::CrmCompany(_) | MessageParent::CrmContact(_) => {
-                return self.crm_parent_exists(parent).await;
             }
             MessageParent::Document(_) => sqlx::query_scalar!(r#"SELECT EXISTS(SELECT 1 FROM "Document" WHERE id = $1 AND "deletedAt" IS NULL) AS "exists!""#, parent.entity_id())
                 .fetch_one(&self.pool).await,

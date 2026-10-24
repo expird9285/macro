@@ -200,8 +200,6 @@ async fn receipt_with_sender<
         MessageParent::Channel(_) => EntityType::Channel,
         MessageParent::Document(_) => EntityType::Document,
         MessageParent::Initiative(_) => EntityType::Initiative,
-        MessageParent::CrmCompany(_) => EntityType::CrmCompany,
-        MessageParent::CrmContact(_) => EntityType::CrmContact,
         MessageParent::Call(_) => EntityType::Call,
     };
     use entity_access::inbound::axum_extractors::{

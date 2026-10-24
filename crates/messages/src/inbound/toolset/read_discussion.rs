@@ -19,7 +19,7 @@ use crate::domain::{
 #[serde(rename_all = "camelCase")]
 #[schemars(
     title = "ReadDiscussion",
-    description = "Read the comment threads in the Discussion of a document, task, Tasks project (initiative), CRM company or CRM contact: each thread's id, resolved state and comments, with their ids, authors and text, oldest thread first. Thread and comment ids are what Comment, EditComment, DeleteComment and ResolveComment take. For a document, ReadContent returns the same threads alongside the content, with the live text each inline comment is on."
+    description = "Read the comment threads in the Discussion of a document, task, or Tasks project (initiative): each thread's id, resolved state and comments, with their ids, authors and text, oldest thread first. Thread and comment ids are what Comment, EditComment, DeleteComment and ResolveComment take. For a document, ReadContent returns the same threads alongside the content, with the live text each inline comment is on."
 )]
 /// Read every live thread in an item's Discussion.
 pub struct ReadDiscussion {

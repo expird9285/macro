@@ -197,10 +197,6 @@ pub enum DiscussionParentType {
     /// macro.com/app/tasks/projects/<id> link, the kind ReadInitiative reads.
     /// Not a folder: folders (ReadProject) have no Discussion.
     Initiative,
-    /// A CRM company, the kind GetCompany reads.
-    CrmCompany,
-    /// A CRM contact.
-    CrmContact,
 }
 
 impl DiscussionParentType {
@@ -210,8 +206,6 @@ impl DiscussionParentType {
         Ok(match self {
             Self::Document => MessageParent::Document(id.to_owned().try_into()?),
             Self::Initiative => MessageParent::Initiative(uuid()?),
-            Self::CrmCompany => MessageParent::CrmCompany(uuid()?),
-            Self::CrmContact => MessageParent::CrmContact(uuid()?),
         })
     }
 
@@ -222,8 +216,6 @@ impl DiscussionParentType {
         match parent {
             MessageParent::Document(_) => Some(Self::Document),
             MessageParent::Initiative(_) => Some(Self::Initiative),
-            MessageParent::CrmCompany(_) => Some(Self::CrmCompany),
-            MessageParent::CrmContact(_) => Some(Self::CrmContact),
             MessageParent::Channel(_) | MessageParent::Call(_) => None,
         }
     }
@@ -233,8 +225,6 @@ impl DiscussionParentType {
         match self {
             Self::Document => "document",
             Self::Initiative => "project",
-            Self::CrmCompany => "company",
-            Self::CrmContact => "contact",
         }
     }
 }

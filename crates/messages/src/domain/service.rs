@@ -811,14 +811,10 @@ impl<R: MessageRepository, E: MessageEventPublisher> MessageService<R, E> {
                 MessageReferenceKind::Document => EntityType::Document,
                 MessageReferenceKind::Form => EntityType::Form,
                 MessageReferenceKind::Channel => EntityType::Channel,
-                MessageReferenceKind::EmailThread => EntityType::EmailThread,
                 MessageReferenceKind::Call => EntityType::Call,
-                MessageReferenceKind::CalendarEvent => EntityType::CalendarEvent,
                 MessageReferenceKind::Chat => EntityType::Chat,
                 MessageReferenceKind::AgentSession => EntityType::AgentSession,
                 MessageReferenceKind::Project => EntityType::Project,
-                MessageReferenceKind::CrmCompany => EntityType::CrmCompany,
-                MessageReferenceKind::CrmContact => EntityType::CrmContact,
                 _ => return Err(MessageError::Invalid("unsupported message reference")),
             };
             if !self
@@ -915,8 +911,6 @@ fn parent_from_receipt<P: RequiredPermission>(
         EntityType::Channel => "channel",
         EntityType::Document => "document",
         EntityType::Initiative => "initiative",
-        EntityType::CrmCompany => "crm_company",
-        EntityType::CrmContact => "crm_contact",
         EntityType::Call => "call",
         _ => return Err(MessageError::Forbidden),
     };

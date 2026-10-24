@@ -780,7 +780,7 @@ async fn read_discussion_lists_threads_oldest_first_with_every_live_reply() {
 #[tokio::test]
 async fn read_discussion_on_an_unknown_item_points_at_the_kind() {
     let error = ReadDiscussion {
-        entity_type: DiscussionParentType::CrmCompany,
+        entity_type: DiscussionParentType::Initiative,
         entity_id: INITIATIVE.to_string(),
     }
     .call(context_without_items(FakeMessages::default()), request())
@@ -788,7 +788,7 @@ async fn read_discussion_on_an_unknown_item_points_at_the_kind() {
     .unwrap_err();
 
     assert!(
-        error.description.contains("no company with id"),
+        error.description.contains("no project with id"),
         "{}",
         error.description
     );

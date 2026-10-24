@@ -275,13 +275,13 @@ impl DiscussionContextReader for OwnerlessContext {
 }
 
 #[tokio::test]
-async fn crm_records_without_an_owner_only_notify_mentions_and_participants() {
+async fn parents_without_an_owner_only_notify_mentions_and_participants() {
     let log = DeliveryLog::default();
     let shares = Shares::default();
     let delivery = DiscussionDelivery::new(OwnerlessContext, Access, log.clone(), log.clone())
         .with_sharing(shares.clone());
     let mut event = event();
-    event.parent = MessageParent::CrmContact(Uuid::from_u128(24));
+    event.parent = MessageParent::Initiative(Uuid::from_u128(24));
     delivery.publish(event).await.unwrap();
     assert!(shares.0.lock().unwrap().is_empty());
     assert_eq!(
