@@ -9,9 +9,8 @@ async fn execute_initiative_query(harness: &TestHarness, query: &str) -> async_g
                 .request(query, authenticated_parts())
                 .data(viewer)
                 .data(graphql_initiative::InitiativeEntityLoader(
-                    graphql_soup::soup_item_loader(
+                    graphql_soup::soup_item_loader_with_team_access(
                         harness.soup_service.clone(),
-                        Arc::new(harness.email_service.clone()),
                         harness.state.entity_access.as_ref().clone(),
                     ),
                 )),

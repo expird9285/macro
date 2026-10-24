@@ -44,14 +44,10 @@ pub enum GraphqlWorkFeedItemType {
     Chat,
     /// Projects.
     Project,
-    /// Email threads.
-    Email,
     /// Channel activity outside a dedicated thread item.
     Channel,
     /// One channel thread.
     ChannelThread,
-    /// Calendar reminders.
-    CalendarEvent,
     /// GitHub pull requests.
     PullRequest,
     /// Agent sessions.
@@ -64,10 +60,8 @@ impl From<GraphqlWorkFeedItemType> for WorkFeedItemType {
             GraphqlWorkFeedItemType::Document => Self::Document,
             GraphqlWorkFeedItemType::Chat => Self::Chat,
             GraphqlWorkFeedItemType::Project => Self::Project,
-            GraphqlWorkFeedItemType::Email => Self::Email,
             GraphqlWorkFeedItemType::Channel => Self::Channel,
             GraphqlWorkFeedItemType::ChannelThread => Self::ChannelThread,
-            GraphqlWorkFeedItemType::CalendarEvent => Self::CalendarEvent,
             GraphqlWorkFeedItemType::PullRequest => Self::PullRequest,
             GraphqlWorkFeedItemType::AgentSession => Self::AgentSession,
         }

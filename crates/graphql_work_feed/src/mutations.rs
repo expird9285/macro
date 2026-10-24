@@ -40,8 +40,7 @@ impl<E> Default for WorkFeedMutationRoot<E> {
 #[Object]
 impl<E: SoupEntityEdges> WorkFeedMutationRoot<E> {
     /// Mark work feed items done for the authenticated user: acknowledge the
-    /// notifications each entry showed and archive inbox email.
-    /// Notifications newer than an entry's `revision` stay active. Own work
+    /// notifications each entry showed. Notifications newer than an entry's `revision` stay active. Own work
     /// is not acknowledged, so an item the user also worked on stays in the
     /// work feed, seen. Tasks, discussions and pull requests themselves are
     /// not completed.

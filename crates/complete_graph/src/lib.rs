@@ -1,5 +1,5 @@
 //! Composition of the domain GraphQL adapter crates (`graphql_soup`,
-//! `graphql_channel`, `graphql_properties`, `graphql_notification`, `graphql_email`,
+//! `graphql_channel`, `graphql_properties`, `graphql_notification`,
 //! `graphql_favorite`, `graphql_entity_mutation`, `graphql_work_feed`) into the
 //! complete schema served by
 //! `document_storage_service` and exported as SDL.
@@ -16,7 +16,7 @@ mod sdl_test;
 
 pub use edges::{
     AgentSessionBotDataLoader, AgentSessionBotLoader, GraphqlSessionBot, SoupAgentSessionEdges,
-    SoupEdges, SoupEmailThreadEdges, agent_session_bot_loader, agent_session_log_loader,
+    SoupEdges, agent_session_bot_loader, agent_session_log_loader,
 };
 pub use graphql_activity::{
     ActivityEdgeKey, ActivityEdgeLoad, ActivityFeedInput, ActivityFeedReader,
@@ -31,18 +31,6 @@ pub use graphql_channel::{
     RecordChannelActivityInput,
 };
 pub use graphql_common::GraphqlRequestParts;
-pub use graphql_email::{
-    DeleteEmailDraftInput, DeleteEmailDraftPayload, EmailContentKey, EmailContentLoad,
-    EmailContentLoader, EmailMutationService, EmailServiceEmailContentReader,
-    EmailThreadMailProjectionLoad, EmailThreadMailProjectionLoader, EmailThreadMetadataLoad,
-    EmailThreadMetadataLoader, GraphqlEmailLabel, GraphqlEmailLink, GraphqlEmailLinkSettings,
-    GraphqlEmailMutation, GraphqlEmailProvider, GraphqlEmailQuery, GraphqlEmailSyncStatus,
-    MarkEmailThreadSeenInput, NoOpSoupEmailContentEdgeReader, SaveEmailDraftContactInput,
-    SaveEmailDraftInput, SaveEmailDraftPayload, SoupEmailContentEdgeReader, SoupEmailEdgeReader,
-    SoupEmailThreadMailProjectionEdgeReader, SoupEmailThreadMetadataEdgeReader,
-    UpdateEmailThreadLabelInput, email_content_loader, email_thread_mail_projection_loader,
-    email_thread_metadata_loader,
-};
 pub use graphql_entity_mutation::{
     ChannelSharePolicyInput, DuplicateEntityInput, EntityMutationPayload, EntityMutationRoot,
     EntityRefInput, EntitySharePolicyInput, GraphqlEntityMutationError,
@@ -77,7 +65,7 @@ pub use graphql_work_feed::{
 };
 pub use realtime::{AgentSessionLogSubscriptions, agent_session_log_subscriptions};
 pub use schema::{
-    EmailThreadInput, SchemaOnlySoupSchema, SchemaOnlyState, SharedSoupSchema, SoupQueryRoot,
-    SoupSchema, SoupSubscriptionRoot, build_schema, build_schema_from_arc, build_schema_from_arcs,
+    SchemaOnlySoupSchema, SchemaOnlyState, SharedSoupSchema, SoupQueryRoot, SoupSchema,
+    SoupSubscriptionRoot, build_schema, build_schema_from_arc, build_schema_from_arcs,
     build_schema_with_service, build_schema_with_services,
 };

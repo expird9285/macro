@@ -13,12 +13,6 @@ use graphql_activity::{
     ActivityEdgeKey, GraphqlActivityEvent, SoupActivityEdgeReader, load_entity_activity,
     parse_activity_edge_limit,
 };
-use graphql_crm::{CrmRecord, GraphqlCrmPipelineEntry, load_pipeline_entries};
-use graphql_email::{
-    EmailContentKey, GraphqlSoupEmailMessage, SoupEmailEdgeReader,
-    email_message_selection_requires_full_payload, load_email_messages,
-    load_email_thread_mail_projection, load_email_thread_metadata, load_latest_email_message,
-};
 use graphql_favorite::{EntityFavoriteEdgeReader, load_entity_favorite};
 use graphql_notification::{
     GraphqlNotification, GraphqlNotificationFilter, SoupNotificationEdgeReader,
@@ -29,30 +23,26 @@ use graphql_permission::{
 };
 use graphql_properties::{EntityPropertyReader, GraphqlProperty, load_entity_properties};
 use graphql_soup::SoupEntityEdges;
-use predicate_index::{RecordKey, utc_timestamp_micros};
-use soup_filter_projection::{
-    MailCacheProjectionFacts, SoupCacheProjectionSupplement, encode_cache_projection_supplement,
-};
 use uuid::Uuid;
 
 /// The types of the edge readers for soup
-type EdgeReaders<NR, PR, ER, FR, AR, AcR> = PhantomData<fn() -> (NR, PR, ER, FR, AR, AcR)>;
+type EdgeReaders<NR, PR, FR, AR, AcR> = PhantomData<fn() -> (NR, PR, FR, AR, AcR)>;
 
-/// Notification, property, email-content, favorite, permission, and activity
-/// fields attached to Soup entities.
+/// Notification, property, favorite, permission, and activity fields attached
+/// to Soup entities.
 ///
 /// This concrete edge shape lives in the composition crate so `graphql_soup`
 /// does not know which cross-domain fields are attached to its objects.
-pub struct SoupEdges<NR, PR, ER, FR, AR, AcR> {
+pub struct SoupEdges<NR, PR, FR, AR, AcR> {
     /// Entity whose cross-domain fields are being resolved.
     entity: model_entity::Entity<'static>,
     /// Entity whose access determines the viewer permission for this object.
     permission_entity: model_entity::Entity<'static>,
     /// Associates the edge with its configured reader types.
-    _readers: EdgeReaders<NR, PR, ER, FR, AR, AcR>,
+    _readers: EdgeReaders<NR, PR, FR, AR, AcR>,
 }
 
-impl<NR, PR, ER, FR, AR, AcR> Clone for SoupEdges<NR, PR, ER, FR, AR, AcR> {
+impl<NR, PR, FR, AR, AcR> Clone for SoupEdges<NR, PR, FR, AR, AcR> {
     fn clone(&self) -> Self {
         Self {
             entity: self.entity.clone(),
@@ -62,11 +52,10 @@ impl<NR, PR, ER, FR, AR, AcR> Clone for SoupEdges<NR, PR, ER, FR, AR, AcR> {
     }
 }
 
-impl<NR, PR, ER, FR, AR, AcR> SoupEntityEdges for SoupEdges<NR, PR, ER, FR, AR, AcR>
+impl<NR, PR, FR, AR, AcR> SoupEntityEdges for SoupEdges<NR, PR, FR, AR, AcR>
 where
     NR: SoupNotificationEdgeReader,
     PR: EntityPropertyReader,
-    ER: SoupEmailEdgeReader,
     FR: EntityFavoriteEdgeReader,
     AR: EntityPermissionEdgeReader,
     AcR: SoupActivityEdgeReader,
@@ -75,10 +64,8 @@ where
     type Notification = GraphqlNotification;
     type NotificationFilter = GraphqlNotificationFilter;
     type ActivityEvent = GraphqlActivityEvent;
-    type EmailThreadEdges = SoupEmailThreadEdges<ER>;
     type AgentSessionEdges = SoupAgentSessionEdges;
     type InitiativeEdges = SoupInitiativeEdges;
-    type CrmRecordEdges = SoupCrmRecordEdges;
 
     fn from_entity(entity: model_entity::Entity<'static>) -> Self {
         Self {
@@ -98,46 +85,8 @@ where
         }
     }
 
-    fn email_thread_edges(thread_id: Uuid) -> Self::EmailThreadEdges {
-        SoupEmailThreadEdges {
-            thread_id,
-            _reader: PhantomData,
-        }
-    }
-
-    async fn resolve_email_cache_projection(
-        &self,
-        ctx: &Context<'_>,
-        thread_id: Uuid,
-    ) -> async_graphql::Result<Option<String>> {
-        let projection = load_email_thread_mail_projection::<ER>(ctx, thread_id).await?;
-        let facts = &projection.cache_facts;
-        let record_key = RecordKey::new(format!("GraphqlSoupEmailThread:{thread_id}"))?;
-        let supplement = SoupCacheProjectionSupplement::mail(
-            record_key,
-            MailCacheProjectionFacts::new(
-                facts.latest_non_spam_message_ts.map(utc_timestamp_micros),
-                facts.latest_outbound_message_ts.map(utc_timestamp_micros),
-                facts.has_calendar_attachment,
-                facts.has_thread_share,
-            ),
-        );
-        Ok(Some(encode_cache_projection_supplement(&supplement)?))
-    }
-
     fn initiative_edges(initiative_id: Uuid) -> Self::InitiativeEdges {
         SoupInitiativeEdges { initiative_id }
-    }
-
-    fn crm_record_edges(record: model_entity::Entity<'static>) -> Self::CrmRecordEdges {
-        let id = record.entity_id.parse().ok();
-        SoupCrmRecordEdges {
-            record: match record.entity_type {
-                model_entity::EntityType::CrmCompany => id.map(CrmRecord::Company),
-                model_entity::EntityType::CrmContact => id.map(CrmRecord::Contact),
-                _ => None,
-            },
-        }
     }
 
     fn agent_session_edges(session_id: Uuid, bot_id: Uuid) -> Self::AgentSessionEdges {
@@ -463,11 +412,10 @@ where
 
 /// Cross-domain fields attached to a property-bearing Soup entity.
 #[Object(name = "SoupEdges")]
-impl<NR, PR, ER, FR, AR, AcR> SoupEdges<NR, PR, ER, FR, AR, AcR>
+impl<NR, PR, FR, AR, AcR> SoupEdges<NR, PR, FR, AR, AcR>
 where
     NR: SoupNotificationEdgeReader,
     PR: EntityPropertyReader,
-    ER: SoupEmailEdgeReader,
     FR: EntityFavoriteEdgeReader,
     AR: EntityPermissionEdgeReader,
     AcR: SoupActivityEdgeReader,
@@ -509,177 +457,6 @@ where
         limit: Option<i32>,
     ) -> async_graphql::Result<Vec<GraphqlActivityEvent>> {
         self.resolve_activity(ctx, limit).await
-    }
-}
-
-/// default limit of messages if none is provided
-/// REST-compatible default number of email messages returned per page.
-const DEFAULT_EMAIL_MESSAGE_LIMIT: i32 = 5;
-/// max possible limit of messages
-/// Maximum number of email messages one field may request.
-const MAX_EMAIL_MESSAGE_LIMIT: i32 = 100;
-
-/// parses the incoming optional limits into the actual range
-/// Validate email-message pagination and apply REST-compatible defaults.
-fn parse_email_message_pagination(
-    offset: Option<i32>,
-    limit: Option<i32>,
-) -> async_graphql::Result<(u32, u32)> {
-    let offset = u32::try_from(offset.unwrap_or(0))
-        .map_err(|_| async_graphql::Error::new("offset must be non-negative"))?;
-    let limit =
-        graphql_common::parse_limit(limit, DEFAULT_EMAIL_MESSAGE_LIMIT, MAX_EMAIL_MESSAGE_LIMIT)?;
-    Ok((offset, limit))
-}
-
-/// Email-content fields attached only to Soup email-thread entities.
-pub struct SoupEmailThreadEdges<ER> {
-    /// The uuid of the email thread
-    thread_id: Uuid,
-    /// marker for the reader type
-    _reader: PhantomData<fn() -> ER>,
-}
-
-impl<ER> Clone for SoupEmailThreadEdges<ER> {
-    fn clone(&self) -> Self {
-        Self {
-            thread_id: self.thread_id,
-            _reader: PhantomData,
-        }
-    }
-}
-
-/// Email-content fields attached to a Soup email thread.
-#[Object]
-impl<ER> SoupEmailThreadEdges<ER>
-where
-    ER: SoupEmailEdgeReader,
-{
-    /// The canonical identifier of the email link that owns this thread.
-    async fn link_id(&self, ctx: &Context<'_>) -> async_graphql::Result<ID> {
-        let metadata = load_email_thread_metadata::<ER>(ctx, self.thread_id).await?;
-        Ok(ID(metadata.link_id.to_string()))
-    }
-
-    /// Timestamp of the latest inbound message, in RFC 3339 format.
-    async fn latest_inbound_message_ts(
-        &self,
-        ctx: &Context<'_>,
-    ) -> async_graphql::Result<Option<String>> {
-        let metadata = load_email_thread_metadata::<ER>(ctx, self.thread_id).await?;
-        Ok(metadata
-            .latest_inbound_message_ts
-            .map(|timestamp| timestamp.to_rfc3339()))
-    }
-
-    /// Most recent explicit return from an email reminder.
-    async fn reminder_returned_at(
-        &self,
-        ctx: &Context<'_>,
-    ) -> async_graphql::Result<Option<String>> {
-        let metadata = load_email_thread_metadata::<ER>(ctx, self.thread_id).await?;
-        Ok(metadata
-            .reminder_returned_at
-            .map(|timestamp| timestamp.to_rfc3339()))
-    }
-
-    /// Timestamp of the latest outbound message, in RFC 3339 format: the SENT
-    /// view's sort key.
-    async fn latest_outbound_message_ts(
-        &self,
-        ctx: &Context<'_>,
-    ) -> async_graphql::Result<Option<String>> {
-        let metadata = load_email_thread_metadata::<ER>(ctx, self.thread_id).await?;
-        Ok(metadata
-            .latest_outbound_message_ts
-            .map(|timestamp| timestamp.to_rfc3339()))
-    }
-
-    /// Timestamp of the latest message that is not spam, in RFC 3339 format:
-    /// the sort key of every mail view except INBOX and SENT.
-    async fn latest_non_spam_message_ts(
-        &self,
-        ctx: &Context<'_>,
-    ) -> async_graphql::Result<Option<String>> {
-        let metadata = load_email_thread_metadata::<ER>(ctx, self.thread_id).await?;
-        Ok(metadata
-            .latest_non_spam_message_ts
-            .map(|timestamp| timestamp.to_rfc3339()))
-    }
-
-    /// Complete body-free metadata for local draft edits and discards.
-    async fn mail_draft_state(
-        &self,
-        ctx: &Context<'_>,
-    ) -> async_graphql::Result<Option<graphql_email::GraphqlMailDraftState>> {
-        Ok(load_email_thread_mail_projection::<ER>(ctx, self.thread_id)
-            .await?
-            .draft_state
-            .clone()
-            .map(Into::into))
-    }
-
-    /// Latest eligible message for ALL, INBOX, Calendar and Shared, without bodies.
-    async fn mail_all_preview(
-        &self,
-        ctx: &Context<'_>,
-    ) -> async_graphql::Result<Option<graphql_email::GraphqlMailPreviewMessage>> {
-        Ok(load_email_thread_mail_projection::<ER>(ctx, self.thread_id)
-            .await?
-            .previews
-            .all
-            .clone()
-            .map(Into::into))
-    }
-
-    /// Latest eligible draft, even when a newer non-draft exists in the thread.
-    async fn mail_draft_preview(
-        &self,
-        ctx: &Context<'_>,
-    ) -> async_graphql::Result<Option<graphql_email::GraphqlMailPreviewMessage>> {
-        Ok(load_email_thread_mail_projection::<ER>(ctx, self.thread_id)
-            .await?
-            .previews
-            .draft
-            .clone()
-            .map(Into::into))
-    }
-
-    /// Latest eligible sent message, without bodies.
-    async fn mail_sent_preview(
-        &self,
-        ctx: &Context<'_>,
-    ) -> async_graphql::Result<Option<graphql_email::GraphqlMailPreviewMessage>> {
-        Ok(load_email_thread_mail_projection::<ER>(ctx, self.thread_id)
-            .await?
-            .previews
-            .sent
-            .clone()
-            .map(Into::into))
-    }
-
-    /// A page of messages in this thread, newest first.
-    async fn messages(
-        &self,
-        ctx: &Context<'_>,
-        offset: Option<i32>,
-        limit: Option<i32>,
-    ) -> async_graphql::Result<Vec<GraphqlSoupEmailMessage>> {
-        let (offset, limit) = parse_email_message_pagination(offset, limit)?;
-        let key = if email_message_selection_requires_full_payload(ctx) {
-            EmailContentKey::page_full(self.thread_id, offset, limit)
-        } else {
-            EmailContentKey::page(self.thread_id, offset, limit)
-        };
-        load_email_messages::<ER>(ctx, key).await
-    }
-
-    /// The newest non-draft content message in this thread.
-    async fn latest_content_message(
-        &self,
-        ctx: &Context<'_>,
-    ) -> async_graphql::Result<Option<GraphqlSoupEmailMessage>> {
-        load_latest_email_message::<ER>(ctx, self.thread_id).await
     }
 }
 
@@ -731,28 +508,3 @@ impl SoupInitiativeEdges {
         )
     }
 }
-
-/// CRM fields composed onto Soup company and contact entities.
-#[derive(Clone)]
-pub struct SoupCrmRecordEdges {
-    /// The company or contact, when its identity parses.
-    record: Option<CrmRecord>,
-}
-
-#[Object]
-impl SoupCrmRecordEdges {
-    /// Rows of the viewer's live pipelines that reference this record, grouped
-    /// by pipeline in each one's row order.
-    async fn pipeline_entries(
-        &self,
-        ctx: &Context<'_>,
-    ) -> async_graphql::Result<Vec<GraphqlCrmPipelineEntry>> {
-        match self.record {
-            Some(record) => load_pipeline_entries(ctx, record).await,
-            None => Ok(Vec::new()),
-        }
-    }
-}
-
-#[cfg(test)]
-mod test;

@@ -8,10 +8,6 @@ use crate::realtime::AgentSessionLogSubscriptions;
 use agent_session::domain::model::AgentSessionId;
 use async_graphql::{Context, ID, MergedObject, MergedSubscription, Object, Schema, Subscription};
 use axum::extract::FromRef;
-use email::{
-    domain::ports::{EmailService, EmailUserService, NoOpEmailService},
-    inbound::axum::previews_router::EmailRouterState,
-};
 use entity_access::domain::ports::{EntityAccessService, NoOpEntityAccessService};
 use entity_mutation::{EntityMutationService, UnavailableEntityMutationService};
 use favorites::domain::ports::FavoritesMutationService;
@@ -22,15 +18,11 @@ use graphql_activity::{
     resolve_activity_feed, resolve_activity_overview, resolve_database_activity,
     resolve_form_activity,
 };
-use graphql_calendar::{CalendarMutationRoot, GraphqlCalendarQuery};
 use graphql_channel::{
     ChannelActivityAuthorizer, ChannelActivityMutationService, ChannelMutationRoot,
     NoOpChannelActivityMutationService,
 };
 use graphql_common::{GraphqlSoupEntityType, parse_id, require_authorized_user};
-use graphql_email::{
-    GraphqlEmailMutation, GraphqlEmailQuery, NoOpSoupEmailContentEdgeReader, SoupEmailEdgeReader,
-};
 use graphql_entity_mutation::EntityMutationRoot;
 use graphql_favorite::{
     EntityFavoriteEdgeReader, FavoriteMutationRoot, FavoriteQueryReader, FavoritesFilterInput,
@@ -53,11 +45,10 @@ use graphql_properties::{
 };
 use graphql_scheduled_action::{GraphqlScheduledAction, resolve_scheduled_actions};
 use graphql_soup::{
-    GraphqlSoupAgentSession, GraphqlSoupEmailThread, GraphqlSoupEntity, GraphqlSoupInitiative,
-    GraphqlSoupProject, GroupedSoup, GroupedSoupInput, SoupEmailThreadMutationOutput,
-    SoupEntityEdges, SoupInput, SoupPage, SoupPatch, resolve_folders, resolve_grouped_soup,
-    resolve_soup, resolve_soup_agent_session, resolve_soup_email_thread, resolve_soup_entity,
-    resolve_soup_updates,
+    GraphqlSoupAgentSession, GraphqlSoupEntity, GraphqlSoupInitiative, GraphqlSoupProject,
+    GroupedSoup, GroupedSoupInput, SoupEntityEdges, SoupInput, SoupPage, SoupPatch,
+    resolve_folders, resolve_grouped_soup, resolve_soup, resolve_soup_agent_session,
+    resolve_soup_entity, resolve_soup_updates,
 };
 use graphql_work_feed::{
     GraphqlWorkFeedPage, WorkFeedInput, WorkFeedMutationRoot, WorkFeedSubscriptionRoot,
@@ -92,16 +83,13 @@ pub struct CompleteMutationRoot<
     C: ChannelActivityMutationService,
     N: NotificationMutationService,
     A: ChannelActivityAuthorizer,
-    ES: EmailService,
 >(
     PropertiesMutationRoot<W>,
     EntityMutationRoot<M, E>,
     FavoriteMutationRoot<F, E>,
     ChannelMutationRoot<C, A>,
     NotificationMutationRoot<N>,
-    GraphqlEmailMutation<ES, SoupEmailThreadMutationOutput<E>>,
     InitiativeMutationRoot<E>,
-    CalendarMutationRoot,
     WorkFeedMutationRoot<E>,
 );
 
@@ -113,8 +101,7 @@ impl<
     C: ChannelActivityMutationService,
     N: NotificationMutationService,
     A: ChannelActivityAuthorizer,
-    ES: EmailService,
-> CompleteMutationRoot<W, M, F, E, C, N, A, ES>
+> CompleteMutationRoot<W, M, F, E, C, N, A>
 {
     /// Construct the composed mutation root.
     fn new() -> Self {
@@ -124,9 +111,7 @@ impl<
             FavoriteMutationRoot::<F, E>::new(),
             ChannelMutationRoot::<C, A>::new(),
             NotificationMutationRoot::<N>::new(),
-            GraphqlEmailMutation::<ES, SoupEmailThreadMutationOutput<E>>::new(),
             InitiativeMutationRoot::<E>::default(),
-            CalendarMutationRoot,
             WorkFeedMutationRoot::<E>::default(),
         )
     }
@@ -135,11 +120,11 @@ impl<
 /// Root subscription object combining realtime Soup, notification,
 /// activity, and work feed adapters.
 #[derive(MergedSubscription)]
-pub struct CompleteSubscriptionRoot<R, NS, AS, Auth, St, NR, PR, ER, FR, AR, AcR>(
-    SoupSubscriptionRoot<R, Auth, St, NR, PR, ER, FR, AR, AcR>,
+pub struct CompleteSubscriptionRoot<R, NS, AS, Auth, St, NR, PR, FR, AR, AcR>(
+    SoupSubscriptionRoot<R, Auth, St, NR, PR, FR, AR, AcR>,
     NotificationSubscriptionRoot<NS>,
     ActivitySubscriptionRoot<AS>,
-    WorkFeedSubscriptionRoot<SoupEdges<NR, PR, ER, FR, AR, AcR>>,
+    WorkFeedSubscriptionRoot<SoupEdges<NR, PR, FR, AR, AcR>>,
 )
 where
     R: SoupRealtimeSubscriptionService,
@@ -150,7 +135,6 @@ where
     MacroAuthorizationState<Auth>: FromRef<St>,
     NR: SoupNotificationEdgeReader,
     PR: EntityPropertyReader,
-    ER: SoupEmailEdgeReader,
     FR: EntityFavoriteEdgeReader,
     AR: EntityPermissionEdgeReader,
     AcR: ActivityReader;
@@ -159,28 +143,25 @@ where
 ///
 /// `S` is the soup query service, `R` the realtime Soup subscription service,
 /// `NS` the realtime notification subscription service, `AS` the realtime
-/// activity subscription service, `E` the email service, `EAS` the entity
-/// access service, `Auth` the authorization service, `St` the embedding axum
+/// activity subscription service, `EAS` the entity access service, `Auth` the authorization service, `St` the embedding axum
 /// router state, `W` the property mutation writer, `M` the entity mutation
 /// service, `C` the channel activity mutation service, `N` the notification
 /// mutation service, `NR` the notification edge reader, `PR` the property edge
-/// reader, `ER` the email-content edge reader, `FR` the favorite edge reader,
+/// reader, `FR` the favorite edge reader,
 /// `AR` the access edge reader, and `AcR` the activity reader.
-pub type SoupSchema<S, R, NS, AS, E, EAS, Auth, St, W, M, FM, C, N, NR, PR, ER, FR, AR, AcR> =
-    Schema<
-        SoupQueryRoot<S, E, EAS, Auth, St, NR, PR, ER, FR, AR, AcR>,
-        CompleteMutationRoot<W, M, FM, SoupEdges<NR, PR, ER, FR, AR, AcR>, C, N, EAS, E>,
-        CompleteSubscriptionRoot<R, NS, AS, Auth, St, NR, PR, ER, FR, AR, AcR>,
-    >;
+pub type SoupSchema<S, R, NS, AS, EAS, Auth, St, W, M, FM, C, N, NR, PR, FR, AR, AcR> = Schema<
+    SoupQueryRoot<S, EAS, Auth, St, NR, PR, FR, AR, AcR>,
+    CompleteMutationRoot<W, M, FM, SoupEdges<NR, PR, FR, AR, AcR>, C, N, EAS>,
+    CompleteSubscriptionRoot<R, NS, AS, Auth, St, NR, PR, FR, AR, AcR>,
+>;
 
 /// GraphQL Soup schema type backed by shared query and realtime services.
-pub type SharedSoupSchema<S, R, NS, AS, E, EAS, Auth, St, W, M, FM, C, N, NR, PR, ER, FR, AR, AcR> =
+pub type SharedSoupSchema<S, R, NS, AS, EAS, Auth, St, W, M, FM, C, N, NR, PR, FR, AR, AcR> =
     SoupSchema<
         Arc<S>,
         Arc<R>,
         Arc<NS>,
         Arc<AS>,
-        E,
         EAS,
         Auth,
         St,
@@ -191,7 +172,6 @@ pub type SharedSoupSchema<S, R, NS, AS, E, EAS, Auth, St, W, M, FM, C, N, NR, PR
         N,
         NR,
         PR,
-        ER,
         FR,
         AR,
         AcR,
@@ -204,7 +184,6 @@ pub type SchemaOnlySoupSchema = SoupSchema<
     NoOpSoupRealtimeSubscriptionService,
     NoopWebSocketNotificationSubscriptionService,
     NoOpActivitySubscriptionService,
-    NoOpEmailService,
     NoOpEntityAccessService,
     SchemaOnlyAuthorizationService,
     SchemaOnlyState,
@@ -215,7 +194,6 @@ pub type SchemaOnlySoupSchema = SoupSchema<
     NoOpNotificationMutationService,
     NoOpSoupNotificationEdgeReader,
     NoOpEntityPropertyReader,
-    NoOpSoupEmailContentEdgeReader,
     NoOpEntityFavoriteEdgeReader,
     NoOpEntityPermissionEdgeReader,
     NoOpActivityReader,
@@ -227,12 +205,6 @@ pub type SchemaOnlyAuthorizationService = MacroAuthorizationServiceImpl<NoopMacr
 /// Axum-style state used only to construct the GraphQL schema for SDL export.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SchemaOnlyState;
-
-impl FromRef<SchemaOnlyState> for EmailRouterState<NoOpEmailService> {
-    fn from_ref(_state: &SchemaOnlyState) -> Self {
-        EmailRouterState::new(NoOpEmailService)
-    }
-}
 
 impl FromRef<SchemaOnlyState> for Arc<NoOpEntityAccessService> {
     fn from_ref(_state: &SchemaOnlyState) -> Self {
@@ -257,20 +229,18 @@ impl FromRef<SchemaOnlyState> for MacroAuthorizationState<SchemaOnlyAuthorizatio
 
 /// Zero-sized marker tying the query objects to the adapter, authorization,
 /// state, and reader generics without requiring values of those types.
-type ServicesMarker<E, EAS, Auth, St, NR, PR, ER, FR, AR, AcR> =
-    PhantomData<fn() -> (E, EAS, Auth, St, NR, PR, ER, FR, AR, AcR)>;
+type ServicesMarker<EAS, Auth, St, NR, PR, FR, AR, AcR> =
+    PhantomData<fn() -> (EAS, Auth, St, NR, PR, FR, AR, AcR)>;
 
 /// Root GraphQL query object for Soup.
-pub struct SoupQueryRoot<S, E, EAS, Auth, St, NR, PR, ER, FR, AR, AcR> {
+pub struct SoupQueryRoot<S, EAS, Auth, St, NR, PR, FR, AR, AcR> {
     /// Soup domain service used by user-scoped query resolvers.
     service: S,
     /// Associates the root with its adapter and reader types.
-    _marker: ServicesMarker<E, EAS, Auth, St, NR, PR, ER, FR, AR, AcR>,
+    _marker: ServicesMarker<EAS, Auth, St, NR, PR, FR, AR, AcR>,
 }
 
-impl<S, E, EAS, Auth, St, NR, PR, ER, FR, AR, AcR>
-    SoupQueryRoot<S, E, EAS, Auth, St, NR, PR, ER, FR, AR, AcR>
-{
+impl<S, EAS, Auth, St, NR, PR, FR, AR, AcR> SoupQueryRoot<S, EAS, Auth, St, NR, PR, FR, AR, AcR> {
     /// Create a root GraphQL query object.
     pub fn new(service: S) -> Self {
         Self {
@@ -281,17 +251,15 @@ impl<S, E, EAS, Auth, St, NR, PR, ER, FR, AR, AcR>
 }
 
 /// Root GraphQL subscription object for realtime Soup updates.
-pub struct SoupSubscriptionRoot<R, Auth, St, NR, PR, ER, FR, AR, AcR> {
+pub struct SoupSubscriptionRoot<R, Auth, St, NR, PR, FR, AR, AcR> {
     /// Realtime Soup service used by user-scoped subscriptions.
     service: R,
     /// Associates the root with authorization, state, and edge reader types.
     #[allow(clippy::type_complexity)]
-    _marker: PhantomData<fn() -> (Auth, St, NR, PR, ER, FR, AR, AcR)>,
+    _marker: PhantomData<fn() -> (Auth, St, NR, PR, FR, AR, AcR)>,
 }
 
-impl<R, Auth, St, NR, PR, ER, FR, AR, AcR>
-    SoupSubscriptionRoot<R, Auth, St, NR, PR, ER, FR, AR, AcR>
-{
+impl<R, Auth, St, NR, PR, FR, AR, AcR> SoupSubscriptionRoot<R, Auth, St, NR, PR, FR, AR, AcR> {
     /// Creates a root GraphQL subscription object.
     pub fn new(service: R) -> Self {
         Self {
@@ -304,20 +272,13 @@ impl<R, Auth, St, NR, PR, ER, FR, AR, AcR>
 /// The authenticated user (viewer). All user-scoped data hangs off this
 /// object so clients (and their normalized caches) observe data ownership
 /// structurally rather than implicitly through the session.
-pub struct GraphqlUser<S, E, EAS, Auth, St, NR, PR, ER, FR, AR, AcR> {
+pub struct GraphqlUser<S, EAS, Auth, St, NR, PR, FR, AR, AcR> {
     /// Soup domain service used by this user's resolvers.
     service: S,
     /// Associates the user object with its adapter and reader types.
-    _marker: ServicesMarker<E, EAS, Auth, St, NR, PR, ER, FR, AR, AcR>,
+    _marker: ServicesMarker<EAS, Auth, St, NR, PR, FR, AR, AcR>,
     /// The [MacroUserIdStr] of the resolving user
     user_id: MacroUserIdStr<'static>,
-}
-
-/// Input for fetching one email thread by its canonical identifier.
-#[derive(async_graphql::InputObject)]
-pub struct EmailThreadInput {
-    /// The canonical email thread identifier.
-    thread_id: ID,
 }
 
 /// Input for fetching one Soup entity by its type and identifier.
@@ -341,14 +302,13 @@ pub fn build_schema() -> SchemaOnlySoupSchema {
 
 /// Build a GraphQL schema backed by a query service and no-op realtime service.
 #[allow(clippy::type_complexity)]
-pub fn build_schema_with_service<S, E, EAS, Auth, St, W, M, FM, C, N, NR, PR, ER, FR, AR, AcR>(
+pub fn build_schema_with_service<S, EAS, Auth, St, W, M, FM, C, N, NR, PR, FR, AR, AcR>(
     service: S,
 ) -> SoupSchema<
     S,
     NoOpSoupRealtimeSubscriptionService,
     NoopWebSocketNotificationSubscriptionService,
     NoOpActivitySubscriptionService,
-    E,
     EAS,
     Auth,
     St,
@@ -359,18 +319,15 @@ pub fn build_schema_with_service<S, E, EAS, Auth, St, W, M, FM, C, N, NR, PR, ER
     N,
     NR,
     PR,
-    ER,
     FR,
     AR,
     AcR,
 >
 where
     S: SoupService + Clone,
-    E: EmailService + EmailUserService,
     EAS: EntityAccessService,
     Auth: MacroAuthorizationService,
     St: Clone + Send + Sync + 'static,
-    EmailRouterState<E>: FromRef<St>,
     Arc<EAS>: FromRef<St>,
     MacroAuthorizationState<Auth>: FromRef<St>,
     W: EntityPropertyWriter,
@@ -380,7 +337,6 @@ where
     N: NotificationMutationService,
     NR: SoupNotificationEdgeReader,
     PR: EntityPropertyReader,
-    ER: SoupEmailEdgeReader,
     FR: EntityFavoriteEdgeReader + FavoriteQueryReader,
     AR: EntityPermissionEdgeReader,
     AcR: ActivityReader,
@@ -400,7 +356,6 @@ pub fn build_schema_with_services<
     R,
     NS,
     AS,
-    E,
     EAS,
     Auth,
     St,
@@ -411,7 +366,6 @@ pub fn build_schema_with_services<
     N,
     NR,
     PR,
-    ER,
     FR,
     AR,
     AcR,
@@ -420,18 +374,16 @@ pub fn build_schema_with_services<
     realtime_service: R,
     notification_subscription_service: NS,
     activity_subscription_service: AS,
-) -> SoupSchema<S, R, NS, AS, E, EAS, Auth, St, W, M, FM, C, N, NR, PR, ER, FR, AR, AcR>
+) -> SoupSchema<S, R, NS, AS, EAS, Auth, St, W, M, FM, C, N, NR, PR, FR, AR, AcR>
 where
     S: SoupService + Clone,
     R: SoupRealtimeSubscriptionService + Clone,
     NS: WebSocketNotificationSubscriptionService<NotificationSubscriptionUpdate<NotifEvent>>
         + Clone,
     AS: ActivitySubscriptionService,
-    E: EmailService + EmailUserService,
     EAS: EntityAccessService,
     Auth: MacroAuthorizationService,
     St: Clone + Send + Sync + 'static,
-    EmailRouterState<E>: FromRef<St>,
     Arc<EAS>: FromRef<St>,
     MacroAuthorizationState<Auth>: FromRef<St>,
     W: EntityPropertyWriter,
@@ -441,14 +393,13 @@ where
     N: NotificationMutationService,
     NR: SoupNotificationEdgeReader,
     PR: EntityPropertyReader,
-    ER: SoupEmailEdgeReader,
     FR: EntityFavoriteEdgeReader + FavoriteQueryReader,
     AR: EntityPermissionEdgeReader,
     AcR: ActivityReader,
 {
     Schema::build(
         SoupQueryRoot::new(service),
-        CompleteMutationRoot::<W, M, FM, SoupEdges<NR, PR, ER, FR, AR, AcR>, C, N, EAS, E>::new(),
+        CompleteMutationRoot::<W, M, FM, SoupEdges<NR, PR, FR, AR, AcR>, C, N, EAS>::new(),
         CompleteSubscriptionRoot(
             SoupSubscriptionRoot::new(realtime_service),
             NotificationSubscriptionRoot::new(notification_subscription_service),
@@ -461,14 +412,13 @@ where
 
 /// Build a GraphQL schema backed by an `Arc`-shared query service.
 #[allow(clippy::type_complexity)]
-pub fn build_schema_from_arc<S, E, EAS, Auth, St, W, M, FM, C, N, NR, PR, ER, FR, AR, AcR>(
+pub fn build_schema_from_arc<S, EAS, Auth, St, W, M, FM, C, N, NR, PR, FR, AR, AcR>(
     service: Arc<S>,
 ) -> SoupSchema<
     Arc<S>,
     NoOpSoupRealtimeSubscriptionService,
     NoopWebSocketNotificationSubscriptionService,
     NoOpActivitySubscriptionService,
-    E,
     EAS,
     Auth,
     St,
@@ -479,18 +429,15 @@ pub fn build_schema_from_arc<S, E, EAS, Auth, St, W, M, FM, C, N, NR, PR, ER, FR
     N,
     NR,
     PR,
-    ER,
     FR,
     AR,
     AcR,
 >
 where
     S: SoupService,
-    E: EmailService + EmailUserService,
     EAS: EntityAccessService,
     Auth: MacroAuthorizationService,
     St: Clone + Send + Sync + 'static,
-    EmailRouterState<E>: FromRef<St>,
     Arc<EAS>: FromRef<St>,
     MacroAuthorizationState<Auth>: FromRef<St>,
     W: EntityPropertyWriter,
@@ -500,7 +447,6 @@ where
     N: NotificationMutationService,
     NR: SoupNotificationEdgeReader,
     PR: EntityPropertyReader,
-    ER: SoupEmailEdgeReader,
     FR: EntityFavoriteEdgeReader + FavoriteQueryReader,
     AR: EntityPermissionEdgeReader,
     AcR: ActivityReader,
@@ -510,42 +456,20 @@ where
 
 /// Build a GraphQL schema backed by `Arc`-shared query and realtime services.
 #[allow(clippy::type_complexity)]
-pub fn build_schema_from_arcs<
-    S,
-    R,
-    NS,
-    AS,
-    E,
-    EAS,
-    Auth,
-    St,
-    W,
-    M,
-    FM,
-    C,
-    N,
-    NR,
-    PR,
-    ER,
-    FR,
-    AR,
-    AcR,
->(
+pub fn build_schema_from_arcs<S, R, NS, AS, EAS, Auth, St, W, M, FM, C, N, NR, PR, FR, AR, AcR>(
     service: Arc<S>,
     realtime_service: Arc<R>,
     notification_subscription_service: Arc<NS>,
     activity_subscription_service: Arc<AS>,
-) -> SharedSoupSchema<S, R, NS, AS, E, EAS, Auth, St, W, M, FM, C, N, NR, PR, ER, FR, AR, AcR>
+) -> SharedSoupSchema<S, R, NS, AS, EAS, Auth, St, W, M, FM, C, N, NR, PR, FR, AR, AcR>
 where
     S: SoupService,
     R: SoupRealtimeSubscriptionService,
     NS: WebSocketNotificationSubscriptionService<NotificationSubscriptionUpdate<NotifEvent>>,
     AS: ActivitySubscriptionService,
-    E: EmailService + EmailUserService,
     EAS: EntityAccessService,
     Auth: MacroAuthorizationService,
     St: Clone + Send + Sync + 'static,
-    EmailRouterState<E>: FromRef<St>,
     Arc<EAS>: FromRef<St>,
     MacroAuthorizationState<Auth>: FromRef<St>,
     W: EntityPropertyWriter,
@@ -555,7 +479,6 @@ where
     N: NotificationMutationService,
     NR: SoupNotificationEdgeReader,
     PR: EntityPropertyReader,
-    ER: SoupEmailEdgeReader,
     FR: EntityFavoriteEdgeReader + FavoriteQueryReader,
     AR: EntityPermissionEdgeReader,
     AcR: ActivityReader,
@@ -570,20 +493,16 @@ where
 
 /// Root entry point for the complete GraphQL API.
 #[Object]
-impl<S, E, EAS, Auth, St, NR, PR, ER, FR, AR, AcR>
-    SoupQueryRoot<S, E, EAS, Auth, St, NR, PR, ER, FR, AR, AcR>
+impl<S, EAS, Auth, St, NR, PR, FR, AR, AcR> SoupQueryRoot<S, EAS, Auth, St, NR, PR, FR, AR, AcR>
 where
     S: SoupService + Clone,
-    E: EmailService + EmailUserService,
     EAS: EntityAccessService,
     Auth: MacroAuthorizationService,
     St: Clone + Send + Sync + 'static,
-    EmailRouterState<E>: FromRef<St>,
     Arc<EAS>: FromRef<St>,
     MacroAuthorizationState<Auth>: FromRef<St>,
     NR: SoupNotificationEdgeReader,
     PR: EntityPropertyReader,
-    ER: SoupEmailEdgeReader,
     FR: EntityFavoriteEdgeReader + FavoriteQueryReader,
     AR: EntityPermissionEdgeReader,
     AcR: ActivityReader,
@@ -592,7 +511,7 @@ where
     async fn user(
         &self,
         ctx: &Context<'_>,
-    ) -> async_graphql::Result<GraphqlUser<S, E, EAS, Auth, St, NR, PR, ER, FR, AR, AcR>> {
+    ) -> async_graphql::Result<GraphqlUser<S, EAS, Auth, St, NR, PR, FR, AR, AcR>> {
         let user_id = require_authorized_user::<Auth, St>(ctx).await?;
 
         Ok(GraphqlUser {
@@ -605,8 +524,7 @@ where
 
 /// Root entry point for realtime Soup subscriptions.
 #[Subscription]
-impl<R, Auth, St, NR, PR, ER, FR, AR, AcR>
-    SoupSubscriptionRoot<R, Auth, St, NR, PR, ER, FR, AR, AcR>
+impl<R, Auth, St, NR, PR, FR, AR, AcR> SoupSubscriptionRoot<R, Auth, St, NR, PR, FR, AR, AcR>
 where
     R: SoupRealtimeSubscriptionService,
     Auth: MacroAuthorizationService,
@@ -614,7 +532,6 @@ where
     MacroAuthorizationState<Auth>: FromRef<St>,
     NR: SoupNotificationEdgeReader,
     PR: EntityPropertyReader,
-    ER: SoupEmailEdgeReader,
     FR: EntityFavoriteEdgeReader,
     AR: EntityPermissionEdgeReader,
     AcR: ActivityReader,
@@ -625,10 +542,10 @@ where
         ctx: &Context<'_>,
     ) -> async_graphql::Result<
         impl async_graphql::futures_util::Stream<
-            Item = async_graphql::Result<Vec<SoupPatch<SoupEdges<NR, PR, ER, FR, AR, AcR>>>>,
+            Item = async_graphql::Result<Vec<SoupPatch<SoupEdges<NR, PR, FR, AR, AcR>>>>,
         >,
     > {
-        resolve_soup_updates::<R, Auth, St, SoupEdges<NR, PR, ER, FR, AR, AcR>>(&self.service, ctx)
+        resolve_soup_updates::<R, Auth, St, SoupEdges<NR, PR, FR, AR, AcR>>(&self.service, ctx)
             .await
     }
 
@@ -650,11 +567,10 @@ where
         let session_id = parse_id(session_id, "sessionId")?;
         // Access is what `agentSession` checks: a session the viewer cannot
         // read is one they cannot follow either.
-        let accessible = resolve_soup_agent_session::<SoupEdges<NR, PR, ER, FR, AR, AcR>>(
-            ctx, user_id, session_id,
-        )
-        .await?
-        .is_some();
+        let accessible =
+            resolve_soup_agent_session::<SoupEdges<NR, PR, FR, AR, AcR>>(ctx, user_id, session_id)
+                .await?
+                .is_some();
         if !accessible {
             return Err(async_graphql::Error::new("agent session not found"));
         }
@@ -677,20 +593,16 @@ where
 
 /// The authenticated user and their user-scoped data.
 #[Object(name = "GraphqlUser")]
-impl<S, E, EAS, Auth, St, NR, PR, ER, FR, AR, AcR>
-    GraphqlUser<S, E, EAS, Auth, St, NR, PR, ER, FR, AR, AcR>
+impl<S, EAS, Auth, St, NR, PR, FR, AR, AcR> GraphqlUser<S, EAS, Auth, St, NR, PR, FR, AR, AcR>
 where
     S: SoupService,
-    E: EmailService + EmailUserService,
     EAS: EntityAccessService,
     Auth: MacroAuthorizationService,
     St: Clone + Send + Sync + 'static,
-    EmailRouterState<E>: FromRef<St>,
     Arc<EAS>: FromRef<St>,
     MacroAuthorizationState<Auth>: FromRef<St>,
     NR: SoupNotificationEdgeReader,
     PR: EntityPropertyReader,
-    ER: SoupEmailEdgeReader,
     FR: EntityFavoriteEdgeReader + FavoriteQueryReader,
     AR: EntityPermissionEdgeReader,
     AcR: ActivityReader,
@@ -705,7 +617,7 @@ where
         &self,
         ctx: &Context<'_>,
         initiative_id: ID,
-    ) -> async_graphql::Result<GraphqlSoupInitiative<SoupEdges<NR, PR, ER, FR, AR, AcR>>> {
+    ) -> async_graphql::Result<GraphqlSoupInitiative<SoupEdges<NR, PR, FR, AR, AcR>>> {
         resolve_initiative(ctx, initiative_id).await
     }
 
@@ -769,7 +681,7 @@ where
     async fn folders(
         &self,
         ctx: &Context<'_>,
-    ) -> async_graphql::Result<Vec<GraphqlSoupProject<SoupEdges<NR, PR, ER, FR, AR, AcR>>>> {
+    ) -> async_graphql::Result<Vec<GraphqlSoupProject<SoupEdges<NR, PR, FR, AR, AcR>>>> {
         resolve_folders(ctx, &self.user_id).await
     }
 
@@ -820,49 +732,18 @@ where
         resolve_activity_overview::<AcR>(ctx, &self.user_id, input).await
     }
 
-    /// Authenticated user calendar fields supplied by `graphql_calendar`.
-    #[graphql(flatten)]
-    async fn calendar(&self) -> GraphqlCalendarQuery {
-        GraphqlCalendarQuery::new(self.user_id.clone())
-    }
-
     /// A page of the authenticated user's work feed, newest first: items
-    /// with outstanding attention (notifications, inbox Signal email,
-    /// reminders) and, in `WORK` mode, work the user recently did. Each
+    /// with outstanding attention (notifications, reminders) and, in `WORK` mode, work the user recently did. Each
     /// item carries its notifications stacked for presentation.
     async fn work_feed(
         &self,
         ctx: &Context<'_>,
         input: Option<WorkFeedInput>,
-    ) -> async_graphql::Result<GraphqlWorkFeedPage<SoupEdges<NR, PR, ER, FR, AR, AcR>>> {
-        resolve_work_feed::<SoupEdges<NR, PR, ER, FR, AR, AcR>>(
+    ) -> async_graphql::Result<GraphqlWorkFeedPage<SoupEdges<NR, PR, FR, AR, AcR>>> {
+        resolve_work_feed::<SoupEdges<NR, PR, FR, AR, AcR>>(
             ctx,
             self.user_id.clone(),
             input.unwrap_or_default(),
-        )
-        .await
-    }
-
-    /// Authenticated user email catalog fields supplied by `graphql_email`.
-    #[graphql(flatten)]
-    async fn email(&self, ctx: &Context<'_>) -> async_graphql::Result<GraphqlEmailQuery<E>> {
-        let state = ctx.data::<St>()?;
-        let service = EmailRouterState::<E>::from_ref(state).service();
-        Ok(GraphqlEmailQuery::new(service, self.user_id.clone()))
-    }
-
-    /// Fetch one accessible email thread by its canonical identifier.
-    async fn email_thread(
-        &self,
-        ctx: &Context<'_>,
-        input: EmailThreadInput,
-    ) -> async_graphql::Result<Option<GraphqlSoupEmailThread<SoupEdges<NR, PR, ER, FR, AR, AcR>>>>
-    {
-        let thread_id = parse_id(input.thread_id, "threadId")?;
-        resolve_soup_email_thread::<SoupEdges<NR, PR, ER, FR, AR, AcR>>(
-            ctx,
-            self.user_id.clone(),
-            thread_id,
         )
         .await
     }
@@ -873,10 +754,10 @@ where
         &self,
         ctx: &Context<'_>,
         session_id: ID,
-    ) -> async_graphql::Result<Option<GraphqlSoupAgentSession<SoupEdges<NR, PR, ER, FR, AR, AcR>>>>
+    ) -> async_graphql::Result<Option<GraphqlSoupAgentSession<SoupEdges<NR, PR, FR, AR, AcR>>>>
     {
         let session_id = parse_id(session_id, "sessionId")?;
-        resolve_soup_agent_session::<SoupEdges<NR, PR, ER, FR, AR, AcR>>(
+        resolve_soup_agent_session::<SoupEdges<NR, PR, FR, AR, AcR>>(
             ctx,
             self.user_id.clone(),
             session_id,
@@ -890,13 +771,13 @@ where
         &self,
         ctx: &Context<'_>,
         input: SoupEntityInput,
-    ) -> async_graphql::Result<Option<GraphqlSoupEntity<SoupEdges<NR, PR, ER, FR, AR, AcR>>>> {
+    ) -> async_graphql::Result<Option<GraphqlSoupEntity<SoupEdges<NR, PR, FR, AR, AcR>>>> {
         let entity_id = parse_id(input.entity_id, "entityId")?;
         let entity = input
             .entity_type
             .into_model()
             .with_entity_string(entity_id.to_string());
-        resolve_soup_entity::<SoupEdges<NR, PR, ER, FR, AR, AcR>>(ctx, self.user_id.clone(), entity)
+        resolve_soup_entity::<SoupEdges<NR, PR, FR, AR, AcR>>(ctx, self.user_id.clone(), entity)
             .await
     }
 
@@ -905,8 +786,8 @@ where
         &self,
         ctx: &Context<'_>,
         input: GroupedSoupInput,
-    ) -> async_graphql::Result<GroupedSoup<SoupEdges<NR, PR, ER, FR, AR, AcR>>> {
-        resolve_grouped_soup::<S, Auth, St, SoupEdges<NR, PR, ER, FR, AR, AcR>>(
+    ) -> async_graphql::Result<GroupedSoup<SoupEdges<NR, PR, FR, AR, AcR>>> {
+        resolve_grouped_soup::<S, Auth, St, SoupEdges<NR, PR, FR, AR, AcR>>(
             &self.service,
             ctx,
             input,
@@ -919,12 +800,8 @@ where
         &self,
         ctx: &Context<'_>,
         input: SoupInput,
-    ) -> async_graphql::Result<SoupPage<SoupEdges<NR, PR, ER, FR, AR, AcR>>> {
-        resolve_soup::<S, E, EAS, Auth, St, SoupEdges<NR, PR, ER, FR, AR, AcR>>(
-            &self.service,
-            ctx,
-            input,
-        )
-        .await
+    ) -> async_graphql::Result<SoupPage<SoupEdges<NR, PR, FR, AR, AcR>>> {
+        resolve_soup::<S, EAS, Auth, St, SoupEdges<NR, PR, FR, AR, AcR>>(&self.service, ctx, input)
+            .await
     }
 }

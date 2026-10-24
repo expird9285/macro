@@ -111,8 +111,6 @@ pub(crate) enum GraphqlScheduledActionEventName {
     TaskPriorityChanged,
     /// A task property changed.
     TaskPropertyChanged,
-    /// A new email was received.
-    EmailMessageReceived,
     /// A channel was created.
     ChannelCreated,
     /// A channel message was posted.
@@ -139,7 +137,6 @@ impl From<EventName> for GraphqlScheduledActionEventName {
             EventName::TaskStatusChanged => Self::TaskStatusChanged,
             EventName::TaskPriorityChanged => Self::TaskPriorityChanged,
             EventName::TaskPropertyChanged => Self::TaskPropertyChanged,
-            EventName::EmailMessageReceived => Self::EmailMessageReceived,
             EventName::ChannelCreated => Self::ChannelCreated,
             EventName::ChannelMessagePosted => Self::ChannelMessagePosted,
             EventName::ChannelMentioned => Self::ChannelMentioned,
