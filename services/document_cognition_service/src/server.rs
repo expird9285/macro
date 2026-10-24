@@ -22,10 +22,6 @@ use documents::{
     inbound::toolset::DocumentToolContext,
     outbound::{pg_document_repo::PgDocumentRepo, s3_upload_url::S3UploadUrlAdapter},
 };
-use email::domain::ports::ReadonlyEmailPreviewAdapter;
-use email::domain::service::EmailServiceImpl;
-use email::outbound::EmailPgRepo;
-use email_service_client::{EmailServiceClient, EmailServiceClientExternal};
 use entity_access::{domain::service::EntityAccessServiceImpl, outbound::PgAccessRepository};
 use entity_registry::OwnerGrantPolicy;
 use entity_registry_db_utils::OwnedEntityRegistrar;
@@ -45,9 +41,8 @@ use macro_authorization::{
     MacroAuthorizationState, PgUserApiKeyAuthorizationRepo, PgUserApiKeyAuthorizer,
 };
 use macro_service_urls::{
-    AppServiceUrl, AuthServiceUrl, CalendarServiceUrl, ConnectionGatewayUrl,
-    DocumentStorageServiceUrl, EmailServiceUrl, LexicalServiceUrl, StaticFileServiceUrl,
-    SyncServiceUrl,
+    AuthServiceUrl, ConnectionGatewayUrl, DocumentStorageServiceUrl, LexicalServiceUrl,
+    StaticFileServiceUrl, SyncServiceUrl,
 };
 use notification::domain::service::{
     NotificationReaderService, PlatformArnConfig, SqsNotificationIngress,
@@ -105,15 +100,11 @@ pub async fn run() -> anyhow::Result<()> {
 
     let document_text_extractor_queue = macro_queues::DocumentTextExtractorQueue::new();
     let chat_delete_queue = macro_queues::ChatDeleteQueue::new();
-    let email_scheduled_queue = macro_queues::EmailScheduledQueue::new();
-    let gmail_ops_queue = macro_queues::GmailOpsQueue::new();
     let ai_projection_queue = macro_queues::AiProjectionQueue::new();
     let notification_queue = macro_queues::NotificationIngressQueue::new();
     let sqs_client = sqs_client::SQS::new(queue_aws_client)
         .document_text_extractor_queue(&document_text_extractor_queue)
         .chat_delete_queue(&chat_delete_queue)
-        .email_scheduled_queue(&email_scheduled_queue)
-        .gmail_ops_queue(&gmail_ops_queue)
         .ai_projection_queue(&ai_projection_queue);
 
     let internal_api_key = config.internal_api_key.to_string();
@@ -162,11 +153,6 @@ pub async fn run() -> anyhow::Result<()> {
     let lexical_client = Arc::new(lexical_client::LexicalClient::new(
         internal_api_key.clone(),
         LexicalServiceUrl::new()?.to_string(),
-    ));
-
-    let email_service_client = Arc::new(EmailServiceClient::new(
-        internal_api_key.clone(),
-        EmailServiceUrl::new()?.to_string(),
     ));
 
     tracing::info!("initialized static file service client");
@@ -233,26 +219,11 @@ pub async fn run() -> anyhow::Result<()> {
 
     let frecency_storage = FrecencyPgStorage::new(db.clone());
     let frecency_service = FrecencyQueryServiceImpl::new(frecency_storage.clone());
-    let crm_service = crm::domain::service::CrmServiceImpl::new(
-        crm::outbound::companies_repo::CompaniesRepositoryImpl::new(db.clone()),
-        crm::outbound::no_op_resolver::NoOpCompanyMetadataResolver,
-    );
-    let email_service = EmailServiceImpl::new(
-        EmailPgRepo::new(db.clone()),
-        frecency_service.clone(),
-        email::domain::ports::NoOpEnqueuer,
-        crm_service.clone(),
-        entity_access_management::domain::service::EntityAccessManagementServiceImpl::new(
-            entity_access_management::outbound::PgRepository::new(db.clone()),
-        ),
-        0,
-    );
     let channels_service = ChannelListServiceImpl::new(
         PgChannelsRepo::new(db.clone()),
         PgChannelsRepo::new(db.clone()),
         frecency_storage,
     );
-    let email_service_for_tools: Arc<ai_tools::ToolEmailService> = Arc::new(email_service.clone());
     let github_pull_request_service = GithubPullRequestServiceImpl::new(
         ForeignEntityServiceImpl::new(PgForeignEntityRepo::new(db.clone())),
         PgGithubPullRequestRepo::new(db.clone()),
@@ -262,10 +233,8 @@ pub async fn run() -> anyhow::Result<()> {
         soup::domain::service::SoupImpl::new(
             soup::outbound::pg_soup_repo::PgSoupRepo::new(ReadOnlyPool(db.clone())),
             frecency_service,
-            ReadonlyEmailPreviewAdapter(email_service),
             channels_service,
             CallRecordQueryServiceImpl::new(PgCallRepo::new(db.clone())),
-            crm::domain::service::NoOpCrmService,
             github_pull_request_service,
         )
         .with_favorites(favorites_service.clone()),
@@ -372,10 +341,6 @@ pub async fn run() -> anyhow::Result<()> {
             document_tool_context.entity_access_service.clone(),
             document_tool_context.lexical_client.clone(),
         ),
-        email_thread: email::inbound::attachment::EmailAttachmentService::new(
-            email_service_for_tools.clone(),
-            entity_access_service.clone(),
-        ),
         chat: chat::inbound::attachment::ChatAttachmentService::new(
             Arc::new(chat::outbound::postgres::PgChatRepo::new(
                 db.clone(),
@@ -401,10 +366,6 @@ pub async fn run() -> anyhow::Result<()> {
 
     tracing::info!("initialized attachment provider");
 
-    let email_service_client_external = Arc::new(EmailServiceClientExternal::new(
-        email_service_client.url().to_owned(),
-    ));
-
     let search_service_client = Arc::new(search_service_client);
 
     let properties_tool_context = ai_tools::build_properties_tool_context(
@@ -413,38 +374,6 @@ pub async fn run() -> anyhow::Result<()> {
     );
 
     tracing::info!("initialized properties tool context");
-
-    let user_email_service = Arc::new(
-        EmailServiceImpl::new(
-            EmailPgRepo::new(db.clone()),
-            FrecencyQueryServiceImpl::new(FrecencyPgStorage::new(db.clone())),
-            sqs_client.clone(),
-            crm_service.clone(),
-            entity_access_management::domain::service::EntityAccessManagementServiceImpl::new(
-                entity_access_management::outbound::PgRepository::new(db.clone()),
-            ),
-            0,
-        )
-        .with_macro_event_broker(macro_event_broker.clone()),
-    );
-    let email_tool_context = email::inbound::toolset::EmailToolContext::new(
-        user_email_service.clone(),
-        Arc::new(email::domain::ports::NoOpGmailTokenProvider),
-        Arc::new(EntityAccessServiceImpl::new(PgAccessRepository::new(
-            db.clone(),
-        ))),
-        lexical_client.clone(),
-    )
-    .with_attachment_sender(
-        ai_tools::email_attachments::build_email_attachment_sender(
-            user_email_service.clone(),
-            EmailPgRepo::new(db.clone()),
-            document_tool_context.service.clone(),
-        )
-        .await,
-    );
-
-    tracing::info!("initialized email tool context");
 
     let call_service = CallServiceImpl::new(
         PgCallRepo::new(db.clone()),
@@ -710,7 +639,6 @@ pub async fn run() -> anyhow::Result<()> {
         macro_event_broker.clone(),
         entity_access_service.clone(),
         document_tool_context.service.clone(),
-        user_email_service.clone(),
     );
 
     let initiative_tool_context = ai_tools::build_initiative_tool_context(
@@ -736,30 +664,10 @@ pub async fn run() -> anyhow::Result<()> {
         soup_service.clone(),
         db.clone(),
     );
-    let crm_tool_context = ai_tools::build_crm_tool_context(db.clone());
-    let pipeline_tool_context = ai_tools::build_pipeline_tool_context(
-        db.clone(),
-        &databases_tool_context,
-        &crm_tool_context,
-    );
-    let crm_transfer_tool_context = ai_tools::build_crm_transfer_tool_context(
-        &pipeline_tool_context,
-        &crm_tool_context,
-        &document_tool_context,
-    );
-
-    let calendar_tool_context = ai_tools::build_calendar_tool_context(
-        db.clone(),
-        CalendarServiceUrl::new()?,
-        internal_api_key.clone(),
-        call_tool_context.service.clone(),
-        AppServiceUrl::new()?,
-    );
     let forms_tool_context = ai_tools::build_forms_tool_context(
         db.clone(),
         &document_tool_context,
         &databases_tool_context,
-        &calendar_tool_context,
         Some(channels_connection_gateway.as_ref().clone()),
         ai_tools::MaybeToolEventBroker::Real(macro_event_broker.clone()),
         ai_tools::FormsToolConfig {
@@ -772,9 +680,7 @@ pub async fn run() -> anyhow::Result<()> {
         cognition_tool_context: ai_tools::build_cognition_tool_context()?,
         connector_tool_context: ai_tools::build_connector_tool_context(db.clone(), None),
         search_service_client: search_service_client.clone(),
-        email_service_client: email_service_client_external.clone(),
         soup_service: soup_service.clone(),
-        email_service: email_service_for_tools.clone(),
         activity_tool_context: ai_tools::build_activity_tool_context(
             db.clone(),
             properties_service,
@@ -788,24 +694,7 @@ pub async fn run() -> anyhow::Result<()> {
         message_tool_context: ai_tools::build_message_tool_context(&document_tool_context),
         document_tool_context: document_tool_context.clone(),
         properties_tool_context: properties_tool_context.clone(),
-        email_tool_context: email_tool_context.clone(),
         call_tool_context: call_tool_context.clone(),
-        booking_management_tool_context: ai_tools::build_booking_management_tool_context(
-            CalendarServiceUrl::new()?,
-            internal_api_key.clone(),
-            config.environment,
-        ),
-        booking_link_tool_context: ai_tools::build_booking_link_tool_context(
-            db.clone(),
-            config.environment,
-        ),
-        calendar_tool_context,
-        team_calendar_tool_context: ai_tools::build_team_calendar_tool_context(
-            db.clone(),
-            macro_env_var::maybe_read_env("CALENDAR_TEAM_SHARING_ENABLED")
-                .and_then(|value| value.parse::<bool>().ok())
-                .unwrap_or(false),
-        ),
         notification_tool_context: notification_tool_context.clone(),
         item_notification_preference_tool_context:
             ai_tools::build_item_notification_preference_tool_context(db.clone()),
@@ -840,9 +729,6 @@ pub async fn run() -> anyhow::Result<()> {
         ),
         initiative_tool_context,
         team_tool_context: ai_tools::build_team_tool_context(db.clone()),
-        crm_tool_context,
-        pipeline_tool_context,
-        crm_transfer_tool_context,
         skill_tool_context: ai_tools::build_skill_tool_context(
             search_service_client.clone(),
             soup_service.clone(),
@@ -1002,7 +888,6 @@ pub async fn run() -> anyhow::Result<()> {
 
     let api_result = api::setup_and_serve(ApiContext {
         db: db.clone(),
-        email_service_client_external,
         sqs_client: Arc::new(sqs_client),
         document_storage_client: Arc::new(document_storage_client),
         search_service_client,
@@ -1019,14 +904,12 @@ pub async fn run() -> anyhow::Result<()> {
         connection_repo: connection_manager.persistence,
         connection_gateway_client,
         soup_service,
-        email_service: email_service_for_tools,
         stream_repo,
         document_tool_context,
         memory_service,
         usage_service,
         ai_projections_service,
         properties_tool_context,
-        email_tool_context: email_tool_context.clone(),
         call_tool_context,
         tool_service_context,
         all_tools: all_tools_toolset,

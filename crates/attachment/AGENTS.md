@@ -22,12 +22,12 @@ dependency on any domain crate.
   types used to turn entities into AI context.
 - Not here: resolving a specific entity type — each domain crate implements
   `AttachmentService` in its own `inbound/attachment/` module (e.g. `crates/chat`,
-  `crates/channels`, `crates/documents`, `crates/email`).
+  `crates/channels`, `crates/documents`).
 
 ## Boundaries
 
 - Depends on: `macro_user_id`, `model-entity`, `non_empty`.
-- Used by: `channels`, `email`, `ai_tools`, `agent`, `agent_inmem`, `static_file`,
+- Used by: `channels`, `ai_tools`, `agent`, `agent_inmem`, `static_file`,
   `chat`, `documents`, `image_generation` — each implementing `AttachmentService`.
 
 ## Recipes

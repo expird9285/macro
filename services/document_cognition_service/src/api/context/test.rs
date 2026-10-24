@@ -183,10 +183,6 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         domain::list_service::ChannelListServiceImpl, outbound::pg_channels_repo::PgChannelsRepo,
     };
     use document_storage_service_client::DocumentStorageServiceClient;
-    use email::domain::ports::ReadonlyEmailPreviewAdapter;
-    use email::domain::service::EmailServiceImpl;
-    use email::outbound::EmailPgRepo;
-    use email_service_client::{EmailServiceClient, EmailServiceClientExternal};
     use foreign_entity::{
         domain::service::ForeignEntityServiceImpl,
         outbound::pg_foreign_entity_repo::PgForeignEntityRepo,
@@ -213,7 +209,7 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         .behavior_version(aws_sdk_sqs::config::BehaviorVersion::latest())
         .build();
     let aws_sqs_client = aws_sdk_sqs::Client::from_conf(sqs_config.clone());
-    let sqs_client = SQS::new(aws_sqs_client).email_scheduled_queue("test-email-scheduled-queue");
+    let sqs_client = SQS::new(aws_sqs_client);
 
     let document_storage_client = Arc::new(DocumentStorageServiceClient::new(
         "dummy_auth_key".into(),
@@ -225,37 +221,14 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         "dummy_auth_key".into(),
         "http://localhost".into(),
     ));
-    let email_service_client = Arc::new(EmailServiceClient::new(
-        "dummy_auth_key".into(),
-        "http://localhost".into(),
-    ));
-    let email_service_client_external = Arc::new(EmailServiceClientExternal::new(
-        email_service_client.url().to_owned(),
-    ));
-
     // Build soup service dependencies
     let frecency_storage = FrecencyPgStorage::new(pool.clone());
     let frecency_service = FrecencyQueryServiceImpl::new(frecency_storage.clone());
-    let crm_service = crm::domain::service::CrmServiceImpl::new(
-        crm::outbound::companies_repo::CompaniesRepositoryImpl::new(pool.clone()),
-        crm::outbound::no_op_resolver::NoOpCompanyMetadataResolver,
-    );
-    let email_service = EmailServiceImpl::new(
-        EmailPgRepo::new(pool.clone()),
-        frecency_service.clone(),
-        email::domain::ports::NoOpEnqueuer,
-        crm_service.clone(),
-        entity_access_management::domain::service::EntityAccessManagementServiceImpl::new(
-            entity_access_management::outbound::PgRepository::new(pool.clone()),
-        ),
-        0,
-    );
     let channels_service = ChannelListServiceImpl::new(
         PgChannelsRepo::new(pool.clone()),
         PgChannelsRepo::new(pool.clone()),
         frecency_storage,
     );
-    let email_service_for_tools: Arc<ai_tools::ToolEmailService> = Arc::new(email_service.clone());
     let github_pull_request_service = GithubPullRequestServiceImpl::new(
         ForeignEntityServiceImpl::new(PgForeignEntityRepo::new(pool.clone())),
         PgGithubPullRequestRepo::new(pool.clone()),
@@ -265,12 +238,10 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         SoupImpl::new(
             PgSoupRepo::new(readonly_pool::ReadOnlyPool(pool.clone())),
             frecency_service,
-            ReadonlyEmailPreviewAdapter(email_service),
             channels_service,
             call::domain::service::CallRecordQueryServiceImpl::new(
                 call::outbound::pg_call_repo::PgCallRepo::new(pool.clone()),
             ),
-            crm::domain::service::NoOpCrmService,
             github_pull_request_service,
         )
         .with_favorites(favorites_service.clone()),
@@ -390,28 +361,6 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         entity_access_service.clone(),
     );
 
-    let user_email_service = Arc::new(
-        email::domain::service::EmailServiceImpl::new(
-            email::outbound::EmailPgRepo::new(pool.clone()),
-            frecency::domain::services::FrecencyQueryServiceImpl::new(
-                frecency::outbound::postgres::FrecencyPgStorage::new(pool.clone()),
-            ),
-            sqs_client.clone(),
-            crm_service.clone(),
-            entity_access_management::domain::service::EntityAccessManagementServiceImpl::new(
-                entity_access_management::outbound::PgRepository::new(pool.clone()),
-            ),
-            0,
-        )
-        .with_macro_event_broker(macro_event_broker.clone()),
-    );
-    let email_tool_context = email::inbound::toolset::EmailToolContext::new(
-        user_email_service.clone(),
-        Arc::new(email::domain::ports::NoOpGmailTokenProvider),
-        entity_access_service.clone(),
-        Arc::new(test_lexical_client.clone()),
-    );
-
     let call_service = call::domain::service::CallServiceImpl::new(
         call::outbound::pg_call_repo::PgCallRepo::new(pool.clone()),
         ai_tools::NoOpCallRtcClient,
@@ -443,7 +392,6 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         macro_event_broker.clone(),
         entity_access_service.clone(),
         document_tool_context.service.clone(),
-        user_email_service.clone(),
     );
 
     let initiative_tool_context = ai_tools::build_initiative_tool_context(
@@ -465,30 +413,10 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         soup_service.clone(),
         pool.clone(),
     );
-    let crm_tool_context = ai_tools::build_crm_tool_context(pool.clone());
-    let pipeline_tool_context = ai_tools::build_pipeline_tool_context(
-        pool.clone(),
-        &databases_tool_context,
-        &crm_tool_context,
-    );
-    let crm_transfer_tool_context = ai_tools::build_crm_transfer_tool_context(
-        &pipeline_tool_context,
-        &crm_tool_context,
-        &document_tool_context,
-    );
-
-    let calendar_tool_context = ai_tools::build_calendar_tool_context(
-        pool.clone(),
-        macro_service_urls::ServiceUrl::owned("http://localhost:0").into(),
-        "test-internal-api-key".to_string(),
-        call_tool_context.service.clone(),
-        macro_service_urls::AppServiceUrl::local(),
-    );
     let forms_tool_context = ai_tools::build_forms_tool_context(
         pool.clone(),
         &document_tool_context,
         &databases_tool_context,
-        &calendar_tool_context,
         None,
         ai_tools::MaybeToolEventBroker::Real(macro_event_broker.clone()),
         ai_tools::FormsToolConfig {
@@ -501,9 +429,7 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         cognition_tool_context: Default::default(),
         connector_tool_context: ai_tools::build_connector_tool_context(pool.clone(), None),
         search_service_client: search_service_client.clone(),
-        email_service_client: email_service_client_external.clone(),
         soup_service: soup_service.clone(),
-        email_service: email_service_for_tools.clone(),
         activity_tool_context: ai_tools::build_activity_tool_context(
             pool.clone(),
             properties_service.clone(),
@@ -515,25 +441,7 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         message_tool_context: ai_tools::build_message_tool_context(&document_tool_context),
         document_tool_context: document_tool_context.clone(),
         properties_tool_context: properties_tool_context.clone(),
-        email_tool_context: email_tool_context.clone(),
         call_tool_context: call_tool_context.clone(),
-        booking_management_tool_context: ai_tools::build_booking_management_tool_context(
-            macro_service_urls::ServiceUrl::owned("http://localhost:0").into(),
-            "test-internal-api-key".to_string(),
-            macro_env::Environment::Local,
-        ),
-        booking_link_tool_context: ai_tools::build_booking_link_tool_context(
-            pool.clone(),
-            macro_env::Environment::Local,
-        ),
-        calendar_tool_context: ai_tools::build_calendar_tool_context(
-            pool.clone(),
-            macro_service_urls::ServiceUrl::owned("http://localhost:0").into(),
-            "test-internal-api-key".to_string(),
-            call_tool_context.service.clone(),
-            macro_service_urls::AppServiceUrl::local(),
-        ),
-        team_calendar_tool_context: ai_tools::build_team_calendar_tool_context(pool.clone(), true),
         notification_tool_context: notification_tool_context.clone(),
         item_notification_preference_tool_context:
             ai_tools::build_item_notification_preference_tool_context(pool.clone()),
@@ -570,9 +478,6 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         ),
         initiative_tool_context,
         team_tool_context: ai_tools::build_team_tool_context(pool.clone()),
-        crm_tool_context,
-        pipeline_tool_context,
-        crm_transfer_tool_context,
         skill_tool_context: ai_tools::build_skill_tool_context(
             search_service_client.clone(),
             soup_service.clone(),
@@ -704,7 +609,6 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         sqs_client: Arc::new(sqs_client),
         document_storage_client,
         search_service_client,
-        email_service_client_external,
         authorization_state: authorization_state.clone(),
         decisions: Arc::new(jev::domain::decisions::DecisionServiceImpl::<
             jev::domain::JevClassifier<jev::outbound::TypesafeJev>,
@@ -744,14 +648,12 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
             ),
         ),
         soup_service,
-        email_service: email_service_for_tools.clone(),
         stream_repo: MockStreamRepo::new(),
         document_tool_context: document_tool_context.clone(),
         memory_service,
         usage_service,
         ai_projections_service,
         properties_tool_context,
-        email_tool_context,
         call_tool_context,
         tool_service_context,
         all_tools: all_tools_toolset,
@@ -768,10 +670,6 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
                         document_tool_context.service.clone(),
                         document_tool_context.entity_access_service.clone(),
                         document_tool_context.lexical_client.clone(),
-                    ),
-                    email_thread: email::inbound::attachment::EmailAttachmentService::new(
-                        email_service_for_tools.clone(),
-                        entity_access_service.clone(),
                     ),
                     chat: chat::inbound::attachment::ChatAttachmentService::new(
                         Arc::new(chat::outbound::postgres::PgChatRepo::new(

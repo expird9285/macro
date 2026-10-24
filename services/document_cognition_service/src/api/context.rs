@@ -1,9 +1,8 @@
 use crate::config::Config;
 use crate::service::ai_stream_registry::AiStreamRegistry;
 use ai_tools::{
-    AiToolSet, ToolCallToolContext, ToolDocumentService, ToolDocumentToolContext, ToolEmailService,
-    ToolEmailToolContext, ToolEntityAccessService, ToolPropertiesToolContext, ToolServiceContext,
-    ToolSoupService,
+    AiToolSet, ToolCallToolContext, ToolDocumentService, ToolDocumentToolContext,
+    ToolEntityAccessService, ToolPropertiesToolContext, ToolServiceContext, ToolSoupService,
 };
 use attachment::provider::AttachmentProvider;
 use axum::extract::FromRef;
@@ -16,7 +15,6 @@ use chat::outbound::postgres::PgChatRepo;
 use connection_gateway::service::connection::ConnectionRepo;
 use document_storage_service_client::DocumentStorageServiceClient;
 use documents::inbound::attachment::DocumentAttachmentService;
-use email::inbound::attachment::EmailAttachmentService;
 use entity_access::{domain::service::EntityAccessServiceImpl, outbound::PgAccessRepository};
 use entity_registry::NonUserOwners;
 use macro_auth::InternalApiKey;
@@ -67,7 +65,6 @@ pub type DcsChatModelAccess = chat::inbound::http::extractors::ChatModelAccess<
 /// Type alias for the attachment provider wired to concrete DCS services.
 pub type DcsAttachmentProvider = AttachmentProvider<
     DocumentAttachmentService<ToolDocumentService, ToolEntityAccessService>,
-    EmailAttachmentService<ToolEmailService, ToolEntityAccessService>,
     ChatAttachmentService<PgChatRepo<PgBotsRepo>, ToolEntityAccessService>,
     ChannelAttachmentService<PgChannelsRepo, ToolEntityAccessService>,
     StaticFileAttachmentService<CdnStaticFileRepo>,
@@ -144,7 +141,6 @@ pub struct ApiContext {
     pub sqs_client: Arc<sqs_client::SQS>,
     pub document_storage_client: Arc<DocumentStorageServiceClient>,
     pub search_service_client: Arc<SearchServiceClient>,
-    pub email_service_client_external: Arc<email_service_client::EmailServiceClientExternal>,
     pub authorization_state: MacroAuthorizationState<DcsAuthorizationService>,
     pub user_permissions_service: Arc<DcsUserPermissionsService>,
     /// Whether a team bot with no acting user may own what it creates.
@@ -163,14 +159,12 @@ pub struct ApiContext {
     pub connection_repo: Arc<dyn ConnectionRepo>,
     pub connection_gateway_client: Arc<ConnectionGatewayClient>,
     pub soup_service: Arc<ToolSoupService>,
-    pub email_service: Arc<ToolEmailService>,
     pub stream_repo: Arc<dyn StreamRepo>,
     pub document_tool_context: ToolDocumentToolContext,
     pub memory_service: Arc<DcsMemoryService>,
     pub usage_service: Arc<DcsUsageService>,
     pub ai_projections_service: Arc<DcsAiProjectionService>,
     pub properties_tool_context: ToolPropertiesToolContext,
-    pub email_tool_context: ToolEmailToolContext,
     pub call_tool_context: ToolCallToolContext,
     pub tool_service_context: ToolServiceContext,
     pub all_tools: Arc<AiToolSet>,
