@@ -4,23 +4,18 @@
 mod initiative_discussion;
 pub use initiative_discussion::GraphqlInitiativeDiscussionMetadata;
 
-/// CRM company and contact discussion notification metadata.
-mod crm_discussion;
-pub use crm_discussion::GraphqlCrmDiscussionMetadata;
-
 use async_graphql::{Enum, ID, Object, Union};
 use model_notifications::{
     AgentSessionMentionedMetadata, AgentSessionNotificationRef, AgentSessionSettledMetadata,
-    AgentSessionWaitingForInputMetadata, AiResponseMetadata, CalendarEventReminderMetadata,
-    CallStartedMetadata, ChannelInviteMetadata, ChannelMentionMetadata,
-    ChannelMessageReactionMetadata, ChannelMessageSendMetadata, ChannelReplyMetadata, ChannelType,
-    CommentedOnDocumentMetadata, DocumentMentionMetadata, GithubPrCheckRun, GithubPrCheckRunState,
-    GithubPrComment, GithubPrCommentKind, GithubPrEventAction, GithubPrEventStatus,
-    GithubPrMention, GithubPrMentionLocation, GithubPrNotificationCommon, GithubPrReview,
-    GithubPrReviewState, GithubPrStatusChanged, GithubReviewRequested, InboxReauthRequiredMetadata,
-    InviteToTeamMetadata, MentionedInDocumentCommentMetadata, NewEmailMetadata, NotifEvent,
-    NotificationDocumentSubType, ReminderMetadata, RepliedToDocumentCommentThreadMetadata,
-    TaskAssignedMetadata,
+    AgentSessionWaitingForInputMetadata, AiResponseMetadata, CallStartedMetadata,
+    ChannelInviteMetadata, ChannelMentionMetadata, ChannelMessageReactionMetadata,
+    ChannelMessageSendMetadata, ChannelReplyMetadata, ChannelType, CommentedOnDocumentMetadata,
+    DocumentMentionMetadata, GithubPrCheckRun, GithubPrCheckRunState, GithubPrComment,
+    GithubPrCommentKind, GithubPrEventAction, GithubPrEventStatus, GithubPrMention,
+    GithubPrMentionLocation, GithubPrNotificationCommon, GithubPrReview, GithubPrReviewState,
+    GithubPrStatusChanged, GithubReviewRequested, InviteToTeamMetadata,
+    MentionedInDocumentCommentMetadata, NotifEvent, NotificationDocumentSubType,
+    RepliedToDocumentCommentThreadMetadata, TaskAssignedMetadata,
 };
 
 /// GraphQL channel type used by notification metadata.
@@ -694,50 +689,6 @@ impl GraphqlCallStartedMetadata {
     }
 }
 
-/// GraphQL wrapper for newly received email metadata.
-pub struct GraphqlNewEmailMetadata(NewEmailMetadata);
-
-/// Metadata for a newly received email.
-#[Object]
-impl GraphqlNewEmailMetadata {
-    /// Sender email address.
-    async fn sender(&self) -> Option<&str> {
-        self.0.sender.as_deref()
-    }
-
-    /// Recipient email address.
-    async fn to_email(&self) -> &str {
-        &self.0.to_email
-    }
-
-    /// Email thread identifier.
-    async fn thread_id(&self) -> &str {
-        &self.0.thread_id
-    }
-
-    /// Email subject.
-    async fn subject(&self) -> &str {
-        &self.0.subject
-    }
-
-    /// Email snippet.
-    async fn snippet(&self) -> &str {
-        &self.0.snippet
-    }
-}
-
-/// GraphQL wrapper for inbox reauthentication metadata.
-pub struct GraphqlInboxReauthRequiredMetadata(InboxReauthRequiredMetadata);
-
-/// Metadata for an inbox that requires reauthentication.
-#[Object]
-impl GraphqlInboxReauthRequiredMetadata {
-    /// Inbox email address.
-    async fn email_address(&self) -> &str {
-        &self.0.email_address
-    }
-}
-
 /// GraphQL wrapper for team invitation metadata.
 pub struct GraphqlInviteToTeamMetadata(InviteToTeamMetadata);
 
@@ -807,79 +758,6 @@ impl GraphqlTaskAssignedMetadata {
     /// Sender profile-picture URL.
     async fn sender_profile_picture_url(&self) -> Option<&str> {
         self.0.sender_profile_picture_url.as_deref()
-    }
-}
-
-/// GraphQL wrapper for reminder metadata.
-pub struct GraphqlReminderMetadata(ReminderMetadata);
-
-/// Metadata for a due reminder.
-#[Object]
-impl GraphqlReminderMetadata {
-    /// Reminder identifier.
-    async fn reminder_id(&self) -> ID {
-        ID(self.0.reminder_id.to_string())
-    }
-
-    /// Reminder description.
-    async fn description(&self) -> &str {
-        &self.0.description
-    }
-
-    /// Which firing this notification is for, in RFC 3339 format.
-    ///
-    /// The counterpart of a calendar alarm's `occurrenceKey`: it is what tells
-    /// two notifications from the same recurring reminder apart. Absent on
-    /// notifications written before recurring dispatch existed.
-    async fn scheduled_for(&self) -> Option<String> {
-        self.0.scheduled_for.map(|timestamp| timestamp.to_rfc3339())
-    }
-}
-
-/// GraphQL wrapper for calendar event reminder metadata.
-pub struct GraphqlCalendarEventReminderMetadata(CalendarEventReminderMetadata);
-
-/// Metadata for a due calendar event reminder.
-#[Object]
-impl GraphqlCalendarEventReminderMetadata {
-    /// Calendar event identifier.
-    async fn event_id(&self) -> ID {
-        ID(self.0.event_id.to_string())
-    }
-
-    /// Stable occurrence key of the event instance.
-    async fn occurrence_key(&self) -> &str {
-        &self.0.occurrence_key
-    }
-
-    /// Event display title.
-    async fn title(&self) -> &str {
-        &self.0.title
-    }
-
-    /// Timed event start in RFC 3339 format.
-    async fn starts_at(&self) -> Option<String> {
-        self.0.starts_at.map(|timestamp| timestamp.to_rfc3339())
-    }
-
-    /// Timed event end in RFC 3339 format.
-    async fn ends_at(&self) -> Option<String> {
-        self.0.ends_at.map(|timestamp| timestamp.to_rfc3339())
-    }
-
-    /// All-day event start date in ISO 8601 format.
-    async fn start_date(&self) -> Option<String> {
-        self.0.start_date.map(|date| date.to_string())
-    }
-
-    /// IANA time zone used to render the event.
-    async fn time_zone(&self) -> Option<&str> {
-        self.0.time_zone.as_deref()
-    }
-
-    /// Minutes before the event start when the alarm fires.
-    async fn minutes_before(&self) -> i32 {
-        self.0.minutes_before
     }
 }
 
@@ -1250,8 +1128,6 @@ pub enum GraphqlNotifEvent {
     CommentedOnDocument(GraphqlCommentedOnDocumentMetadata),
     /// Project discussion metadata.
     InitiativeDiscussion(GraphqlInitiativeDiscussionMetadata),
-    /// CRM company or contact discussion metadata.
-    CrmDiscussion(GraphqlCrmDiscussionMetadata),
     /// Channel invitation metadata.
     ChannelInvite(GraphqlChannelInviteMetadata),
     /// Channel message metadata.
@@ -1262,18 +1138,10 @@ pub enum GraphqlNotifEvent {
     ChannelMessageReply(GraphqlChannelReplyMetadata),
     /// Started-call metadata.
     CallStarted(GraphqlCallStartedMetadata),
-    /// New-email metadata.
-    NewEmail(GraphqlNewEmailMetadata),
-    /// Inbox reauthentication metadata.
-    InboxReauthRequired(GraphqlInboxReauthRequiredMetadata),
     /// Team invitation metadata.
     InviteToTeam(GraphqlInviteToTeamMetadata),
     /// Task assignment metadata.
     TaskAssigned(GraphqlTaskAssignedMetadata),
-    /// Reminder metadata.
-    Reminder(GraphqlReminderMetadata),
-    /// Calendar event reminder metadata.
-    CalendarEventReminder(GraphqlCalendarEventReminderMetadata),
     /// AI response metadata.
     AiResponse(GraphqlAiResponseMetadata),
     /// GitHub pull-request lifecycle metadata.
@@ -1325,7 +1193,6 @@ impl From<NotifEvent> for GraphqlNotifEvent {
             NotifEvent::InitiativeDiscussion(metadata) => {
                 Self::InitiativeDiscussion(metadata.into())
             }
-            NotifEvent::CrmDiscussion(metadata) => Self::CrmDiscussion(metadata.into()),
             NotifEvent::ChannelInvite(metadata) => {
                 Self::ChannelInvite(GraphqlChannelInviteMetadata(metadata))
             }
@@ -1341,19 +1208,11 @@ impl From<NotifEvent> for GraphqlNotifEvent {
             NotifEvent::CallStarted(metadata) => {
                 Self::CallStarted(GraphqlCallStartedMetadata(metadata))
             }
-            NotifEvent::NewEmail(metadata) => Self::NewEmail(GraphqlNewEmailMetadata(metadata)),
-            NotifEvent::InboxReauthRequired(metadata) => {
-                Self::InboxReauthRequired(GraphqlInboxReauthRequiredMetadata(metadata))
-            }
             NotifEvent::InviteToTeam(metadata) => {
                 Self::InviteToTeam(GraphqlInviteToTeamMetadata(metadata))
             }
             NotifEvent::TaskAssigned(metadata) => {
                 Self::TaskAssigned(GraphqlTaskAssignedMetadata(metadata))
-            }
-            NotifEvent::Reminder(metadata) => Self::Reminder(GraphqlReminderMetadata(metadata)),
-            NotifEvent::CalendarEventReminder(metadata) => {
-                Self::CalendarEventReminder(GraphqlCalendarEventReminderMetadata(metadata))
             }
             NotifEvent::AiResponse(metadata) => {
                 Self::AiResponse(GraphqlAiResponseMetadata(metadata))

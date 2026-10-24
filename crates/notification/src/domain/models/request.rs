@@ -21,7 +21,6 @@ use uuid::Uuid;
 #[cfg_attr(feature = "ai_tool", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum NotificationCategory {
-    Email,
     Message,
     Channel,
     Document,
@@ -30,8 +29,6 @@ pub enum NotificationCategory {
     Call,
     Task,
     Github,
-    Reminder,
-    Calendar,
     Agent,
 }
 

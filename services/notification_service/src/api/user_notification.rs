@@ -11,13 +11,12 @@ use model_entity::Entity;
 use model_error_response::ErrorResponse;
 use model_notifications::{
     AgentSessionMentionedMetadata, AgentSessionSettledMetadata,
-    AgentSessionWaitingForInputMetadata, AiResponseMetadata, CalendarEventReminderMetadata,
-    ChannelMentionMetadata, ChannelMessageReactionMetadata, ChannelMessageSendMetadata,
-    ChannelReplyMetadata, CommentedOnDocumentMetadata, CrmDiscussionMetadata,
-    DocumentMentionMetadata, GithubPrComment, GithubPrMention, GithubPrReview,
-    GithubPrStatusChanged, GithubReviewRequested, InitiativeDiscussionMetadata,
-    MentionedInDocumentCommentMetadata, NewEmailMetadata, NotifEvent,
-    RepliedToDocumentCommentThreadMetadata, TaskAssignedMetadata,
+    AgentSessionWaitingForInputMetadata, AiResponseMetadata, ChannelMentionMetadata,
+    ChannelMessageReactionMetadata, ChannelMessageSendMetadata, ChannelReplyMetadata,
+    CommentedOnDocumentMetadata, DocumentMentionMetadata, GithubPrComment, GithubPrMention,
+    GithubPrReview, GithubPrStatusChanged, GithubReviewRequested, InitiativeDiscussionMetadata,
+    MentionedInDocumentCommentMetadata, NotifEvent, RepliedToDocumentCommentThreadMetadata,
+    TaskAssignedMetadata,
 };
 use notification::{
     domain::{models::Notification, service::NotificationReader},
@@ -33,7 +32,6 @@ use crate::api::context::AuthorizationService;
 pub(crate) static BLOCKABLE_NOTIFICATIONS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     HashSet::from([
         EmailDigestNotification::TYPE_NAME,
-        NewEmailMetadata::TYPE_NAME,
         AiResponseMetadata::TYPE_NAME,
         ChannelMessageSendMetadata::TYPE_NAME,
         ChannelMessageReactionMetadata::TYPE_NAME,
@@ -52,8 +50,6 @@ pub(crate) static BLOCKABLE_NOTIFICATIONS: LazyLock<HashSet<&'static str>> = Laz
         model_notifications::EntityAccessRequestedMetadata::TYPE_NAME,
         model_notifications::EntityAccessGrantedMetadata::TYPE_NAME,
         InitiativeDiscussionMetadata::TYPE_NAME,
-        CrmDiscussionMetadata::TYPE_NAME,
-        CalendarEventReminderMetadata::TYPE_NAME,
         AgentSessionSettledMetadata::TYPE_NAME,
         AgentSessionWaitingForInputMetadata::TYPE_NAME,
         AgentSessionMentionedMetadata::TYPE_NAME,

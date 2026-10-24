@@ -189,15 +189,11 @@ fn comment_view(notification: &FeedNotification) -> Option<View> {
     })
 }
 
-/// The discussion thread a project, company or contact notification is in.
+/// The discussion thread a project notification is in.
 fn discussion_thread(notification: &FeedNotification) -> Option<String> {
     match &notification.notification_metadata {
         NotifEvent::InitiativeDiscussion(discussion) => Some(format!(
             "initiative_discussion:{}:{}",
-            notification.entity.entity_id, discussion.thread_id
-        )),
-        NotifEvent::CrmDiscussion(discussion) => Some(format!(
-            "crm_discussion:{}:{}",
             notification.entity.entity_id, discussion.thread_id
         )),
         _ => None,
@@ -410,7 +406,6 @@ pub fn stack(notifications: &[FeedNotification]) -> Vec<WorkFeedStack> {
     for (_, group) in group_by(discussions) {
         let thread_id = group.first().and_then(|n| match &n.notification_metadata {
             NotifEvent::InitiativeDiscussion(d) => Some(d.thread_id.to_string()),
-            NotifEvent::CrmDiscussion(d) => Some(d.thread_id.to_string()),
             _ => None,
         });
         stacks.extend(make_stack(WorkFeedStackKind::Discussion, thread_id, group));

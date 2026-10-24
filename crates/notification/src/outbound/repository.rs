@@ -212,8 +212,6 @@ fn push_include_types_filter(
         builder.push(" AND (");
         let mut needs_or = false;
         for clause in [
-            include_types.contains(&NotificationCategory::Email)
-                .then_some("n.event_item_type = 'email_thread'"),
             include_types.contains(&NotificationCategory::Message).then_some(
                 r#"(
                     n.notification_event_type IN ('channel_mention', 'channel_message_reply', 'channel_message_send')
@@ -237,10 +235,6 @@ fn push_include_types_filter(
                 .then_some("n.event_item_type = 'call'"),
             include_types.contains(&NotificationCategory::Github)
                 .then_some(GITHUB_EVENT_TYPES_SQL),
-            include_types.contains(&NotificationCategory::Reminder)
-                .then_some("n.event_item_type = 'reminder'"),
-            include_types.contains(&NotificationCategory::Calendar)
-                .then_some("n.event_item_type = 'calendar_event'"),
             include_types.contains(&NotificationCategory::Agent)
                 .then_some("n.event_item_type = 'agent_session'"),
         ]

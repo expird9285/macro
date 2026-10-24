@@ -12,18 +12,17 @@ pub use device::DeviceType;
 pub use metadata::{
     AgentSessionMentionedMetadata, AgentSessionNotificationRef, AgentSessionOriginParent,
     AgentSessionSettledMetadata, AgentSessionWaitingForInputMetadata, AiResponseMetadata,
-    CalendarEventReminderMetadata, CallStartedMetadata, ChannelInviteMetadata,
-    ChannelMentionMetadata, ChannelMessageReactionMetadata, ChannelMessageSendMetadata,
-    ChannelReplyMetadata, ChannelType, ColleagueJoinedMacro, CommentedOnDocumentMetadata,
-    CommonChannelMetadata, CrmDiscussionMetadata, CrmDiscussionReason, DocumentMentionMetadata,
-    EntityAccessGrantedMetadata, EntityAccessRequestedMetadata, GithubPrCheckRun,
-    GithubPrCheckRunState, GithubPrComment, GithubPrCommentKind, GithubPrEventAction,
-    GithubPrEventStatus, GithubPrMention, GithubPrMentionLocation, GithubPrNotificationCommon,
-    GithubPrReview, GithubPrReviewState, GithubPrStatusChanged, GithubReviewRequested,
-    InboxReauthRequiredMetadata, InitiativeDiscussionMetadata, InitiativeDiscussionReason,
-    InviteToTeamMetadata, ItemSharedMetadata, MentionedInDocumentCommentMetadata, NewEmailMetadata,
-    NotificationDocumentSubType, NotificationTitle, ReminderMetadata,
-    RepliedToDocumentCommentThreadMetadata, RequestedAccessLevel, TaskAssignedMetadata,
+    CallStartedMetadata, ChannelInviteMetadata, ChannelMentionMetadata,
+    ChannelMessageReactionMetadata, ChannelMessageSendMetadata, ChannelReplyMetadata, ChannelType,
+    ColleagueJoinedMacro, CommentedOnDocumentMetadata, CommonChannelMetadata,
+    DocumentMentionMetadata, EntityAccessGrantedMetadata, EntityAccessRequestedMetadata,
+    GithubPrCheckRun, GithubPrCheckRunState, GithubPrComment, GithubPrCommentKind,
+    GithubPrEventAction, GithubPrEventStatus, GithubPrMention, GithubPrMentionLocation,
+    GithubPrNotificationCommon, GithubPrReview, GithubPrReviewState, GithubPrStatusChanged,
+    GithubReviewRequested, InitiativeDiscussionMetadata, InitiativeDiscussionReason,
+    InviteToTeamMetadata, ItemSharedMetadata, MentionedInDocumentCommentMetadata,
+    NotificationDocumentSubType, NotificationTitle, RepliedToDocumentCommentThreadMetadata,
+    RequestedAccessLevel, TaskAssignedMetadata,
 };
 pub use unsubscribe::UserUnsubscribe;
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -197,9 +196,6 @@ define_notif_event!(
         /// Someone commented, replied, or mentioned the recipient on a project.
         InitiativeDiscussion(InitiativeDiscussionMetadata),
 
-        /// Someone commented, replied, or mentioned the recipient on a CRM company or contact.
-        CrmDiscussion(CrmDiscussionMetadata),
-
         /// The user was invited to a channel.
         ChannelInvite(ChannelInviteMetadata),
 
@@ -216,23 +212,11 @@ define_notif_event!(
         #[serde(alias = "call-started")]
         CallStarted(CallStartedMetadata),
 
-        /// A new email has been sent to the user.
-        NewEmail(NewEmailMetadata),
-
-        /// A linked inbox's grant died and must be reconnected.
-        InboxReauthRequired(InboxReauthRequiredMetadata),
-
         /// A user was invited to a team.
         InviteToTeam(InviteToTeamMetadata),
 
         /// A user was assigned to a task.
         TaskAssigned(TaskAssignedMetadata),
-
-        /// A reminder the user set for themselves came due.
-        Reminder(ReminderMetadata),
-
-        /// A calendar event alarm came due.
-        CalendarEventReminder(CalendarEventReminderMetadata),
 
         /// An AI assistant responded to a chat.
         AiResponse(AiResponseMetadata),
@@ -293,7 +277,6 @@ impl NotificationTitle for NotifEvent {
             NotifEvent::EntityAccessRequested(m) => m.format_title(sender_id),
             NotifEvent::EntityAccessGranted(m) => m.format_title(sender_id),
             NotifEvent::InitiativeDiscussion(m) => m.format_title(sender_id),
-            NotifEvent::CrmDiscussion(m) => m.format_title(sender_id),
             NotifEvent::ChannelInvite(m) => m.format_title(sender_id),
             NotifEvent::ChannelMessageSend(channel_message_send_metadata) => {
                 channel_message_send_metadata.format_title(sender_id)
@@ -305,15 +288,9 @@ impl NotificationTitle for NotifEvent {
             NotifEvent::CallStarted(call_started_metadata) => {
                 call_started_metadata.format_title(sender_id)
             }
-            NotifEvent::NewEmail(new_email_metadata) => new_email_metadata.format_title(sender_id),
-            NotifEvent::InboxReauthRequired(m) => m.format_title(sender_id),
             NotifEvent::InviteToTeam(_) => Err(report!("not implemented")),
             NotifEvent::TaskAssigned(task_assigned_metadata) => {
                 task_assigned_metadata.format_title(sender_id)
-            }
-            NotifEvent::Reminder(reminder_metadata) => reminder_metadata.format_title(sender_id),
-            NotifEvent::CalendarEventReminder(calendar_event_reminder_metadata) => {
-                calendar_event_reminder_metadata.format_title(sender_id)
             }
             NotifEvent::AiResponse(ai_response_metadata) => {
                 ai_response_metadata.format_title(sender_id)
@@ -361,7 +338,6 @@ impl NotificationTitle for NotifEvent {
             NotifEvent::EntityAccessRequested(m) => m.format_body(sender_id),
             NotifEvent::EntityAccessGranted(m) => m.format_body(sender_id),
             NotifEvent::InitiativeDiscussion(m) => m.format_body(sender_id),
-            NotifEvent::CrmDiscussion(m) => m.format_body(sender_id),
             NotifEvent::ChannelInvite(m) => m.format_body(sender_id),
             NotifEvent::ChannelMessageSend(channel_message_send_metadata) => {
                 channel_message_send_metadata.format_body(sender_id)
@@ -373,15 +349,9 @@ impl NotificationTitle for NotifEvent {
             NotifEvent::CallStarted(call_started_metadata) => {
                 call_started_metadata.format_body(sender_id)
             }
-            NotifEvent::NewEmail(new_email_metadata) => new_email_metadata.format_body(sender_id),
-            NotifEvent::InboxReauthRequired(m) => m.format_body(sender_id),
             NotifEvent::InviteToTeam(_) => Err(report!("not implemented")),
             NotifEvent::TaskAssigned(task_assigned_metadata) => {
                 task_assigned_metadata.format_body(sender_id)
-            }
-            NotifEvent::Reminder(reminder_metadata) => reminder_metadata.format_body(sender_id),
-            NotifEvent::CalendarEventReminder(calendar_event_reminder_metadata) => {
-                calendar_event_reminder_metadata.format_body(sender_id)
             }
             NotifEvent::AiResponse(ai_response_metadata) => {
                 ai_response_metadata.format_body(sender_id)

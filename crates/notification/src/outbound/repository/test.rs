@@ -867,20 +867,20 @@ async fn test_get_user_notifications_filters_type_and_entity(pool: Pool<Postgres
         .unwrap();
     assert_eq!(document_results.len(), 1);
 
-    let email_results: Vec<UserNotificationRow<TestNotification>> = pool
+    let call_results: Vec<UserNotificationRow<TestNotification>> = pool
         .get_user_notifications(
             user.clone(),
             10,
             Query::Sort(CreatedAt, ()),
             NotificationListFilters {
                 states: vec![NotificationState::Unseen, NotificationState::Seen],
-                include_types: vec![crate::domain::models::request::NotificationCategory::Email],
+                include_types: vec![crate::domain::models::request::NotificationCategory::Call],
                 entities: Vec::new(),
             },
         )
         .await
         .unwrap();
-    assert!(email_results.is_empty());
+    assert!(call_results.is_empty());
 
     let entity_results: Vec<UserNotificationRow<TestNotification>> = pool
         .get_user_notifications(

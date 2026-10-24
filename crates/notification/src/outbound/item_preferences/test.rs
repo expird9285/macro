@@ -26,9 +26,7 @@ async fn lists_supported_preferences_despite_unknown_legacy_types(pool: PgPool) 
         vec![
             ("document-snoozed", EntityType::Document),
             ("channel-muted", EntityType::Channel),
-            ("email-alias", EntityType::EmailThread),
             ("foreign-alias", EntityType::ForeignEntity),
-            ("thread-alias", EntityType::EmailThread),
         ]
     );
     assert!(listed[0].snoozed_until.is_some());

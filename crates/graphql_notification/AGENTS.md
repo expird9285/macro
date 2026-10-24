@@ -11,8 +11,7 @@ mutations, and the realtime subscription.
 - `src/objects.rs`: `GraphqlNotification`, `load_entity_notifications` — the
   edge most other GraphQL object types embed.
 - `src/notification_event.rs` + `src/notification_event/*.rs`: typed
-  `GraphqlNotifEvent` payloads per source (CRM discussion, initiative
-  discussion, ...) — add a new file here per event kind.
+  `GraphqlNotifEvent` payloads per source (initiative discussion, ...) — add a new file here per event kind.
 - `src/subscriptions.rs`: `workFeedUpdates`-style realtime notification push.
 - `src/mutations.rs`: mark read/unread for an entity or explicit id set.
 

@@ -28,7 +28,7 @@ fn test_list_notifications_deserialization() {
     assert_eq!(tool.entities, None);
 
     // With explicit filters
-    let json = r#"{"limit": 10, "states": ["done"], "includeTypes": ["email", "message", "github"], "entities": [{"entityType": "email", "id": "thread-1"}, {"entityType": "github", "id": "foreign-entity-1"}]}"#;
+    let json = r#"{"limit": 10, "states": ["done"], "includeTypes": ["message", "channel", "github"], "entities": [{"entityType": "document", "id": "doc-1"}, {"entityType": "github", "id": "foreign-entity-1"}]}"#;
     let tool: ListNotifications = serde_json::from_str(json).unwrap();
     assert_eq!(tool.limit, Some(10));
     assert_eq!(
@@ -38,8 +38,8 @@ fn test_list_notifications_deserialization() {
     assert_eq!(
         tool.include_types,
         Some(vec![
-            ToolNotificationCategory::Email,
             ToolNotificationCategory::Message,
+            ToolNotificationCategory::Channel,
             ToolNotificationCategory::Github
         ])
     );
@@ -47,8 +47,8 @@ fn test_list_notifications_deserialization() {
         tool.entities,
         Some(vec![
             NotificationEntityFilter {
-                entity_type: NotificationEntityType::EmailThread,
-                id: "thread-1".to_string()
+                entity_type: NotificationEntityType::Document,
+                id: "doc-1".to_string()
             },
             NotificationEntityFilter {
                 entity_type: NotificationEntityType::ForeignEntity,

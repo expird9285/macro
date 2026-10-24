@@ -83,18 +83,11 @@ pub enum NotificationEntityType {
     ChannelMessage,
     Document,
     Project,
-    #[serde(alias = "email")]
-    EmailThread,
-    #[serde(alias = "calendar")]
-    CalendarEvent,
     Team,
     Call,
     #[serde(alias = "github")]
     ForeignEntity,
     StaticFile,
-    CrmCompany,
-    CrmContact,
-    Reminder,
     Skill,
     ScheduledAction,
 }
@@ -108,15 +101,10 @@ impl From<NotificationEntityType> for EntityType {
             NotificationEntityType::ChannelMessage => Self::ChannelMessage,
             NotificationEntityType::Document => Self::Document,
             NotificationEntityType::Project => Self::Project,
-            NotificationEntityType::EmailThread => Self::EmailThread,
-            NotificationEntityType::CalendarEvent => Self::CalendarEvent,
             NotificationEntityType::Team => Self::Team,
             NotificationEntityType::Call => Self::Call,
             NotificationEntityType::ForeignEntity => Self::ForeignEntity,
             NotificationEntityType::StaticFile => Self::StaticFile,
-            NotificationEntityType::CrmCompany => Self::CrmCompany,
-            NotificationEntityType::CrmContact => Self::CrmContact,
-            NotificationEntityType::Reminder => Self::Reminder,
             NotificationEntityType::Skill => Self::Skill,
             NotificationEntityType::ScheduledAction => Self::ScheduledAction,
         }
@@ -127,8 +115,6 @@ impl From<NotificationEntityType> for EntityType {
 #[derive(Debug, Deserialize, JsonSchema, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum ToolNotificationCategory {
-    /// Email notifications.
-    Email,
     /// Channel message notifications.
     Message,
     /// Channel notifications.
@@ -143,17 +129,12 @@ pub enum ToolNotificationCategory {
     Task,
     /// GitHub notifications.
     Github,
-    /// Reminder notifications.
-    Reminder,
-    /// Calendar notifications.
-    Calendar,
     /// Agent session notifications.
     Agent,
 }
 impl From<ToolNotificationCategory> for NotificationCategory {
     fn from(value: ToolNotificationCategory) -> Self {
         match value {
-            ToolNotificationCategory::Email => Self::Email,
             ToolNotificationCategory::Message => Self::Message,
             ToolNotificationCategory::Channel => Self::Channel,
             ToolNotificationCategory::Document => Self::Document,
@@ -161,8 +142,6 @@ impl From<ToolNotificationCategory> for NotificationCategory {
             ToolNotificationCategory::Call => Self::Call,
             ToolNotificationCategory::Task => Self::Task,
             ToolNotificationCategory::Github => Self::Github,
-            ToolNotificationCategory::Reminder => Self::Reminder,
-            ToolNotificationCategory::Calendar => Self::Calendar,
             ToolNotificationCategory::Agent => Self::Agent,
         }
     }
@@ -207,14 +186,14 @@ pub struct ListNotifications {
 
     /// Filter to specific notification item types. If omitted, returns all types.
     #[schemars(
-        description = "Filter to specific notification item types. If omitted, returns all types. Example: [\"email\", \"message\"] returns only email and message notifications."
+        description = "Filter to specific notification item types. If omitted, returns all types. Example: [\"message\", \"github\"] returns only message and GitHub notifications."
     )]
     #[serde(default)]
     pub include_types: Option<Vec<ToolNotificationCategory>>,
 
     /// Filter to notifications for specific entities. If omitted, returns notifications for all entities.
     #[schemars(
-        description = "Filter to notifications for specific entities. Pair each id with its canonical entityType to avoid ambiguity. Example: [{\"entityType\":\"email_thread\",\"id\":\"...\"}] returns notifications for one email thread."
+        description = "Filter to notifications for specific entities. Pair each id with its canonical entityType to avoid ambiguity. Example: [{\"entityType\":\"document\",\"id\":\"...\"}] returns notifications for one document."
     )]
     #[serde(default)]
     pub entities: Option<Vec<NotificationEntityFilter>>,
@@ -305,7 +284,6 @@ where
                         .map(|types| types.into_iter().map(Into::into).collect())
                         .unwrap_or_else(|| {
                             vec![
-                                NotificationCategory::Email,
                                 NotificationCategory::Message,
                                 NotificationCategory::Channel,
                                 NotificationCategory::Document,
@@ -313,8 +291,6 @@ where
                                 NotificationCategory::Call,
                                 NotificationCategory::Task,
                                 NotificationCategory::Github,
-                                NotificationCategory::Reminder,
-                                NotificationCategory::Calendar,
                                 NotificationCategory::Agent,
                             ]
                         }),

@@ -2,7 +2,7 @@
 //!
 //! This module implements a state machine for determining whether to send
 //! email notifications, following the decision flow:
-//! 1. Check if notification type is blocked (e.g., new_email notifications)
+//! 1. Check if notification type is blocked (e.g., team invites, which already go out as their own email)
 //! 2. Check if user has a Macro account
 //! 3. If no account: decide between single send (for invites) or batch send
 //! 4. If account exists: check push notification settings
@@ -102,15 +102,15 @@ impl NotificationSet {
 #[cfg_attr(feature = "docs", aquamarine::aquamarine)]
 /// A set of notification types that should never trigger email notifications.
 ///
-/// For example, `new_email` notifications are blocked since users already
-/// received the email in their inbox.
+/// For example, team invites are blocked since they already go out as their
+/// own email.
 ///
 /// # Decision Flow
 ///
 /// ```mermaid
 /// flowchart TD
 ///     Start["Send email for notification?"]
-///     IsNewEmail{"Is new_email notification?"}
+///     IsBlocked{"Is blocked notification type?"}
 ///     HasAccount{"Has Macro account?"}
 ///     HasPush{"Push notifications on?"}
 ///     IsOnline{"Online recently?"}
@@ -119,9 +119,9 @@ impl NotificationSet {
 ///     DontSend(["DON'T SEND"]):::red
 ///     BatchSend(["BATCH SEND"]):::blue
 ///
-///     Start --> IsNewEmail
-///     IsNewEmail -->|NO| HasAccount
-///     IsNewEmail -->|YES| DontSend
+///     Start --> IsBlocked
+///     IsBlocked -->|NO| HasAccount
+///     IsBlocked -->|YES| DontSend
 ///
 ///     HasAccount -->|YES| HasPush
 ///     HasAccount -->|NO| DontSend

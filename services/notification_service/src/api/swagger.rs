@@ -12,8 +12,8 @@ use model_notifications::{
     GithubPrCheckRunState, GithubPrComment, GithubPrCommentKind, GithubPrEventAction,
     GithubPrEventStatus, GithubPrMention, GithubPrMentionLocation, GithubPrNotificationCommon,
     GithubPrReview, GithubPrReviewState, GithubPrStatusChanged, GithubReviewRequested,
-    InviteToTeamMetadata, ItemSharedMetadata, NewEmailMetadata,
-    RepliedToDocumentCommentThreadMetadata, UserUnsubscribe,
+    InviteToTeamMetadata, ItemSharedMetadata, RepliedToDocumentCommentThreadMetadata,
+    UserUnsubscribe,
 };
 use utoipa::OpenApi;
 
@@ -71,7 +71,6 @@ use crate::{
                         UserUnsubscribe,
                         DeviceType,
                         PushNotificationData,
-                        NewEmailMetadata,
 
 
                         // Metadata

@@ -31,7 +31,6 @@ impl ItemNotificationPreferenceRepository for PgItemNotificationPreferenceReposi
             .into_iter()
             .filter_map(|row| {
                 let entity_type: EntityType = match row.item_type.as_str() {
-                    "email" | "thread" => EntityType::EmailThread,
                     "foreign" => EntityType::ForeignEntity,
                     value => match value.parse() {
                         Ok(entity_type) => entity_type,

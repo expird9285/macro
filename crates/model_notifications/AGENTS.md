@@ -11,7 +11,7 @@ types.
 - `src/lib.rs`: `NotificationTemporalData` and the full re-export list of
   metadata types — the fastest way to see every notification kind that exists.
 - `src/metadata.rs` + `src/metadata/`: one metadata struct per notification
-  kind (channel, CRM discussion, initiative discussion, GitHub PR, reminder, …).
+  kind (channel, initiative discussion, GitHub PR, …).
 - `src/digest_state.rs`: the digest batching state machine.
 - `src/device.rs`, `src/unsubscribe.rs`: device type and per-user unsubscribe.
 
@@ -26,10 +26,10 @@ types.
 - Depends on: `macro_user_id`, `mention_utils`, `model-entity`, `model_owner`,
   `models_pagination`, `notification`, `invite_email`.
 - Used by: `agent_harness`, `ai_tools`, `authentication_service`,
-  `calendar_events`, `channels`, `complete_graph`, `document_cognition_service`,
-  `document_storage_service`, `email_formatting`, `email_service`, `github`,
+  `channels`, `complete_graph`, `document_cognition_service`,
+  `document_storage_service`, `email_formatting`, `github`,
   `graphql_notification`, `graphql_work_feed`, `messages`, `notification_db_client`,
-  `notification_service`, `properties`, `reminders`, `teams`, `work_feed`.
+  `notification_service`, `properties`, `teams`, `work_feed`.
 
 ## Recipes
 

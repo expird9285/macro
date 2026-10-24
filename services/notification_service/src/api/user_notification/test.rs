@@ -134,23 +134,6 @@ fn to_typed_row_channel_message_reaction() {
 }
 
 #[test]
-fn to_typed_row_new_email() {
-    let metadata = serde_json::json!({
-        "sender": "ext@example.com",
-        "toEmail": "user@example.com",
-        "threadId": "thread-2",
-        "subject": "Hello",
-        "snippet": "Hi there"
-    });
-    let row = make_row("new_email", metadata);
-    let typed = to_typed_row(row).expect("should deserialize new_email");
-    assert!(matches!(
-        typed.notification_metadata,
-        NotifEvent::NewEmail(_)
-    ));
-}
-
-#[test]
 fn to_typed_row_invite_to_team() {
     let metadata = serde_json::json!({
         "teamName": "Engineering",
@@ -246,14 +229,14 @@ fn to_typed_row_returns_valid_notifications_despite_malformed_rows() {
     );
     let malformed_metadata = make_row("channel_mention", serde_json::json!({"garbage": true}));
     let unknown_event = make_row("totally_bogus_event", serde_json::json!({"a": 1}));
-    let valid_email = make_row(
-        "new_email",
+    let valid_reaction = make_row(
+        "channel_message_reaction",
         serde_json::json!({
-            "sender": "ext@example.com",
-            "toEmail": "user@example.com",
-            "threadId": "thread-2",
-            "subject": "Hello",
-            "snippet": "Hi there"
+            "messageId": "msg-4",
+            "messageContent": "Great idea",
+            "emoji": "👍",
+            "channelType": "Public",
+            "channelName": "general"
         }),
     );
     let empty_metadata = make_row("channel_message_send", serde_json::json!({}));
@@ -262,7 +245,7 @@ fn to_typed_row_returns_valid_notifications_despite_malformed_rows() {
         valid_mention,
         malformed_metadata,
         unknown_event,
-        valid_email,
+        valid_reaction,
         empty_metadata,
     ];
 
@@ -284,7 +267,7 @@ fn to_typed_row_returns_valid_notifications_despite_malformed_rows() {
     ));
     assert!(matches!(
         ok[1].as_ref().unwrap().notification_metadata,
-        NotifEvent::NewEmail(_)
+        NotifEvent::ChannelMessageReaction(_)
     ));
 }
 

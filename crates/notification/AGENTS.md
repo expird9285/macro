@@ -42,9 +42,8 @@ through the same service.
 - Depends on: `notification_state`, `kafka_util`, `rate_limit`,
   `macro_authorization`.
 - Used by: most feature crates that need to notify a user (`properties`,
-  `channels`, `reminders`, `teams`, `messages`, `calendar_events`, ...) and
-  `services/notification_service`, `services/agent_harness_service`,
-  `services/email_service`.
+  `channels`, `teams`, `messages`, ...) and
+  `services/notification_service`, `services/agent_harness_service`.
 
 ## Recipes
 
