@@ -1,4 +1,4 @@
-//! Ports for durable authoring and authorized scheduling selection.
+//! Ports for durable authoring and booking target validation.
 use super::models::Snapshot;
 use crate::domain::{
     models::FormError,
@@ -93,7 +93,7 @@ pub trait AuthoringAccess: Send + Sync + 'static {
     ) -> impl Future<Output = Result<EntityAccessReceipt<Level>, super::AuthoringError>> + Send;
 }
 
-/// Scheduling validates ownership and readiness of a stable existing target.
+/// Validates ownership and readiness of a stable existing booking target.
 pub trait AuthoringBooking: Send + Sync + 'static {
     /// Refuse missing, disabled, unauthorized or unusable booking links.
     fn check_target(

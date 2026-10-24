@@ -23,8 +23,6 @@ pub enum MoveableEntityType {
     /// A document (includes tasks).
     #[default]
     Document,
-    /// An email thread.
-    Email,
     /// A project (folder) nested into another project.
     Project,
 }
@@ -33,7 +31,6 @@ impl MoveableEntityType {
     fn entity_type(self) -> EntityType {
         match self {
             Self::Document => EntityType::Document,
-            Self::Email => EntityType::EmailThread,
             Self::Project => EntityType::Project,
         }
     }
@@ -59,7 +56,7 @@ fn project_access_failed(error: AccessError) -> ToolCallError {
 fn move_failed(code: EntityMutationErrorCode) -> ToolCallError {
     let description = match code {
         EntityMutationErrorCode::Forbidden(_) => {
-            "you lack the required access: moving a project requires owning it, moving a document or email thread requires edit access, and the destination project requires edit access"
+            "you lack the required access: moving a project requires owning it, moving a document requires edit access, and the destination project requires edit access"
         }
         EntityMutationErrorCode::NotFound(_) => "the entity or destination project was not found",
         EntityMutationErrorCode::Conflict(_) => {
@@ -81,8 +78,8 @@ fn move_failed(code: EntityMutationErrorCode) -> ToolCallError {
 /// Whose receipts a move is minted with.
 ///
 /// Documents publish bot attribution from the tool actor's receipt. Chat
-/// `patch`, project lifecycle events, and email `thread_project_changed` still
-/// require an authenticated user, so those moves stay user-scoped.
+/// `patch` and project lifecycle events still require an authenticated user,
+/// so those moves stay user-scoped.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum MovePrincipal {
     Bot(BotId),
@@ -193,7 +190,7 @@ pub struct MoveToProjectResponse {
 #[serde(rename_all = "camelCase")]
 #[schemars(
     title = "MoveToProject",
-    description = "Move a document, email thread, or project into another project (projects are shown as folders in the app UI), or move it out to the top level. Requires edit access to the destination project. Moving a document or email thread requires edit access to it; moving a project requires owning it."
+    description = "Move a document or project into another project (projects are shown as folders in the app UI), or move it out to the top level. Requires edit access to the destination project. Moving a document requires edit access to it; moving a project requires owning it."
 )]
 pub struct MoveToProject {
     /// The kind of entity to move.
@@ -217,20 +214,18 @@ impl ToolAnnotated for MoveToProject {
 }
 
 #[async_trait]
-impl<PSvc, ESvc, DSvc, EmSvc> AsyncTool<ProjectToolContext<PSvc, ESvc, DSvc, EmSvc>>
-    for MoveToProject
+impl<PSvc, ESvc, DSvc> AsyncTool<ProjectToolContext<PSvc, ESvc, DSvc>> for MoveToProject
 where
     PSvc: ProjectCapabilities,
     ESvc: EntityAccessService,
     DSvc: DocumentCapabilities,
-    EmSvc: MoveEntity + Send + Sync + 'static,
 {
     type Output = MoveToProjectResponse;
 
     #[tracing::instrument(skip_all, fields(user_id=?request_context.user_id, entity_type=?self.entity_type, entity_id=?self.entity_id), err)]
     async fn call(
         &self,
-        service_context: ServiceContext<ProjectToolContext<PSvc, ESvc, DSvc, EmSvc>>,
+        service_context: ServiceContext<ProjectToolContext<PSvc, ESvc, DSvc>>,
         request_context: RequestContext,
     ) -> ToolResult<Self::Output> {
         tracing::info!(params=?self, "Move to project");
@@ -248,17 +243,6 @@ where
             MoveableEntityType::Document => {
                 move_with(
                     &*service_context.document_move_service,
-                    entity_access_service,
-                    actor,
-                    &user_id,
-                    entity,
-                    project_id,
-                )
-                .await?
-            }
-            MoveableEntityType::Email => {
-                move_with(
-                    &*service_context.email_move_service,
                     entity_access_service,
                     actor,
                     &user_id,

@@ -5,7 +5,7 @@ use ai_toolset::{AsyncTool, RequestContext, ServiceContext, ToolCallError, ToolR
 use ai_toolset::{ToolAnnotated, ToolAnnotations};
 use async_trait::async_trait;
 use entity_access::domain::ports::EntityAccessService;
-use entity_mutation::{MoveEntity, UpdateEntitySharePolicy};
+use entity_mutation::UpdateEntitySharePolicy;
 use model_entity::{Entity, EntityType};
 use models_permissions::share_permission::{
     LinkShare, UpdateSharePermissionRequestV2,
@@ -201,20 +201,18 @@ impl ToolAnnotated for UpdateSharing {
 }
 
 #[async_trait]
-impl<PSvc, ESvc, DSvc, EmSvc> AsyncTool<ProjectToolContext<PSvc, ESvc, DSvc, EmSvc>>
-    for UpdateSharing
+impl<PSvc, ESvc, DSvc> AsyncTool<ProjectToolContext<PSvc, ESvc, DSvc>> for UpdateSharing
 where
     PSvc: ProjectCapabilities,
     ESvc: EntityAccessService,
     DSvc: DocumentCapabilities,
-    EmSvc: MoveEntity + Send + Sync + 'static,
 {
     type Output = UpdateSharingResponse;
 
     #[tracing::instrument(skip_all, fields(user_id=?request_context.user_id, entity_type=?self.entity_type, entity_id=?self.entity_id), err)]
     async fn call(
         &self,
-        service_context: ServiceContext<ProjectToolContext<PSvc, ESvc, DSvc, EmSvc>>,
+        service_context: ServiceContext<ProjectToolContext<PSvc, ESvc, DSvc>>,
         request_context: RequestContext,
     ) -> ToolResult<Self::Output> {
         if self.is_empty() {

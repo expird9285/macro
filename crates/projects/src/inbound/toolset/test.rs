@@ -53,7 +53,6 @@ fn test_move_to_project_schema_validation() {
 fn test_move_to_project_deserializes_entity_types() {
     for (raw, expected) in [
         ("document", MoveableEntityType::Document),
-        ("email", MoveableEntityType::Email),
         ("project", MoveableEntityType::Project),
     ] {
         let tool: MoveToProject = serde_json::from_value(serde_json::json!({

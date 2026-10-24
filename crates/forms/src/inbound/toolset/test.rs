@@ -57,9 +57,13 @@ fn tool_schemas_keep_workflow_instructions_and_flat_arguments() {
         (
             schemars::schema_for!(CreateForm),
             "name",
-            "strict qualification",
+            "Each invocation creates a new form",
         ),
-        (schemars::schema_for!(ReadForm), "formId", "hidden booking"),
+        (
+            schemars::schema_for!(ReadForm),
+            "formId",
+            "safe projected content",
+        ),
         (schemars::schema_for!(EditForm), "changes", "CRDT updates"),
         (schemars::schema_for!(ListForms), "query", "public forms"),
         (schemars::schema_for!(SetFormAccess), "draft", "immediately"),

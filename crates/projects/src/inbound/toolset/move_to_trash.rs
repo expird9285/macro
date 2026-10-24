@@ -4,7 +4,7 @@ use ai_toolset::{AsyncTool, RequestContext, ServiceContext, ToolResult};
 use ai_toolset::{ToolAnnotated, ToolAnnotations};
 use async_trait::async_trait;
 use entity_access::domain::ports::EntityAccessService;
-use entity_mutation::{MoveEntity, TrashEntity};
+use entity_mutation::TrashEntity;
 use model_entity::{Entity, EntityType};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -70,7 +70,7 @@ pub struct MoveToTrashResponse {
 #[serde(rename_all = "camelCase")]
 #[schemars(
     title = "MoveToTrash",
-    description = "Delete a document (including a task), or a project (folder) by moving it to the trash, as the Delete action in the app does. Trashing a project also trashes everything inside it. Only the item's owner can trash it. Use only when the user explicitly asks to delete an item. Channels, email threads, and calendar events are not deleted with this tool."
+    description = "Delete a document (including a task), or a project (folder) by moving it to the trash, as the Delete action in the app does. Trashing a project also trashes everything inside it. Only the item's owner can trash it. Use only when the user explicitly asks to delete an item. Channels are not deleted with this tool."
 )]
 pub struct MoveToTrash {
     /// The kind of item to trash.
@@ -88,19 +88,18 @@ impl ToolAnnotated for MoveToTrash {
 }
 
 #[async_trait]
-impl<PSvc, ESvc, DSvc, EmSvc> AsyncTool<ProjectToolContext<PSvc, ESvc, DSvc, EmSvc>> for MoveToTrash
+impl<PSvc, ESvc, DSvc> AsyncTool<ProjectToolContext<PSvc, ESvc, DSvc>> for MoveToTrash
 where
     PSvc: ProjectCapabilities,
     ESvc: EntityAccessService,
     DSvc: DocumentCapabilities,
-    EmSvc: MoveEntity + Send + Sync + 'static,
 {
     type Output = MoveToTrashResponse;
 
     #[tracing::instrument(skip_all, fields(user_id=?request_context.user_id, entity_type=?self.entity_type, entity_id=?self.entity_id), err)]
     async fn call(
         &self,
-        service_context: ServiceContext<ProjectToolContext<PSvc, ESvc, DSvc, EmSvc>>,
+        service_context: ServiceContext<ProjectToolContext<PSvc, ESvc, DSvc>>,
         request_context: RequestContext,
     ) -> ToolResult<Self::Output> {
         let entity = self
