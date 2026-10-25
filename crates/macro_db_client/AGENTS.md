@@ -26,7 +26,7 @@ queries used across Rust services.
 - Depends on: `entity_access_db_utils`, `entity_registry_db_utils`,
   `models_permissions`, `models_entity_access_management`, `model`, `model-entity`.
 - Used by: most Rust services and several domain crates (e.g. `documents`,
-  `ai_tools`, `authentication_service`, `email_service`); a query here is
+  `ai_tools`, `authentication_service`); a query here is
   widely shared — check callers before changing a function's signature.
 
 ## Recipes
@@ -60,8 +60,7 @@ deletion cascades its rows.
 - Never hand-edit `.sqlx/query-*.json` or invent a migration timestamp.
 - Keep concurrent index migrations to one statement with `-- no-transaction`;
   build replacement indexes before dropping old constraints, and validate large
-  table checks in a later transaction. See the Outlook rollout notes in
-  `docs/design/outlook-email-support.md` for failure recovery and deployment order.
+  table checks in a later transaction.
 - Quote and alias camelCase columns to Rust field names
   (`SELECT "userId" AS user_id`); don't guess spelling — check `migrations/`.
 

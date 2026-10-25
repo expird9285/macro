@@ -18,7 +18,7 @@ pub struct GetNamesWithEmailRequestBody {
     pub user_ids: Vec<String>,
 }
 
-/// Gets names for passed user profile ids, falling back to the requesting user's email contact names
+/// Gets names for passed user profile ids
 #[utoipa::path(
     post,
     path = "/user/get_names_with_email",
@@ -30,10 +30,10 @@ pub struct GetNamesWithEmailRequestBody {
             (status = 500, body=ErrorResponse),
     ),
 )]
-#[tracing::instrument(skip(ctx, authorization))]
+#[tracing::instrument(skip(ctx, _authorization))]
 pub async fn handler(
     State(ctx): State<ApiContext>,
-    authorization: MacroAuthorizationExtractor<AuthorizationService, UserOrInternal>,
+    _authorization: MacroAuthorizationExtractor<AuthorizationService, UserOrInternal>,
     extract::Json(req): extract::Json<GetNamesWithEmailRequestBody>,
 ) -> Result<Json<UserNames>, (StatusCode, String)> {
     let user_profile_ids: NonEmpty<Vec<MacroUserId<Lowercase>>> = NonEmpty::new(
@@ -53,12 +53,8 @@ pub async fn handler(
         )
     })?;
 
-    let user_names = get_user_names_with_email(
-        &ctx.db,
-        authorization.authorization.user.macro_user_id.as_ref(),
-        user_profile_ids,
-    )
-    .await
+    let user_names = get_user_names_with_email(&ctx.db, user_profile_ids)
+        .await
     .map_err(|e| {
         tracing::error!(error=?e, "failed to get user names with email");
         (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
