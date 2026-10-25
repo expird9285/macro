@@ -68,8 +68,6 @@ pub fn sdk_hosts() -> anyhow::Result<BTreeMap<String, String>> {
         ("properties", storage),
         ("auth", AuthServiceUrl::new()?.to_string()),
         ("agent-harness", AgentHarnessServiceUrl::new()?.to_string()),
-        ("email", EmailServiceUrl::new()?.to_string()),
-        ("calendar", CalendarServiceUrl::new()?.to_string()),
         ("cognition", DocumentCognitionServiceUrl::new()?.to_string()),
         ("notification", NotificationServiceUrl::new()?.to_string()),
         (

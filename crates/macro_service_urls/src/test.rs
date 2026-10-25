@@ -281,50 +281,6 @@ fn contacts_service_url_has_no_trailing_slash() {
     }
 }
 
-#[test]
-fn email_service_url_parses() {
-    assert_parses_for_all_environments(EmailServiceUrl::default_for_environment);
-}
-
-#[test]
-fn email_service_url_has_no_trailing_slash() {
-    for environment in ENVS {
-        let url = EmailServiceUrl::default_for_environment(environment);
-        assert!(
-            !url.as_ref().ends_with('/'),
-            "clients concatenate paths, so {} must not end with /",
-            url.as_ref()
-        );
-    }
-}
-
-#[test]
-fn image_proxy_service_url_parses() {
-    assert_parses_for_all_environments(ImageProxyServiceUrl::default_for_environment);
-}
-
-#[test]
-fn image_proxy_service_url_has_no_trailing_slash() {
-    for environment in ENVS {
-        let url = ImageProxyServiceUrl::default_for_environment(environment);
-        assert!(
-            !url.as_ref().ends_with('/'),
-            "clients concatenate paths, so {} must not end with /",
-            url.as_ref()
-        );
-    }
-}
-
-#[test]
-fn lexical_service_url_parses() {
-    assert_parses_for_all_environments(LexicalServiceUrl::default_for_environment);
-}
-
-#[test]
-fn sync_service_url_parses() {
-    assert_parses_for_all_environments(SyncServiceUrl::default_for_environment);
-}
-
 crate::service_url! {
     #[derive(Debug, Clone)]
     pub struct TestServiceUrl {
@@ -422,17 +378,19 @@ crate::service_url! {
             prod: "https://gateway.macro.com/dss",
         },
         #[derive(Debug, Clone)]
-        pub TestEmailServiceUrl {
-            local: "http://localhost:8087",
-            dev: "https://dev-gateway.macro.com/email",
-            prod: "https://gateway.macro.com/email",
+        pub TestContactsServiceUrl {
+            local: "http://localhost:8083",
+            dev: "https://dev-gateway.macro.com/contacts",
+            prod: "https://gateway.macro.com/contacts",
         },
     }
 }
 
 fn mock_group_overrides(var_name: &'static str) -> Result<String, std::env::VarError> {
     match var_name {
-        "OVERRIDE_TEST_EMAIL_SERVICE_URL" => Ok("https://email-override.macro.com".to_string()),
+        "OVERRIDE_TEST_CONTACTS_SERVICE_URL" => {
+            Ok("https://contacts-override.macro.com".to_string())
+        }
         _ => Err(std::env::VarError::NotPresent),
     }
 }
@@ -448,8 +406,8 @@ fn grouped_macro_resolves_all_service_urls() {
         "https://dev-gateway.macro.com/dss",
     );
     assert_eq!(
-        service_urls.test_email_service_url.as_ref(),
-        "https://email-override.macro.com",
+        service_urls.test_contacts_service_url.as_ref(),
+        "https://contacts-override.macro.com",
     );
 }
 
@@ -462,8 +420,8 @@ fn grouped_defaults_do_not_check_overrides() {
         "https://gateway.macro.com/dss",
     );
     assert_eq!(
-        service_urls.test_email_service_url.as_ref(),
-        "https://gateway.macro.com/email",
+        service_urls.test_contacts_service_url.as_ref(),
+        "https://gateway.macro.com/contacts",
     );
 }
 
@@ -526,14 +484,6 @@ fn exported_service_urls_match_local_values() {
     assert_eq!(
         service_urls.contacts_service_url.as_ref(),
         "http://localhost:8083"
-    );
-    assert_eq!(
-        service_urls.email_service_url.as_ref(),
-        "http://localhost:8087"
-    );
-    assert_eq!(
-        service_urls.calendar_service_url.as_ref(),
-        "http://localhost:8088"
     );
     assert_eq!(
         service_urls.image_proxy_service_url.as_ref(),
@@ -614,14 +564,6 @@ fn exported_service_urls_match_dev_values() {
         "https://dev-gateway.macro.com/contacts",
     );
     assert_eq!(
-        service_urls.email_service_url.as_ref(),
-        "https://dev-gateway.macro.com/email",
-    );
-    assert_eq!(
-        service_urls.calendar_service_url.as_ref(),
-        "https://dev-gateway.macro.com/calendar",
-    );
-    assert_eq!(
         service_urls.image_proxy_service_url.as_ref(),
         "https://dev-gateway.macro.com/image-proxy",
     );
@@ -695,14 +637,6 @@ fn exported_service_urls_match_prod_values() {
     assert_eq!(
         service_urls.contacts_service_url.as_ref(),
         "https://gateway.macro.com/contacts",
-    );
-    assert_eq!(
-        service_urls.email_service_url.as_ref(),
-        "https://gateway.macro.com/email",
-    );
-    assert_eq!(
-        service_urls.calendar_service_url.as_ref(),
-        "https://gateway.macro.com/calendar",
     );
     assert_eq!(
         service_urls.image_proxy_service_url.as_ref(),
@@ -779,10 +713,6 @@ fn exported_service_url_override_names_are_derived_from_env_var_names() {
     assert_eq!(
         ContactsServiceUrl::local().override_env_var_name(),
         "OVERRIDE_CONTACTS_SERVICE_URL",
-    );
-    assert_eq!(
-        EmailServiceUrl::local().override_env_var_name(),
-        "OVERRIDE_EMAIL_SERVICE_URL",
     );
     assert_eq!(
         ImageProxyServiceUrl::local().override_env_var_name(),

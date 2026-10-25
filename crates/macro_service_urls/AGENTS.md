@@ -39,7 +39,7 @@ service and gateway, resolved from `macro_env::Environment` with an
 ## Gotchas
 
 - The override env var name is derived from the struct name
-  (`CalendarServiceUrl` → `OVERRIDE_CALENDAR_SERVICE_URL`); renaming a struct
+  (`ContactsServiceUrl` → `OVERRIDE_CONTACTS_SERVICE_URL`); renaming a struct
   silently changes what override callers must set.
 - `local` defaults are host ports, not Docker-network addresses; a service
   calling another from inside Docker needs an `OVERRIDE_*_URL` entry in
