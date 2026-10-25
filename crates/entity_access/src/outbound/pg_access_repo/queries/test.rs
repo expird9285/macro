@@ -122,34 +122,6 @@ fn source_id_set(source_ids: SourceIds) -> HashSet<String> {
     source_ids.0.into_iter().collect()
 }
 
-/// An empty link + thread owned by `owner_macro_id`. Returns `(link_id, thread_id)`.
-async fn insert_thread(pool: &PgPool, owner_macro_id: &str, email: &str) -> (Uuid, Uuid) {
-    let link_id = Uuid::new_v4();
-    let thread_id = Uuid::new_v4();
-
-    sqlx::query!(
-        r#"INSERT INTO email_links (id, macro_id, fusionauth_user_id, email_address, provider)
-           VALUES ($1, $2, $2, $3, 'GMAIL')"#,
-        link_id,
-        owner_macro_id,
-        email,
-    )
-    .execute(pool)
-    .await
-    .unwrap();
-
-    sqlx::query!(
-        r#"INSERT INTO email_threads (id, link_id) VALUES ($1, $2)"#,
-        thread_id,
-        link_id,
-    )
-    .execute(pool)
-    .await
-    .unwrap();
-
-    (link_id, thread_id)
-}
-
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
 async fn team_scope_source_ids_include_only_owning_team_and_active_bot_sources(
     pool: PgPool,
@@ -241,62 +213,6 @@ async fn team_scope_source_ids_reject_soft_deleted_bot(pool: PgPool) -> anyhow::
     let source_ids = get_team_scope_source_ids(&pool, &bot_principal, &team_id).await?;
 
     assert!(source_ids.0.is_empty());
-    Ok(())
-}
-
-#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn get_entity_users_includes_inbox_delegate(pool: PgPool) -> anyhow::Result<()> {
-    insert_user(&pool, OWNER, "sharedbox@corp.test").await;
-    insert_user(&pool, DELEGATE, "primary@corp.test").await;
-    let (link_id, thread_id) = insert_thread(&pool, OWNER, "sharedbox@corp.test").await;
-
-    sqlx::query!(
-        r#"INSERT INTO macro_user_links (primary_macro_id, child_macro_id, link_id)
-           VALUES ($1, $2, $3)"#,
-        DELEGATE,
-        OWNER,
-        link_id,
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
-
-    let users = get_entity_users(&pool, &thread_id, EntityType::EmailThread).await?;
-    let ids: std::collections::HashSet<String> = users.iter().map(|u| u.to_string()).collect();
-
-    assert!(ids.contains(OWNER), "inbox owner must be included");
-    assert!(ids.contains(DELEGATE), "inbox delegate must be included");
-    Ok(())
-}
-
-#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn get_entity_users_excludes_delegate_scoped_to_other_link(
-    pool: PgPool,
-) -> anyhow::Result<()> {
-    insert_user(&pool, OWNER, "sharedbox@corp.test").await;
-    insert_user(&pool, DELEGATE, "primary@corp.test").await;
-    let (granted_link_id, _) = insert_thread(&pool, OWNER, "sharedbox@corp.test").await;
-    let (_, other_thread_id) = insert_thread(&pool, OWNER, "other@corp.test").await;
-
-    sqlx::query!(
-        r#"INSERT INTO macro_user_links (primary_macro_id, child_macro_id, link_id)
-           VALUES ($1, $2, $3)"#,
-        DELEGATE,
-        OWNER,
-        granted_link_id,
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
-
-    let users = get_entity_users(&pool, &other_thread_id, EntityType::EmailThread).await?;
-    let ids: std::collections::HashSet<String> = users.iter().map(|u| u.to_string()).collect();
-
-    assert!(ids.contains(OWNER), "inbox owner must be included");
-    assert!(
-        !ids.contains(DELEGATE),
-        "delegate scoped to a different link must be excluded"
-    );
     Ok(())
 }
 

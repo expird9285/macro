@@ -19,7 +19,6 @@ use macro_user_id::{
 use tracing::Level;
 use uuid::Uuid;
 
-
 /// Implementation of the [`EntityAccessService`].
 ///
 /// This service orchestrates access checks by:
@@ -249,7 +248,6 @@ where
             | EntityType::CrmCompany
             | EntityType::CrmContact
             | EntityType::CrmPipeline
-            // A reminder belongs to a user, so a team-scoped bot never reaches one.
             | EntityType::Reminder
             | EntityType::Skill
             | EntityType::ScheduledAction => {
@@ -436,7 +434,6 @@ where
                     .await
             }
             EntityType::Channel => self.get_channel_access(entity_id, user_id).await,
-            EntityType::Reminder => self.repo.get_reminder_access(entity_id, user_id).await,
             EntityType::ForeignEntity => self.get_foreign_entity_access(entity_id, user_id).await,
             // Static files are always viewable. This is wrong for owners
             EntityType::StaticFile => Ok(Some(AccessLevel::View)),
@@ -451,7 +448,8 @@ where
             | EntityType::CalendarEvent
             | EntityType::CrmCompany
             | EntityType::CrmContact
-            | EntityType::CrmPipeline => Ok(None),
+            | EntityType::CrmPipeline
+            | EntityType::Reminder => Ok(None),
         }
     }
 
@@ -567,18 +565,6 @@ where
                     .get_channel_role(&channel_uuid, user_id, user_org_id)
                     .await?;
                 channel_role_result_to_permission(result)
-            }
-            // Ownership is the whole access model, so the only level this can
-            // yield is `Owner` — a caller who is not the owner gets no row.
-            // `ReminderAccessExtractor` builds the same receipt straight from
-            // `get_access_level`; this arm is what lets a non-axum caller (an
-            // AI tool) mint one without reimplementing that.
-            EntityType::Reminder => {
-                let access = self.repo.get_reminder_access(entity_id, user_id).await?;
-                match access {
-                    Some(access_level) => Ok(EntityPermission::AccessLevel { access_level }),
-                    None => Err(AccessError::Unauthorized),
-                }
             }
             _ => Err(AccessError::BadRequest("Unsupported entity type")),
         }

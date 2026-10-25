@@ -141,17 +141,6 @@ pub trait AccessRepository: Clone + Send + Sync + 'static {
         user_id: &MacroUserId<Lowercase<'_>>,
     ) -> impl Future<Output = Result<Vec<(Uuid, AccessLevel)>, AccessError>> + Send;
 
-    /// Get the access level a user has for a reminder.
-    ///
-    /// A reminder is never shared, so this is ownership and nothing else:
-    /// [`AccessLevel::Owner`] for the user who set it, `None` for everyone
-    /// else and for a reminder that does not exist.
-    fn get_reminder_access(
-        &self,
-        reminder_id: &str,
-        user_id: Option<&MacroUserId<Lowercase<'_>>>,
-    ) -> impl Future<Output = Result<Option<AccessLevel>, AccessError>> + Send;
-
     /// Get the highest access level available to a bot in its owning team's
     /// scope for a document, chat, project, or call.
     ///

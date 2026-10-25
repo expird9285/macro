@@ -357,37 +357,6 @@ impl AccessRepository for PgAccessRepository {
         )
     }
 
-    // A macro user id embeds the user's email, so it stays out of the span; the
-    // reminder id is what identifies the lookup anyway.
-    #[tracing::instrument(err, skip(self, user_id))]
-    async fn get_reminder_access(
-        &self,
-        reminder_id: &str,
-        user_id: Option<&MacroUserId<Lowercase<'_>>>,
-    ) -> Result<Option<AccessLevel>, AccessError> {
-        let reminder_uuid = reminder_id
-            .parse::<Uuid>()
-            .map_err(|_| AccessError::BadRequest("Invalid reminder ID format"))?;
-        // An anonymous caller can never own a reminder, so skip the query.
-        let Some(user_id) = user_id else {
-            return Ok(None);
-        };
-
-        let owns = sqlx::query_scalar!(
-            r#"SELECT EXISTS (
-                   SELECT 1 FROM reminder WHERE id = $1 AND user_id = $2
-               ) AS "owns!""#,
-            reminder_uuid,
-            user_id.as_ref(),
-        )
-        .fetch_one(&self.pool)
-        .await
-        .map_err(AccessError::from)?;
-
-        // Owner or nothing: a reminder has no sharing model to grade.
-        Ok(owns.then_some(AccessLevel::Owner))
-    }
-
     #[tracing::instrument(err, skip(self))]
     async fn get_team_entity_access(
         &self,

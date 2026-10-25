@@ -1,7 +1,5 @@
 use crate::domain::{
-    models::{
-        AccessError, AccessGrant, EntityType, ForeignEntityAuthEntity, UserTeamInfo,
-    },
+    models::{AccessError, AccessGrant, EntityType, ForeignEntityAuthEntity, UserTeamInfo},
     ports::ExplainAccessRepository,
 };
 use crate::outbound::pg_access_repo::queries;
@@ -173,10 +171,6 @@ impl ExplainAccessRepository for PgExplainAccessRepository {
                     .into_iter()
                     .collect())
             }
-            EntityType::Reminder => {
-                let reminder_id = parse_uuid(entity_id, "Invalid reminder ID format")?;
-                explain_reminder_access(&self.pool, &reminder_id, user_id).await
-            }
             EntityType::ForeignEntity => {
                 let foreign_entity_id = parse_uuid(entity_id, "Invalid foreign entity ID format")?;
                 let user_team = queries::team_access::get_user_team(&self.pool, user_id).await?;
@@ -200,30 +194,10 @@ impl ExplainAccessRepository for PgExplainAccessRepository {
             | EntityType::CalendarEvent
             | EntityType::CrmCompany
             | EntityType::CrmContact
-            | EntityType::CrmPipeline => Ok(vec![]),
+            | EntityType::CrmPipeline
+            | EntityType::Reminder => Ok(vec![]),
         }
     }
-}
-
-async fn explain_reminder_access(
-    pool: &PgPool,
-    reminder_id: &Uuid,
-    user_id: &MacroUserId<Lowercase<'_>>,
-) -> Result<Vec<AccessGrant>, AccessError> {
-    let owns = sqlx::query_scalar!(
-        r#"SELECT EXISTS (
-               SELECT 1 FROM reminder WHERE id = $1 AND user_id = $2
-           ) AS "owns!""#,
-        reminder_id,
-        user_id.as_ref(),
-    )
-    .fetch_one(pool)
-    .await?;
-
-    Ok(owns
-        .then_some(AccessGrant::ReminderOwner)
-        .into_iter()
-        .collect())
 }
 
 fn anyhow_access_error(e: anyhow::Error) -> AccessError {

@@ -154,8 +154,6 @@ pub enum AccessGrant {
         /// Role on that team.
         role: TeamRole,
     },
-    /// The caller set the reminder.
-    ReminderOwner,
     /// A foreign entity stored for a matching source pair.
     ForeignEntity {
         /// The stored-for principal.
@@ -184,9 +182,6 @@ impl AccessGrant {
             | Self::PublicLink { access_level }
             | Self::TeamLink { access_level, .. } => EntityPermission::AccessLevel {
                 access_level: *access_level,
-            },
-            Self::ReminderOwner => EntityPermission::AccessLevel {
-                access_level: AccessLevel::Owner,
             },
             Self::ViaForm { .. } => EntityPermission::AccessLevel {
                 access_level: AccessLevel::Edit,
@@ -244,7 +239,6 @@ impl Display for AccessGrant {
             Self::TeamMembership { role } => {
                 write!(f, "team_membership {}", format_team_role(*role))
             }
-            Self::ReminderOwner => write!(f, "reminder_owner"),
             Self::ForeignEntity {
                 stored_for_id,
                 stored_for_auth_entity,

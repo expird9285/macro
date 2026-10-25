@@ -24,7 +24,6 @@ mod initiative;
 mod pin;
 mod principal;
 mod project;
-mod reminder;
 mod scheduled_action;
 mod team;
 
@@ -43,7 +42,6 @@ pub use initiative::InitiativeAccessExtractor;
 pub use pin::PinAccessLevelExtractor;
 pub use principal::{message_sender_entity_access_receipt, principal_entity_access_receipt};
 pub use project::{ProjectAccessLevelExtractor, ProjectBodyAccessLevelExtractorV2};
-pub use reminder::ReminderAccessExtractor;
 pub use scheduled_action::ScheduledActionAccessExtractor;
 pub use team::{MacroUserTeamExtractorV2, OptionalMacroUserTeamExtractorV2, user_team_receipt};
 
