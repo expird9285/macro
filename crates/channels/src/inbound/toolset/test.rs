@@ -720,21 +720,7 @@ fn share_with_channel_schema_is_valid() {
     let validated = result.unwrap();
     assert_eq!(validated.name, "ShareWithChannel");
     assert!(validated.description.contains("entity-access"));
-    assert!(validated.description.contains("calendar_event"));
-}
-
-#[test]
-fn share_with_channel_accepts_a_calendar_chip_alias() {
-    let channel_id = Uuid::now_v7();
-    let entity_id = Uuid::now_v7();
-    let parsed: ShareWithChannel = serde_json::from_value(serde_json::json!({
-        "channelId": channel_id,
-        "entityId": entity_id,
-        "entityType": "calendar",
-    }))
-    .expect("calendar alias");
-    assert_eq!(parsed.entity_type, ChannelShareEntityType::CalendarEvent);
-    assert_eq!(parsed.entity_id, entity_id.to_string());
+    assert!(validated.description.contains("agent_session"));
 }
 
 #[tokio::test]
@@ -752,7 +738,7 @@ async fn share_with_channel_grants_the_item_for_a_member() {
     let response = ShareWithChannel {
         channel_id,
         entity_id: format!("  {entity_id}  "),
-        entity_type: ChannelShareEntityType::CalendarEvent,
+        entity_type: ChannelShareEntityType::Document,
     }
     .call(ServiceContext(context), RequestContext::new(user_id()))
     .await
@@ -771,7 +757,7 @@ async fn share_with_channel_grants_the_item_for_a_member() {
     assert_eq!(items[0].entity_id(), entity_id.to_string());
     assert_eq!(
         items[0].entity_type(),
-        crate::domain::models::ReferencedShareItemType::CalendarEvent
+        crate::domain::models::ReferencedShareItemType::Document
     );
 }
 
@@ -815,13 +801,13 @@ async fn share_with_channel_reports_when_the_user_cannot_share() {
     let error = ShareWithChannel {
         channel_id: Uuid::now_v7(),
         entity_id: Uuid::now_v7().to_string(),
-        entity_type: ChannelShareEntityType::CalendarEvent,
+        entity_type: ChannelShareEntityType::Document,
     }
     .call(ServiceContext(context), RequestContext::new(user_id()))
     .await
     .expect_err("not permitted");
 
-    assert!(error.description.contains("own calendar"));
+    assert!(error.description.contains("need access"));
 }
 
 #[test]

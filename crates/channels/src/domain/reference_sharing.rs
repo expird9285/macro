@@ -9,10 +9,6 @@ use model_file_type::FileType;
 /// direct agent conversation's sessions, private to their owner, are never
 /// shared this way: the share adapter skips them before asking.
 ///
-/// A calendar event is shareable only by someone holding it on their own
-/// calendar: its owner or a linked account. A member who sees the event only
-/// through an earlier channel share holds view access and cannot pass it on.
-///
 /// A PDF grants comment access so channel members can annotate it, capped at
 /// the sharer's own access. `file_type` is the referenced document's file type.
 ///
@@ -31,12 +27,8 @@ pub(crate) fn grant_level(
         (ReferencedShareItemType::AgentSession, Some(AccessLevel::Owner)) => {
             Some(AccessLevel::View)
         }
-        (ReferencedShareItemType::CalendarEvent, Some(level)) if level >= AccessLevel::Edit => {
-            Some(AccessLevel::View)
-        }
         (ReferencedShareItemType::Form, Some(_)) => Some(AccessLevel::View),
-        (ReferencedShareItemType::AgentSession | ReferencedShareItemType::CalendarEvent, _)
-        | (_, None) => None,
+        (ReferencedShareItemType::AgentSession, _) | (_, None) => None,
         (ReferencedShareItemType::Document, Some(level)) if file_type == Some(FileType::Pdf) => {
             Some(level.min(AccessLevel::Comment))
         }

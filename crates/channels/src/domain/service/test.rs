@@ -494,7 +494,7 @@ async fn share_referenced_items_with_channel_forwards_to_the_share_port() {
     let channel_id = Uuid::now_v7();
     let item = ReferencedShareItem::new(
         Uuid::now_v7().to_string(),
-        crate::domain::models::ReferencedShareItemType::CalendarEvent,
+        crate::domain::models::ReferencedShareItemType::Document,
     );
     let results = service
         .share_referenced_items_with_channel(

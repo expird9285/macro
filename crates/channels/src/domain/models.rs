@@ -685,12 +685,8 @@ pub enum ReferencedShareItemType {
     Chat,
     /// Project entity.
     Project,
-    /// Email thread entity.
-    EmailThread,
     /// Call entity.
     Call,
-    /// Calendar event entity: one owner's projection of a meeting.
-    CalendarEvent,
     /// Form entity: posting one lets the channel respond to it.
     Form,
 }
@@ -704,9 +700,7 @@ impl ReferencedShareItemType {
             "document" => Some(Self::Document),
             "chat" => Some(Self::Chat),
             "project" => Some(Self::Project),
-            "thread" | "email" | "email_thread" => Some(Self::EmailThread),
             "call" => Some(Self::Call),
-            "calendar_event" => Some(Self::CalendarEvent),
             "form" => Some(Self::Form),
             _ => None,
         }
@@ -720,27 +714,11 @@ impl ReferencedShareItemType {
             Self::Document => "document",
             Self::Chat => "chat",
             Self::Project => "project",
-            Self::EmailThread => "thread",
             Self::Call => "call",
-            Self::CalendarEvent => "calendar_event",
             Self::Form => "form",
         }
     }
 
-    /// Entity-type strings that should match when looking up references.
-    ///
-    /// Mentions store email threads as `"thread"`. The share menu historically
-    /// stored `"email"`, so lookups treat those aliases as the same entity.
-    pub fn reference_lookup_types(entity_type: &str) -> Vec<String> {
-        match Self::from_raw(entity_type) {
-            Some(Self::EmailThread) => vec![
-                "thread".to_string(),
-                "email".to_string(),
-                "email_thread".to_string(),
-            ],
-            _ => vec![entity_type.to_string()],
-        }
-    }
 }
 
 /// Shareable item referenced by a channel message.

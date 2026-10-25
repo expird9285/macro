@@ -365,7 +365,7 @@ async fn apply_project_team_share_copies_and_clears_nested_contents(
     sqlx::query!(
         r#"INSERT INTO entity_access
             (entity_id, entity_type, source_id, source_type, access_level, granted_from_project_id)
-        VALUES ($1, 'email_thread', $2, 'team', 'edit', $3)"#,
+        VALUES ($1, 'document', $2, 'team', 'edit', $3)"#,
         stale_id,
         team_id.to_string(),
         project_id,

@@ -939,8 +939,7 @@ pub trait ChannelReferenceSharePermissions: Send + Sync + 'static {
     /// Update channel share permissions according to the referenced entity's policy.
     ///
     /// Implementations must not grant access for an item the actor cannot already view.
-    /// Agent sessions require ownership and grant view access; a calendar event requires
-    /// the actor to hold it (owner or linked account) and grants view; PDFs grant comment
+    /// Agent sessions require ownership and grant view access; PDFs grant comment
     /// access, capped at the actor's own access; other references grant view. Each item
     /// is reported as shared or not permitted. An existing direct grant is left unchanged
     /// and still counts as shared.

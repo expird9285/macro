@@ -32,8 +32,6 @@ pub async fn facts(
             .fetch_optional(tx.as_mut()).await?.map(|r| (r.owner_user_id, r.name, None)),
         EntityType::Database => sqlx::query!("SELECT user_id AS owner_id, name FROM database_entities WHERE database_id = $1 AND trashed_at IS NULL FOR SHARE", id)
             .fetch_optional(tx.as_mut()).await?.map(|r| (r.owner_id, r.name, None)),
-        EntityType::EmailThread => sqlx::query!("SELECT l.macro_id FROM email_threads t JOIN email_links l ON l.id = t.link_id WHERE t.id = $1 FOR SHARE OF t, l", id)
-            .fetch_optional(tx.as_mut()).await?.map(|r| (r.macro_id, "Email thread".into(), None)),
         EntityType::Call => {
             let live = sqlx::query!("SELECT created_by FROM calls WHERE id = $1 FOR SHARE", id).fetch_optional(tx.as_mut()).await?;
             if let Some(r) = live { Some((r.created_by, "Call".into(), None)) }

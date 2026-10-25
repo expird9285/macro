@@ -10,10 +10,6 @@ INSERT INTO "Document" (id, name, owner, "projectId") VALUES
     ('20000000-0000-0000-0000-000000000002', 'Document', 'macro|owner@example.com', '20000000-0000-0000-0000-000000000003');
 INSERT INTO "Chat" (id, name, "userId", "projectId") VALUES
     ('20000000-0000-0000-0000-000000000004', 'Chat', 'macro|owner@example.com', '20000000-0000-0000-0000-000000000003');
-INSERT INTO email_links (id, macro_id, fusionauth_user_id, email_address, provider) VALUES
-    ('30000000-0000-0000-0000-000000000001', 'macro|owner@example.com', 'fusionauth', 'alias@example.com', 'GMAIL');
-INSERT INTO email_threads (id, link_id, project_id) VALUES
-    ('20000000-0000-0000-0000-000000000005', '30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000003');
 INSERT INTO entity_access (entity_id, entity_type, source_id, source_type, access_level, granted_from_project_id) VALUES
     ('20000000-0000-0000-0000-000000000002', 'document', '10000000-0000-0000-0000-000000000001', 'team', 'edit', NULL),
     ('20000000-0000-0000-0000-000000000002', 'document', '10000000-0000-0000-0000-000000000001', 'team', 'comment', '20000000-0000-0000-0000-000000000001'),

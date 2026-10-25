@@ -81,22 +81,5 @@ pub async fn edit_share_permission(
     Ok(())
 }
 
-#[tracing::instrument(skip(transaction))]
-pub async fn edit_thread_permission(
-    transaction: &mut Transaction<'_, Postgres>,
-    thread_id: &uuid::Uuid,
-    share_permission_id: &str,
-    share_permission: &UpdateSharePermissionRequestV2,
-) -> anyhow::Result<()> {
-    edit_share_permission(
-        transaction,
-        thread_id,
-        EntityType::EmailThread,
-        share_permission_id,
-        share_permission,
-    )
-    .await
-}
-
 #[cfg(test)]
 mod test;

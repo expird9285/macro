@@ -11,8 +11,8 @@ DMs, and the shared message store other domains discuss things on.
 - `src/domain/message_delivery.rs`, `src/domain/broker_events.rs`: realtime
   fan-out of new messages to connection gateway.
 - `src/domain/dm.rs`, `src/domain/teammate_dms.rs`: direct-message channels.
-- `src/domain/reference_sharing.rs`: sharing an external item (PDF, doc, CRM
-  record) into a channel.
+- `src/domain/reference_sharing.rs`: sharing an external item (PDF, doc,
+  database, form, call) into a channel.
 - `src/inbound/attachment.rs`: the `AttachmentService` impl for channel messages.
 - `src/inbound/toolset.rs`: AI tools over channels (feature `ai_tools`).
 - `src/outbound/pg_channels_repo.rs`, `src/outbound/connection_gateway_realtime.rs`:

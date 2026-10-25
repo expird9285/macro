@@ -294,8 +294,6 @@ fn soup_entity_type_from_channel_reference(entity_type: &str) -> Option<EntityTy
         ReferencedShareItemType::Chat => Some(EntityType::Chat),
         ReferencedShareItemType::Project => Some(EntityType::Project),
         ReferencedShareItemType::Call => Some(EntityType::Call),
-        // Mail threads and calendar events are no longer Soup entities.
-        ReferencedShareItemType::EmailThread | ReferencedShareItemType::CalendarEvent => None,
         // Forms are not soup entities; a posted form renders as its card.
         ReferencedShareItemType::Form => None,
     }

@@ -142,18 +142,11 @@ async fn ensure_referenced_item_visible_to_channel(
 ) -> anyhow::Result<()> {
     let entity_id = macro_uuid::string_to_uuid(item.entity_id())?;
 
-    if item.entity_type() == ReferencedShareItemType::EmailThread {
-        share_permission_db_utils::ensure_thread_share_permission(db, item.entity_id())
-            .await
-            .context("failed to insert thread share permissions")?;
-    }
-
-    // Session, calendar event, database and form channel grants are canonical
+    // Session, database and form channel grants are canonical
     // entity-access rows, and a reference keeps any grant the owner already chose.
     if matches!(
         item.entity_type(),
         ReferencedShareItemType::AgentSession
-            | ReferencedShareItemType::CalendarEvent
             | ReferencedShareItemType::Database
             | ReferencedShareItemType::Form
     ) {
@@ -216,9 +209,7 @@ fn entity_access_type_for(item_type: ReferencedShareItemType) -> EntityType {
         ReferencedShareItemType::Document => EntityType::Document,
         ReferencedShareItemType::Chat => EntityType::Chat,
         ReferencedShareItemType::Project => EntityType::Project,
-        ReferencedShareItemType::EmailThread => EntityType::EmailThread,
         ReferencedShareItemType::Call => EntityType::Call,
-        ReferencedShareItemType::CalendarEvent => EntityType::CalendarEvent,
         ReferencedShareItemType::Form => EntityType::Form,
     }
 }
@@ -232,9 +223,7 @@ fn entity_access_db_type_for(
         ReferencedShareItemType::Document => entity_access_db_utils::EntityType::Document,
         ReferencedShareItemType::Chat => entity_access_db_utils::EntityType::Chat,
         ReferencedShareItemType::Project => entity_access_db_utils::EntityType::Project,
-        ReferencedShareItemType::EmailThread => entity_access_db_utils::EntityType::EmailThread,
         ReferencedShareItemType::Call => entity_access_db_utils::EntityType::Call,
-        ReferencedShareItemType::CalendarEvent => entity_access_db_utils::EntityType::CalendarEvent,
         ReferencedShareItemType::Form => entity_access_db_utils::EntityType::Form,
     }
 }

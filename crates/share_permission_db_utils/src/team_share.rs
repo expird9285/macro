@@ -99,7 +99,6 @@ fn entity_uuid(entity: &Entity<'_>) -> TeamShareResult<Uuid> {
         EntityType::Document
             | EntityType::Project
             | EntityType::Chat
-            | EntityType::EmailThread
             | EntityType::Call
             | EntityType::AgentSession
             | EntityType::Initiative
@@ -138,11 +137,6 @@ async fn load_state(connection: &mut PgConnection, entity: &Entity<'_>) -> TeamS
             FROM "Chat" c LEFT JOIN "ChatPermission" cp ON cp."chatId" = c.id
             WHERE $2 = 'chat' AND c.id = $1
             UNION ALL
-            SELECT l.macro_id, tp."sharePermissionId"
-            FROM email_threads t JOIN email_links l ON l.id = t.link_id
-            LEFT JOIN "EmailThreadPermission" tp ON tp."threadId" = t.id::text
-            WHERE $2 = 'email_thread' AND t.id = $3
-            UNION ALL
             SELECT c.user_id, c.share_permission_id FROM call_entities c
             WHERE $2 = 'call' AND c.id = $3
             UNION ALL
@@ -174,10 +168,7 @@ async fn load_state(connection: &mut PgConnection, entity: &Entity<'_>) -> TeamS
 
     if row.stored_permission_id.is_none()
         && (row.permission_id.is_some()
-            || !matches!(
-                entity.entity_type,
-                EntityType::EmailThread | EntityType::AgentSession
-            ))
+            || !matches!(entity.entity_type, EntityType::AgentSession))
     {
         return Err(report!(TeamShareError::InvalidState));
     }

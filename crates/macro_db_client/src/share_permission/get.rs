@@ -1,5 +1,4 @@
 use anyhow::Context;
-use model::thread::EmailThreadPermission;
 use models_permissions::share_permission::access_level::AccessLevel;
 use models_permissions::share_permission::channel_share_permission::ChannelSharePermission;
 use models_permissions::share_permission::{LinkShare, SharePermissionV2};
@@ -68,23 +67,6 @@ pub async fn get_share_permission_id(
                     JOIN "SharePermission" sp ON cp."sharePermissionId" = sp.id
                     WHERE
                         cp."chatId" = $1
-                "#,
-                item_id,
-            )
-            .fetch_one(db)
-            .await?
-            .id
-        }
-        "thread" => {
-            sqlx::query!(
-                r#"
-                    SELECT
-                        sp.id as id
-                    FROM
-                        "EmailThreadPermission" tp
-                    JOIN "SharePermission" sp ON tp."sharePermissionId" = sp.id
-                    WHERE
-                        tp."threadId" = $1
                 "#,
                 item_id,
             )
@@ -223,59 +205,6 @@ pub async fn get_chat_share_permission(
     )
 }
 
-#[tracing::instrument(skip(db))]
-pub async fn get_email_thread_permission(
-    db: &sqlx::Pool<sqlx::Postgres>,
-    thread_id: &str,
-) -> anyhow::Result<Option<EmailThreadPermission>> {
-    let result = sqlx::query!(
-        r#"
-        SELECT 
-            "threadId" as thread_id,
-            "sharePermissionId" as share_permission_id,
-            "userId" as user_id,
-            "projectId" as project_id
-        FROM "EmailThreadPermission"
-        WHERE "threadId" = $1
-        "#,
-        thread_id
-    )
-    .fetch_optional(db)
-    .await?;
-
-    Ok(result.map(|row| EmailThreadPermission {
-        thread_id: row.thread_id,
-        share_permission_id: row.share_permission_id,
-        user_id: row.user_id,
-        project_id: row.project_id,
-    }))
-}
-
-/// THIS IS COPIED FROM EMAIL_DB_CLIENT and is needed in the `insert_thread_share_permission`
-/// in macro_middleware crate
-#[tracing::instrument(skip(pool))]
-pub async fn get_macro_id_from_thread_id(
-    pool: &sqlx::Pool<sqlx::Postgres>,
-    thread_id: &str,
-) -> anyhow::Result<Option<String>> {
-    let thread_id = macro_uuid::string_to_uuid(thread_id).context("invalid uuid")?;
-
-    let macro_id = sqlx::query_scalar!(
-        r#"
-        SELECT l.macro_id
-        FROM email_threads t
-        JOIN email_links l ON t.link_id = l.id
-        WHERE t.id = $1
-        "#,
-        &thread_id
-    )
-    .fetch_optional(pool)
-    .await
-    .with_context(|| format!("Failed to fetch macro_id for thread ID {}", thread_id))?;
-
-    Ok(macro_id)
-}
-
 /// COPIED FROM COMMS_DB_CLIENT
 /// Check which of the given channels the user is a participant of.
 pub async fn check_channels_for_user(
@@ -326,10 +255,6 @@ pub async fn get_items_by_share_permission_ids(
         UNION ALL
         SELECT 'project' as "item_type!", "projectId" as "item_id!", "sharePermissionId" as "share_permission_id!"
         FROM "ProjectPermission"
-        WHERE "sharePermissionId" = ANY($1)
-        UNION ALL
-        SELECT 'thread' as "item_type!", "threadId" as "item_id!", "sharePermissionId" as "share_permission_id!"
-        FROM "EmailThreadPermission"
         WHERE "sharePermissionId" = ANY($1)
         "#,
         share_permission_ids

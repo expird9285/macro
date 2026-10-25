@@ -83,7 +83,7 @@ async fn same_team_refresh_drops_inherited_rows_outside_the_tree(
     sqlx::query!(
         r#"INSERT INTO entity_access
             (entity_id, entity_type, source_id, source_type, access_level, granted_from_project_id)
-        VALUES ($1, 'email_thread', $2, 'team', 'edit', $3)"#,
+        VALUES ($1, 'document', $2, 'team', 'edit', $3)"#,
         stale_id,
         team_id.to_string(),
         project_id.to_string(),
@@ -127,10 +127,6 @@ async fn same_team_refresh_drops_inherited_rows_outside_the_tree(
             (
                 Uuid::from_u128(0x20000000_0000_0000_0000_000000000002),
                 "document"
-            ),
-            (
-                Uuid::from_u128(0x20000000_0000_0000_0000_000000000005),
-                "email_thread"
             ),
             (
                 Uuid::from_u128(0x20000000_0000_0000_0000_000000000003),

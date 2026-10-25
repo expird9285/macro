@@ -3,7 +3,7 @@
 ## What it is
 
 Shared infrastructure underlying Documents, chat, and authentication. Core
-wire/domain models for documents, items, chat, projects, threads, and
+wire/domain models for documents, items, chat, projects, and
 authentication — one of the most widely depended-on crates in the backend.
 
 ## Start here
@@ -12,15 +12,14 @@ authentication — one of the most widely depended-on crates in the backend.
   file type, listing, and API responses.
 - `src/item.rs` + `src/item/map_item.rs`: the generic item abstraction shared
   across documents/folders/projects.
-- `src/chat.rs`, `src/thread.rs`, `src/project.rs`: chat, thread, and project
-  models.
+- `src/chat.rs`, `src/project.rs`: chat and project models.
 - `src/authentication/`: user, permission, and Google token models.
 - `src/annotations.rs`: PDF/document annotation create/edit/delete payloads.
 
 ## Scope
 
 - Owns: the shared request/response and storage-facing models for documents,
-  items, folders, projects, chat, threads, annotations, and authentication.
+  items, folders, projects, chat, annotations, and authentication.
 - Not here: message/discussion models → `messages`; typed ownership →
   `model_owner`; entity permissions → `models_permissions`; properties →
   `models_properties`.
@@ -31,7 +30,7 @@ authentication — one of the most widely depended-on crates in the backend.
   `models_permissions`, `models_pagination`, `models_bulk_upload`.
 - Used by: dozens of services and crates — `agent_harness`, `ai_tools`,
   `authentication_service(_client)`, `chat`, `collab_surface`,
-  `document_storage_service(_client)`, `documents`, `email_service(_client)`,
+  `document_storage_service(_client)`, `documents`,
   `entity_access`, `macro_db_client`, `messages`, `models_soup`, `projects`,
   `search_service`, `sync_service_client`, and more — check reverse
   dependents before changing a public type's shape.

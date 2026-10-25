@@ -309,11 +309,6 @@ pub async fn get_nested_project_entities(
 
             SELECT c.id as "entity_id!", 'chat' as "entity_type!" FROM "Chat" c
             WHERE c."projectId" IN (SELECT id FROM child_projects)
-
-            UNION ALL
-
-            SELECT et.id::text as "entity_id!", 'email_thread' as "entity_type!" FROM email_threads et
-            WHERE et.project_id IN (SELECT id FROM child_projects)
             "#,
             &project_id.to_string()
         )

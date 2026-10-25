@@ -23,10 +23,6 @@ INSERT INTO initiative (id, name, owner_user_id, share_permission_id) VALUES
 INSERT INTO "ProjectPermission" ("projectId", "sharePermissionId") VALUES ('20000000-0000-0000-0000-000000000001', 'project');
 INSERT INTO "DocumentPermission" ("documentId", "sharePermissionId") VALUES ('20000000-0000-0000-0000-000000000002', 'document');
 INSERT INTO "ChatPermission" ("chatId", "sharePermissionId") VALUES ('20000000-0000-0000-0000-000000000003', 'chat');
-INSERT INTO email_links (id, macro_id, fusionauth_user_id, email_address, provider) VALUES
-    ('30000000-0000-0000-0000-000000000001', 'macro|owner@example.com', 'fusionauth', 'alias@example.com', 'GMAIL');
-INSERT INTO email_threads (id, link_id) VALUES
-    ('20000000-0000-0000-0000-000000000004', '30000000-0000-0000-0000-000000000001');
 INSERT INTO comms_channels (id, name, channel_type, owner_id) VALUES
     ('40000000-0000-0000-0000-000000000001', 'Calls', 'private', 'macro|other@example.com');
 INSERT INTO calls (id, channel_id, room_name, created_by, share_permission_id) VALUES

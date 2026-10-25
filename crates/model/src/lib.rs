@@ -16,7 +16,6 @@ pub mod project;
 pub mod request;
 pub mod response;
 pub mod sync_service;
-pub mod thread;
 pub mod user;
 pub mod user_document_view_location;
 pub mod version;

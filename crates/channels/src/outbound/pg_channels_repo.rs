@@ -2037,7 +2037,7 @@ impl ChannelRepo for PgChannelsRepo {
         entity_id: &str,
         user_id: &str,
     ) -> Result<Vec<AttachmentEntityReference>, Self::Err> {
-        let entity_types = ReferencedShareItemType::reference_lookup_types(entity_type);
+        let entity_types = vec![entity_type.to_string()];
         let attachment_references_fut = async {
             sqlx::query_as!(
                 AttachmentChannelReference,

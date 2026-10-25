@@ -80,11 +80,6 @@ async fn supplied_unvalidated_team_fields_reject_before_any_writes(
                 .await
                 .is_err()
         );
-        assert!(
-            edit_thread_permission(&mut transaction, &Uuid::nil(), &permission.id, &request)
-                .await
-                .is_err()
-        );
         assert_eq!(
             get_stored_share_permission(&mut transaction, &permission.id).await?,
             before
