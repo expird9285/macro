@@ -45,14 +45,14 @@ Docker `mcp/grafana` on the host network) is pointed at this Grafana. Prefer its
 
 Datasource UIDs are stable: `loki`, `prometheus`, `tempo`, `pyroscope`.
 
-Typical calls — service names are the binary names (`email_service`,
+Typical calls — service names are the binary names (`notification_service`,
 `document-storage-service`); match on route, duration, or any span attribute:
 
-- `tempo_traceql-search` `{datasourceUid: "tempo", query: '{resource.service.name="email_service" && status=error}'}`
+- `tempo_traceql-search` `{datasourceUid: "tempo", query: '{resource.service.name="notification_service" && status=error}'}`
   (also `'{span.http.route="/documents" && duration>500ms}'`), then
   `tempo_get-trace` with the returned trace ID. Searches default to the past
   hour; widen with RFC3339 `start`/`end`.
-- `query_loki_logs` `{datasourceUid: "loki", logql: '{service_name="email_service"} |= "error"'}`
+- `query_loki_logs` `{datasourceUid: "loki", logql: '{service_name="notification_service"} |= "error"'}`
   — log lines carry `trace_id`/`span_id` for correlation. Discover services
   with `list_loki_label_values` on `service_name`.
 

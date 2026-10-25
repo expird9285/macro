@@ -53,7 +53,7 @@ One table, failures first:
 
 | Result | Check | Source | Evidence |
 | --- | --- | --- | --- |
-| fail | `cargo test -p calendar_service` | area default | 2 failed: `sync::tests::…` |
+| fail | `cargo test -p notification_service` | area default | 2 failed: `sync::tests::…` |
 | pass | Decorator reserves its height | `web/lexical-nodes.md` | `Foo.tsx:40` sets `aspect-ratio` |
 | skipped | Browser check | root guide | No browser in this environment |
 

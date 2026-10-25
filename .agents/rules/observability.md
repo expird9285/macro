@@ -32,7 +32,7 @@ through them and the per-runtime APIs.
   cross-service client calls, background jobs, and multi-step business
   operations. Don't span trivial helpers; HTTP handlers already get spans from
   `macro_tower_layers`.
-- Name spans for the operation (`calendar.sync_account`), not the function.
+- Name spans for the operation (`document.sync_account`), not the function.
 - Record the IDs you will search by (entity, user, team, session, document) and
   sizes/counts as fields. Skip bulky or sensitive arguments; never record
   prompts, message content, tokens, secrets, or personal data (email, username,

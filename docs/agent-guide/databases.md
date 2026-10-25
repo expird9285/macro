@@ -99,8 +99,7 @@ CRM sidebar. Viewers can only copy its link. Only the owner uses **Share → Tea
 to switch between **None** (private) and **Edit** (team). A pipeline's primary
 company/contact reference is required. The same company or contact can appear
 in multiple independent rows, including through the row menu's **Duplicate** action.
-The reference column and table are protected against removal or type changes. See
-[Customers (CRM)](crm.md#customers-crm--appcomponentcompanies) for the flow.
+The reference column and table are protected against removal or type changes.
 
 Teams migrated from the legacy CRM have a team-shared **Sales** pipeline with
 their visible companies and copied Stage, Owner and Revenue values, including

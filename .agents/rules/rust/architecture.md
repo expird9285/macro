@@ -24,7 +24,7 @@ Boundaries between crates and layers in the Rust backend.
   Enforced by ast-grep `rust-no-axum-extension-param`, warning.
 - **CS-31** Attach cross-cutting services to the owning domain service, not ad
   hoc at the router/handler layer — e.g. `EntityAccessManagementService` hangs
-  off the email/document service itself, the way the documents crate does.
+  off the document service itself, the way the documents crate does.
 - **CS-51** Domain modules reference no infrastructure or transport: no AWS
   SDKs, redis, reqwest, opensearch, kafka, axum, or http types under
   `src/domain/**` — wrap clients in outbound adapters behind ports; response

@@ -17,7 +17,7 @@ before changing a stack.
 - Never run `pulumi up`/`destroy`, `wrangler deploy`/`secret put`, or dispatch a
   deploy workflow unless the user asked for that deploy in this conversation.
   `pulumi preview` is fine.
-- Copy the current pattern (`calendar-service`, `lexical-service`): gateway
+- Copy the current pattern (`contacts-service`, `lexical-service`): gateway
   `ServiceTargetGroup` with a unique `GATEWAY_PRIORITIES` entry,
   `DopplerEcsEnvironment`, `EcrImage`, Fargate with the circuit breaker. Not
   per-service ALBs, raw `aws.sqs.Queue`, or `createServiceRole`.

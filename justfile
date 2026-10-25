@@ -72,7 +72,7 @@ seed-scenario *ARGS:
 
 # Start only the services needed by the local E2E suites. Avoid unrelated
 # local services with extra env/dependency requirements blocking E2E.
-local-e2e-services := "authentication-service connection_gateway contacts_service document_storage_service email_service notification_service static_file_service static_file_cdn sync_service websocket_service"
+local-e2e-services := "authentication-service connection_gateway contacts_service document_storage_service notification_service static_file_service static_file_cdn sync_service websocket_service"
 
 # Update the fixed-output js node_modules hash after bun.lock changes.
 update-node-modules-hash:
