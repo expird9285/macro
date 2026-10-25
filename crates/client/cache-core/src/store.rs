@@ -6,7 +6,6 @@
 //! wasm — wasm futures aren't
 //! `Send`.
 
-use crate::calendar::{CalendarRangeRow, CalendarSpan, CalendarSyncState, project_calendar_range};
 use crate::predicate::reconciliation::{
     PredicateBaselineEntry, PredicateMembership, PredicateReconciliation, predicate_membership,
     reconcile_predicate_baseline,
@@ -31,8 +30,6 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-
-mod calendar;
 
 /// Whether a storage implementation can provide queue diagnostics.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -299,9 +296,6 @@ pub struct InMemoryStorage {
     search_catalog_load_count: Arc<AtomicUsize>,
     search_catalog_rows_loaded: Arc<AtomicUsize>,
     mutation_queue_load_count: Arc<AtomicUsize>,
-    calendar_ranges: HashMap<EntityKey<'static>, CalendarRangeRow>,
-    calendar_coverage: Vec<CalendarSpan>,
-    calendar_sync: CalendarSyncState,
 }
 
 #[derive(Clone, Debug)]
@@ -333,14 +327,6 @@ impl InMemoryStorage {
             self.search_documents
                 .insert((document.profile, key.clone()), document);
         }
-        match project_calendar_range(&key, &record) {
-            Some(row) => {
-                self.calendar_ranges.insert(key.clone(), row);
-            }
-            None => {
-                self.calendar_ranges.remove(&key);
-            }
-        }
         self.records.insert(key, record);
     }
 
@@ -349,7 +335,6 @@ impl InMemoryStorage {
         self.records.remove(key);
         self.search_documents
             .retain(|(_, existing_key), _| existing_key != key);
-        self.calendar_ranges.remove(key);
     }
 
     fn rebase_projections(&mut self, keys: &[PredicateRecordKey]) {
@@ -818,9 +803,6 @@ impl Storage for InMemoryStorage {
         self.projections.clear();
         self.optimistic_projections.clear();
         self.mutations.clear();
-        self.calendar_ranges.clear();
-        self.calendar_coverage.clear();
-        self.calendar_sync = CalendarSyncState::default();
         Ok(())
     }
 

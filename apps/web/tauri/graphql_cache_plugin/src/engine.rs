@@ -33,9 +33,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-mod calendar;
 mod soup;
-pub use calendar::CalendarRangeResultWire;
 pub use soup::{
     EntityFilterRequest, EntityFilterResult, PredicateBaselineEntry, PredicateFilterResult,
 };
@@ -764,7 +762,6 @@ impl EngineHandle {
         now_ms: i64,
         lease_expires_at_ms: i64,
         client_metadata: Option<serde_json::Value>,
-        uncertain_calendar_event_keys: Vec<String>,
     ) -> Result<EnqueueOptimisticMutationResultWire, String> {
         let mut state = self.inner.lock().await;
         let EngineState { engine, ops, .. } = &mut *state;
@@ -779,7 +776,7 @@ impl EngineHandle {
         )
         .await?;
         let result = engine
-            .enqueue_optimistic_mutation_with_calendar(
+            .enqueue_optimistic_mutation_with_projections(
                 origin,
                 BeginOptimisticWrite {
                     client_metadata: client_metadata.as_ref(),
@@ -799,10 +796,6 @@ impl EngineHandle {
                     lease_expires_at_ms,
                 },
                 projections,
-                uncertain_calendar_event_keys
-                    .into_iter()
-                    .map(|key| EntityKey(key.into()))
-                    .collect(),
             )
             .await
             .map_err(|error| error.to_string())?;

@@ -24,7 +24,6 @@ pub const CACHE_FORMAT_VERSION: u32 = 3;
 /// fetched. Bump this epoch for incompatible changes to normalized identity,
 /// field storage shape, or other schema-derived cache semantics.
 // File-type facts now preserve raw server text instead of enum-normalizing it.
-// Calendar range tables index cached occurrences, so older caches lack rows.
 pub const CACHE_SCHEMA_COMPATIBILITY_EPOCH: u32 = 4;
 
 #[derive(Debug, Error)]

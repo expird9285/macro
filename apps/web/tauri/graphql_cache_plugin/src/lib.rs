@@ -23,7 +23,7 @@ pub mod commands;
 mod engine;
 
 pub use engine::{
-    AffectedOperationsResultWire, CalendarRangeResultWire, ClaimedMutationWire,
+    AffectedOperationsResultWire, ClaimedMutationWire,
     CommitOptimisticWriteResultWire, DeferOptimisticWriteResultWire, EngineHandle,
     EnqueueOptimisticMutationResultWire, EntityFilterRequest, EntityFilterResult,
     InitialMutationClaimWire, PredicateBaselineEntry, PredicateFilterResult, ReadResultWire,

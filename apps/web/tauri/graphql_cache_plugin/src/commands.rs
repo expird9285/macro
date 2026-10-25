@@ -10,7 +10,7 @@
 //! worker's `{ok: false, error}` responses.
 
 use crate::engine::{
-    AffectedOperationsResultWire, CalendarRangeResultWire, ClaimedMutationWire,
+    AffectedOperationsResultWire, ClaimedMutationWire,
     CommitOptimisticWriteResultWire, DeferOptimisticWriteResultWire, EngineHandle,
     EnqueueOptimisticMutationResultWire, EntityFilterRequest, EntityFilterResult,
     MutationUpsertKindWire, ReadResultWire, RecordSelectionResultWire,
@@ -20,7 +20,6 @@ use crate::{
     CacheState, InitializedCache, emit_cache_changed, emit_cache_changed_with_search_changes,
     emit_mutation_settled, emit_ops_affected,
 };
-use cache_core::calendar::{CalendarCommit, CalendarRangeRequest};
 use cache_core::entity_resolver::EntityResolver;
 use cache_core::link_patch::{OptimisticLinkPatch, QueryRevalidation};
 use cache_core::query_inspection::{CachedQueryInstance, CachedQueryVariant};
@@ -209,41 +208,6 @@ pub async fn graphql_cache_entity_filter(
     engine_handle(&state)?.entity_filter(request).await
 }
 
-/// Answers a calendar viewport from the native range index.
-#[tauri::command]
-pub async fn graphql_cache_calendar_range(
-    state: State<'_, CacheState>,
-    request: CalendarRangeRequest,
-) -> Result<CalendarRangeResultWire, String> {
-    engine_handle(&state)?.calendar_range(request).await
-}
-
-/// Applies fetched coverage, delta deletions, and sync state, then
-/// broadcasts the deleted records to every webview like a write.
-#[tauri::command]
-pub async fn graphql_cache_calendar_commit<R: Runtime>(
-    app: AppHandle<R>,
-    state: State<'_, CacheState>,
-    commit: CalendarCommit,
-) -> Result<WriteResultWire, String> {
-    let result = engine_handle(&state)?.calendar_commit(commit).await?;
-    emit_ops_affected(
-        &app,
-        &result.affected_ops,
-        &result.changed,
-        result.field_changes.as_ref(),
-    );
-    if result.revision_advanced {
-        emit_cache_changed_with_search_changes(
-            &app,
-            &result.revision,
-            result.reset,
-            result.search_changed_buckets.as_ref(),
-        );
-    }
-    Ok(result)
-}
-
 /// Active-query registration installed by a network write.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -403,7 +367,7 @@ pub async fn graphql_cache_enqueue_optimistic_mutation<R: Runtime>(
     now_ms: i64,
     lease_expires_at_ms: i64,
     client_metadata: Option<serde_json::Value>,
-    uncertain_calendar_event_keys: Option<Vec<String>>,
+    _uncertain_calendar_event_keys: Option<Vec<String>>,
 ) -> Result<EnqueueOptimisticMutationResultWire, String> {
     let result = engine_handle(&state)?
         .enqueue_optimistic_mutation(
@@ -421,7 +385,6 @@ pub async fn graphql_cache_enqueue_optimistic_mutation<R: Runtime>(
             now_ms,
             lease_expires_at_ms,
             client_metadata,
-            uncertain_calendar_event_keys.unwrap_or_default(),
         )
         .await?;
     emit_ops_affected(

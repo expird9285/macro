@@ -1,7 +1,6 @@
 use super::*;
 use pollster::block_on;
 
-mod calendar;
 mod soup;
 mod watch;
 
@@ -568,7 +567,6 @@ fn optimistic_layer_commits_durably() {
         10,
         1_000,
         Some(serde_json::json!({"draftRevision": 10})),
-        vec![],
     ))
     .unwrap();
     assert_eq!(optimistic.result.affected_ops, vec!["client:1".to_string()]);
@@ -646,7 +644,6 @@ fn rollback_drops_optimistic_contribution() {
         10,
         1_000,
         None,
-        vec![],
     ))
     .unwrap();
     let InitialMutationClaimWire::Claimed { mutation: claimed } = optimistic.initial_claim else {

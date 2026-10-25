@@ -98,10 +98,6 @@ pub struct OptimisticSource {
     /// Ordered generic projection changes composed with this optimistic layer.
     #[serde(default)]
     pub projection_mutations: Vec<OptimisticProjectionMutation>,
-    /// Calendar events whose occurrence set this layer cannot predict, such
-    /// as a recurrence edit. Range reads report them until the layer settles.
-    #[serde(default)]
-    pub uncertain_calendar_event_keys: Vec<EntityKey<'static>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -118,8 +114,6 @@ struct OptimisticSourceEnvelope {
     #[serde(default)]
     revalidations: Vec<QueryRevalidation>,
     projection_mutations: Vec<OptimisticProjectionMutation>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    uncertain_calendar_event_keys: Vec<EntityKey<'static>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -144,7 +138,6 @@ pub fn encode_optimistic_source(source: &OptimisticSource) -> String {
             link_patches: source.link_patches.clone(),
             revalidations: source.revalidations.clone(),
             projection_mutations: source.projection_mutations.clone(),
-            uncertain_calendar_event_keys: source.uncertain_calendar_event_keys.clone(),
         })
         .expect("optimistic source serializes"),
     );
@@ -162,7 +155,6 @@ pub fn decode_optimistic_source(value: &str) -> Result<OptimisticSource, String>
             link_patches: Vec::new(),
             revalidations: Vec::new(),
             projection_mutations: Vec::new(),
-            uncertain_calendar_event_keys: Vec::new(),
         });
     };
     let value: Json = serde_json::from_str(envelope).map_err(|error| error.to_string())?;
@@ -182,7 +174,6 @@ pub fn decode_optimistic_source(value: &str) -> Result<OptimisticSource, String>
                 link_patches: envelope.link_patches,
                 revalidations: envelope.revalidations,
                 projection_mutations: Vec::new(),
-                uncertain_calendar_event_keys: Vec::new(),
             })
         }
         version if version == u64::from(OPTIMISTIC_SOURCE_VERSION) => {
@@ -195,7 +186,6 @@ pub fn decode_optimistic_source(value: &str) -> Result<OptimisticSource, String>
                 link_patches: envelope.link_patches,
                 revalidations: envelope.revalidations,
                 projection_mutations: envelope.projection_mutations,
-                uncertain_calendar_event_keys: envelope.uncertain_calendar_event_keys,
             })
         }
         version => Err(format!("unsupported optimistic source version {version}")),

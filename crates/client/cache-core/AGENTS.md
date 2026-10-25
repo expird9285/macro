@@ -27,7 +27,7 @@ GraphQL response shape for callers. A concrete `Storage` impl (e.g.
 - `src/search.rs`: disposable Quick Access projection (version 3); email matches subjects and all embedded senders, never snippets or bodies.
 - `src/queue.rs`: the optimistic mutation queue.
 - `tests/`: the primary spec for engine behavior — one file per concern
-  (optimistic updates, calendar range, search, subscriptions, fuzz).
+  (optimistic updates, search, subscriptions, fuzz).
 
 ## Scope
 
