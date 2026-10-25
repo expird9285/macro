@@ -534,7 +534,6 @@ export * from './createDocumentRequestBranchedFromId';
 export * from './createDocumentRequestBranchedFromVersionId';
 export * from './createDocumentRequestCreatedAt';
 export * from './createDocumentRequestDocumentFamilyId';
-export * from './createDocumentRequestEmailAttachmentId';
 export * from './createDocumentRequestFileType';
 export * from './createDocumentRequestId';
 export * from './createDocumentRequestJobId';

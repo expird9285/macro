@@ -15682,12 +15682,6 @@ export const createDocumentBody = zod.object({
   documentName: zod
     .string()
     .describe('The name of the document without extension.'),
-  emailAttachmentId: zod
-    .uuid()
-    .nullish()
-    .describe(
-      'Internal only field that links the document created to the specified email attachment by\ncreating a row in the document_email table.'
-    ),
   fileType: zod
     .string()
     .nullish()

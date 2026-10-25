@@ -1,7 +1,6 @@
 import type { CreateDocumentRequest } from '../../../generated/storage/types.gen';
 import { unwrap } from '../../utils';
 import type { MacroClient } from '../../utils/client';
-import type { EmailAttachment } from '../email/attachment';
 import type { Project } from '../projects/project';
 import type { SearchOpts } from '../search';
 import type { Team } from '../teams/team';
@@ -58,7 +57,6 @@ export class DocumentNamespace {
     project?: Project;
     team?: Team;
     branchedFrom?: Document;
-    attachment?: EmailAttachment;
     isTask?: boolean;
   }) {
     const body: CreateDocumentRequest = {
@@ -69,7 +67,6 @@ export class DocumentNamespace {
       projectId: options.project?.id,
       teamId: options.team?.id,
       branchedFromId: options.branchedFrom?.id,
-      emailAttachmentId: options.attachment?.id,
       isTask: options.isTask,
     };
     const result = unwrap(

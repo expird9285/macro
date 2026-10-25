@@ -4002,11 +4002,6 @@ export type CreateDocumentRequest = {
      */
     documentName: string;
     /**
-     * Internal only field that links the document created to the specified email attachment by
-     * creating a row in the document_email table.
-     */
-    emailAttachmentId?: string | null;
-    /**
      * Optional file type of the document.
      */
     fileType?: string | null;

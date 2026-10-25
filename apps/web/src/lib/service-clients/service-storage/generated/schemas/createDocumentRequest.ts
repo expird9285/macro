@@ -8,7 +8,6 @@ import type { CreateDocumentRequestBranchedFromId } from './createDocumentReques
 import type { CreateDocumentRequestBranchedFromVersionId } from './createDocumentRequestBranchedFromVersionId';
 import type { CreateDocumentRequestCreatedAt } from './createDocumentRequestCreatedAt';
 import type { CreateDocumentRequestDocumentFamilyId } from './createDocumentRequestDocumentFamilyId';
-import type { CreateDocumentRequestEmailAttachmentId } from './createDocumentRequestEmailAttachmentId';
 import type { CreateDocumentRequestFileType } from './createDocumentRequestFileType';
 import type { CreateDocumentRequestId } from './createDocumentRequestId';
 import type { CreateDocumentRequestJobId } from './createDocumentRequestJobId';
@@ -27,9 +26,6 @@ export interface CreateDocumentRequest {
   documentFamilyId?: CreateDocumentRequestDocumentFamilyId;
   /** The name of the document without extension. */
   documentName: string;
-  /** Internal only field that links the document created to the specified email attachment by
-creating a row in the document_email table. */
-  emailAttachmentId?: CreateDocumentRequestEmailAttachmentId;
   /** Optional file type of the document. */
   fileType?: CreateDocumentRequestFileType;
   /** The id of the document in the database */
