@@ -192,18 +192,6 @@ fn exported_queues_match_local_values() {
         queues.chat_delete_queue.as_ref(),
         "delete-chat-handler-queue"
     );
-    assert_eq!(
-        queues.email_scheduled_queue.as_ref(),
-        "email-service-scheduled-queue",
-    );
-    assert_eq!(
-        queues.gmail_ops_queue.as_ref(),
-        "email-service-gmail-ops-queue",
-    );
-    assert_eq!(
-        queues.gmail_ops_retry_queue.as_ref(),
-        "email-service-gmail-ops-retry-queue",
-    );
     assert_eq!(queues.notification_queue.as_ref(), "notification-queue");
     assert_eq!(
         queues.notification_ingress_queue.as_ref(),
@@ -215,11 +203,6 @@ fn exported_queues_match_local_values() {
     assert_eq!(
         queues.document_delete_queue.as_ref(),
         "delete-document-handler-queue",
-    );
-    assert_eq!(queues.sfs_delete_queue.as_ref(), "email-sfs-delete-queue");
-    assert_eq!(
-        queues.sfs_uploader_queue.as_ref(),
-        "email-service-sfs-mapper-queue",
     );
     assert_eq!(queues.contacts_queue.as_ref(), "contacts-queue");
     assert_eq!(
@@ -233,22 +216,6 @@ fn exported_queues_match_local_values() {
     assert_eq!(
         queues.static_file_service_s3_event_queue_url.as_ref(),
         "static-file-s3-event-notification-queue",
-    );
-    assert_eq!(
-        queues.link_manager_queue.as_ref(),
-        "email-service-refresh-queue",
-    );
-    assert_eq!(
-        queues.gmail_inbox_sync_queue.as_ref(),
-        "email-service-gmail-inbox-sync-queue",
-    );
-    assert_eq!(
-        queues.gmail_inbox_sync_retry_queue.as_ref(),
-        "email-service-gmail-inbox-retry-queue",
-    );
-    assert_eq!(
-        queues.email_backfill_queue.as_ref(),
-        "email-service-backfill-queue",
     );
     assert_eq!(queues.upload_extractor_queue.as_ref(), "bulk-upload-queue");
     assert_eq!(
@@ -269,18 +236,6 @@ fn exported_queues_match_dev_values() {
         queues.chat_delete_queue.as_ref(),
         "delete-chat-handler-queue-dev",
     );
-    assert_eq!(
-        queues.email_scheduled_queue.as_ref(),
-        "email-service-scheduled-queue-dev",
-    );
-    assert_eq!(
-        queues.gmail_ops_queue.as_ref(),
-        "email-service-gmail-ops-queue-dev",
-    );
-    assert_eq!(
-        queues.gmail_ops_retry_queue.as_ref(),
-        "email-service-gmail-ops-retry-queue-dev",
-    );
     assert_eq!(queues.notification_queue.as_ref(), "notification-queue-dev");
     assert_eq!(
         queues.notification_ingress_queue.as_ref(),
@@ -296,14 +251,6 @@ fn exported_queues_match_dev_values() {
         queues.document_delete_queue.as_ref(),
         "delete-document-handler-queue-dev",
     );
-    assert_eq!(
-        queues.sfs_delete_queue.as_ref(),
-        "email-sfs-delete-queue-dev",
-    );
-    assert_eq!(
-        queues.sfs_uploader_queue.as_ref(),
-        "email-service-sfs-mapper-queue-dev",
-    );
     assert_eq!(queues.contacts_queue.as_ref(), "contacts-queue-dev");
     assert_eq!(
         queues.push_notification_event_handler_queue.as_ref(),
@@ -316,22 +263,6 @@ fn exported_queues_match_dev_values() {
     assert_eq!(
         queues.static_file_service_s3_event_queue_url.as_ref(),
         "static-file-s3-event-notification-queue-dev",
-    );
-    assert_eq!(
-        queues.link_manager_queue.as_ref(),
-        "email-service-refresh-queue-dev",
-    );
-    assert_eq!(
-        queues.gmail_inbox_sync_queue.as_ref(),
-        "email-service-gmail-webhook-queue-dev",
-    );
-    assert_eq!(
-        queues.gmail_inbox_sync_retry_queue.as_ref(),
-        "email-service-gmail-webhook-retry-queue-dev",
-    );
-    assert_eq!(
-        queues.email_backfill_queue.as_ref(),
-        "email-service-backfill-queue-dev",
     );
     assert_eq!(
         queues.upload_extractor_queue.as_ref(),
@@ -356,18 +287,6 @@ fn exported_queues_match_prod_values() {
         "delete-chat-handler-queue-prod",
     );
     assert_eq!(
-        queues.email_scheduled_queue.as_ref(),
-        "email-service-scheduled-queue-prod",
-    );
-    assert_eq!(
-        queues.gmail_ops_queue.as_ref(),
-        "email-service-gmail-ops-queue-prod",
-    );
-    assert_eq!(
-        queues.gmail_ops_retry_queue.as_ref(),
-        "email-service-gmail-ops-retry-queue-prod",
-    );
-    assert_eq!(
         queues.notification_queue.as_ref(),
         "notification-queue-prod"
     );
@@ -388,14 +307,6 @@ fn exported_queues_match_prod_values() {
         queues.document_delete_queue.as_ref(),
         "delete-document-handler-queue-prod",
     );
-    assert_eq!(
-        queues.sfs_delete_queue.as_ref(),
-        "email-sfs-delete-queue-prod",
-    );
-    assert_eq!(
-        queues.sfs_uploader_queue.as_ref(),
-        "email-service-sfs-mapper-queue-prod",
-    );
     assert_eq!(queues.contacts_queue.as_ref(), "contacts-queue-prod");
     assert_eq!(
         queues.push_notification_event_handler_queue.as_ref(),
@@ -408,22 +319,6 @@ fn exported_queues_match_prod_values() {
     assert_eq!(
         queues.static_file_service_s3_event_queue_url.as_ref(),
         "static-file-s3-event-notification-queue-prod",
-    );
-    assert_eq!(
-        queues.link_manager_queue.as_ref(),
-        "email-service-refresh-queue-prod",
-    );
-    assert_eq!(
-        queues.gmail_inbox_sync_queue.as_ref(),
-        "email-service-gmail-webhook-queue-prod",
-    );
-    assert_eq!(
-        queues.gmail_inbox_sync_retry_queue.as_ref(),
-        "email-service-gmail-webhook-retry-queue-prod",
-    );
-    assert_eq!(
-        queues.email_backfill_queue.as_ref(),
-        "email-service-backfill-queue-prod",
     );
     assert_eq!(
         queues.upload_extractor_queue.as_ref(),
@@ -444,18 +339,6 @@ fn exported_queue_override_names_are_derived_from_env_var_names() {
     assert_eq!(
         ChatDeleteQueue::local().override_env_var_name(),
         "OVERRIDE_CHAT_DELETE_QUEUE",
-    );
-    assert_eq!(
-        EmailScheduledQueue::local().override_env_var_name(),
-        "OVERRIDE_EMAIL_SCHEDULED_QUEUE",
-    );
-    assert_eq!(
-        GmailOpsQueue::local().override_env_var_name(),
-        "OVERRIDE_GMAIL_OPS_QUEUE",
-    );
-    assert_eq!(
-        GmailOpsRetryQueue::local().override_env_var_name(),
-        "OVERRIDE_GMAIL_OPS_RETRY_QUEUE",
     );
     assert_eq!(
         NotificationQueue::local().override_env_var_name(),
@@ -482,14 +365,6 @@ fn exported_queue_override_names_are_derived_from_env_var_names() {
         "OVERRIDE_DOCUMENT_DELETE_QUEUE",
     );
     assert_eq!(
-        SfsDeleteQueue::local().override_env_var_name(),
-        "OVERRIDE_SFS_DELETE_QUEUE",
-    );
-    assert_eq!(
-        SfsUploaderQueue::local().override_env_var_name(),
-        "OVERRIDE_SFS_UPLOADER_QUEUE",
-    );
-    assert_eq!(
         ContactsQueue::local().override_env_var_name(),
         "OVERRIDE_CONTACTS_QUEUE",
     );
@@ -505,22 +380,6 @@ fn exported_queue_override_names_are_derived_from_env_var_names() {
     assert_eq!(
         StaticFileServiceS3EventQueueUrl::local().override_env_var_name(),
         "OVERRIDE_STATIC_FILE_SERVICE_S3_EVENT_QUEUE_URL",
-    );
-    assert_eq!(
-        LinkManagerQueue::local().override_env_var_name(),
-        "OVERRIDE_LINK_MANAGER_QUEUE",
-    );
-    assert_eq!(
-        GmailInboxSyncQueue::local().override_env_var_name(),
-        "OVERRIDE_GMAIL_INBOX_SYNC_QUEUE",
-    );
-    assert_eq!(
-        GmailInboxSyncRetryQueue::local().override_env_var_name(),
-        "OVERRIDE_GMAIL_INBOX_SYNC_RETRY_QUEUE",
-    );
-    assert_eq!(
-        EmailBackfillQueue::local().override_env_var_name(),
-        "OVERRIDE_EMAIL_BACKFILL_QUEUE",
     );
     assert_eq!(
         UploadExtractorQueue::local().override_env_var_name(),
@@ -539,7 +398,7 @@ fn queue_deserializes_from_string() {
     use serde::de::value::{Error as DeError, StrDeserializer};
 
     let deserializer: StrDeserializer<DeError> = "custom-queue".into_deserializer();
-    let queue = EmailScheduledQueue::deserialize(deserializer).unwrap();
+    let queue = ChatDeleteQueue::deserialize(deserializer).unwrap();
 
     assert_eq!(queue.as_str(), "custom-queue");
 }

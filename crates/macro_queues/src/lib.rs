@@ -6,7 +6,7 @@
 //! Use [`queue!`] to define a newtype whose default value is selected from
 //! [`macro_env::Environment`]. The generated type also checks an override
 //! environment variable derived from the type name. For example,
-//! `EmailScheduledQueue` checks `OVERRIDE_EMAIL_SCHEDULED_QUEUE` before falling
+//! `ChatDeleteQueue` checks `OVERRIDE_CHAT_DELETE_QUEUE` before falling
 //! back to its `local`, `dev`, or `prod` default.
 //!
 //! Queue values are opaque strings (SQS queue names or, in some cases, full
@@ -188,7 +188,7 @@ impl<'a> fmt::Display for Queue<'a> {
 /// environment variables.
 ///
 /// The override environment variable name is derived from the struct name:
-/// `EmailScheduledQueue` checks `OVERRIDE_EMAIL_SCHEDULED_QUEUE`. If that
+/// `ChatDeleteQueue` checks `OVERRIDE_CHAT_DELETE_QUEUE`. If that
 /// override is not set, [`macro_env::Environment`] selects one of the provided
 /// `local`, `dev`, or `prod` defaults.
 ///
@@ -474,24 +474,6 @@ queue! {
             dev: "delete-chat-handler-queue-dev",
             prod: "delete-chat-handler-queue-prod",
         },
-        /// Queue for scheduled email sends.
-        pub EmailScheduledQueue {
-            local: "email-service-scheduled-queue",
-            dev: "email-service-scheduled-queue-dev",
-            prod: "email-service-scheduled-queue-prod",
-        },
-        /// Queue for async Gmail label/sync operations.
-        pub GmailOpsQueue {
-            local: "email-service-gmail-ops-queue",
-            dev: "email-service-gmail-ops-queue-dev",
-            prod: "email-service-gmail-ops-queue-prod",
-        },
-        /// Queue for retrying rate-limited Gmail operations.
-        pub GmailOpsRetryQueue {
-            local: "email-service-gmail-ops-retry-queue",
-            dev: "email-service-gmail-ops-retry-queue-dev",
-            prod: "email-service-gmail-ops-retry-queue-prod",
-        },
         /// Queue for egress notification delivery.
         pub NotificationQueue {
             local: "notification-queue",
@@ -528,18 +510,6 @@ queue! {
             dev: "delete-document-handler-queue-dev",
             prod: "delete-document-handler-queue-prod",
         },
-        /// Queue for static-file-service deletion messages.
-        pub SfsDeleteQueue {
-            local: "email-sfs-delete-queue",
-            dev: "email-sfs-delete-queue-dev",
-            prod: "email-sfs-delete-queue-prod",
-        },
-        /// Queue for static-file-service uploader jobs.
-        pub SfsUploaderQueue {
-            local: "email-service-sfs-mapper-queue",
-            dev: "email-service-sfs-mapper-queue-dev",
-            prod: "email-service-sfs-mapper-queue-prod",
-        },
         /// Queue for the contacts service.
         pub ContactsQueue {
             local: "contacts-queue",
@@ -569,45 +539,6 @@ queue! {
             dev: "static-file-s3-event-notification-queue-dev",
             prod: "static-file-s3-event-notification-queue-prod",
         },
-        /// Queue for the email link manager / refresh handler.
-        pub LinkManagerQueue {
-            local: "email-service-refresh-queue",
-            dev: "email-service-refresh-queue-dev",
-            prod: "email-service-refresh-queue-prod",
-        },
-        /// Queue for Gmail inbox update processing.
-        ///
-        /// Note: the local queue name uses the `gmail-inbox-sync` base while
-        /// dev/prod derive from the `gmail-webhook` base. This divergence is
-        /// intentional and matches the existing infrastructure.
-        pub GmailInboxSyncQueue {
-            local: "email-service-gmail-inbox-sync-queue",
-            dev: "email-service-gmail-webhook-queue-dev",
-            prod: "email-service-gmail-webhook-queue-prod",
-        },
-        /// Queue for Gmail inbox update retries.
-        ///
-        /// Note: the local queue name uses the `gmail-inbox-retry` base while
-        /// dev/prod derive from the `gmail-webhook-retry` base. This divergence
-        /// is intentional and matches the existing infrastructure.
-        pub GmailInboxSyncRetryQueue {
-            local: "email-service-gmail-inbox-retry-queue",
-            dev: "email-service-gmail-webhook-retry-queue-dev",
-            prod: "email-service-gmail-webhook-retry-queue-prod",
-        },
-        /// Queue for the email backfill process (authentication_service
-        /// `EMAIL_BACKFILL_QUEUE` and email_service `BACKFILL_QUEUE`).
-        pub EmailBackfillQueue {
-            local: "email-service-backfill-queue",
-            dev: "email-service-backfill-queue-dev",
-            prod: "email-service-backfill-queue-prod",
-        },
-        /// Queue for the nightly CRM cleanup job (email_service).
-        pub EmailCrmCleanupQueue {
-            local: "email-service-crm-cleanup-queue",
-            dev: "email-service-crm-cleanup-queue-dev",
-            prod: "email-service-crm-cleanup-queue-prod",
-        },
         /// Queue for the bulk upload extractor lambda
         /// (upload_extractor_lambda_trigger `UPLOAD_EXTRACTOR_QUEUE`).
         pub UploadExtractorQueue {
@@ -620,33 +551,6 @@ queue! {
             local: "document-upload-finalizer-queue",
             dev: "document-upload-finalizer-queue-dev",
             prod: "document-upload-finalizer-queue-prod",
-        },
-        /// Queue for reminder dispatch.
-        ///
-        /// Carries both the minutely sweep tick, which an EventBridge rule
-        /// publishes directly, and the per-firing messages that sweep fans out.
-        pub ReminderDispatchQueue {
-            local: "reminder-dispatch-queue",
-            dev: "reminder-dispatch-queue-dev",
-            prod: "reminder-dispatch-queue-prod",
-        },
-        /// Queue for calendar event reminder dispatch.
-        ///
-        /// Carries both the minutely sweep tick, which an EventBridge rule
-        /// publishes directly, and the per-firing messages that sweep fans out.
-        pub CalendarReminderDispatchQueue {
-            local: "calendar-reminder-dispatch-queue",
-            dev: "calendar-reminder-dispatch-queue-dev",
-            prod: "calendar-reminder-dispatch-queue-prod",
-        },
-        /// Queue for the Google Calendar sync backfill process (calendar_service).
-        ///
-        /// Calendar keeps its own backfill queue rather than sharing the email
-        /// backfill queue, so its sync deploy lifecycle is independent of email.
-        pub CalendarServiceBackfillQueue {
-            local: "calendar-service-backfill-queue",
-            dev: "calendar-service-backfill-queue-dev",
-            prod: "calendar-service-backfill-queue-prod",
         },
         /// Queue for the organization retention handler
         /// (organization_retention_trigger `ORGANIZATION_RETENTION_QUEUE`).
