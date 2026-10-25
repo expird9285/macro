@@ -11,8 +11,8 @@ in-call chat.
 - `src/domain/service.rs` + `src/domain/models.rs`: call lifecycle policy.
 - `src/domain/service/guest_chat.rs`: active guest authorization for the shared
   call discussion; message storage and delivery belong to `messages`.
-- `src/domain/meetings.rs`: scheduled-meeting ↔ call association (used by
-  `calendar_events`/`calendar_scheduling` meeting links).
+- `src/domain/meetings.rs`: scheduled-meeting ↔ call association (meeting
+  links).
 - `src/inbound/axum_router.rs`, `src/inbound/stale_call_sweeper.rs`: HTTP routes
   and the sweeper that ends abandoned calls.
 - `src/outbound/livekit_rtc_client.rs`: LiveKit adapter.
@@ -24,15 +24,13 @@ in-call chat.
 
 - Owns: call creation/ringing/join lifecycle, LiveKit room management, call
   recordings, and persistent in-call chat.
-- Not here: channel messages and threads outside calls → `crates/channels`;
-  calendar meeting scheduling → `crates/calendar_events`, `crates/calendar_scheduling`.
+- Not here: channel messages and threads outside calls → `crates/channels`.
 
 ## Boundaries
 
 - Depends on: `channels` (feature `outbound`), `agent`/`ai_usage` (call summarization),
   `entity_access_db_utils`, `livekit-api`/`livekit-protocol`.
-- Used by: `memory`, `ai_tools`, `models_soup`, `agent_trigger`, `crm`, `soup`,
-  `calendar_events` (meeting links).
+- Used by: `memory`, `ai_tools`, `models_soup`, `agent_trigger`, `soup`.
 
 ## Recipes
 
