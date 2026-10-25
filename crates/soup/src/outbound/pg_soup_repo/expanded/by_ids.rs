@@ -72,11 +72,7 @@ async fn expanded_soup_by_ids_hydrated<'a>(
                 NULL::text as "model",
                 di.sha as "sha",
                 dt.sub_type as "sub_type?: DocumentSubType",
-                EXISTS (
-                    SELECT 1
-                    FROM document_email de
-                    WHERE de.document_id = d.id
-                ) as "is_email_attachment!",
+                false as "is_email_attachment!",
                 (
                     dt.sub_type IS DISTINCT FROM 'task'
                     OR EXISTS (

@@ -86,7 +86,6 @@ async fn create_instructions_document_once(
                 None,
             ),
             skip_history: false,
-            email_attachment_id: None,
             created_at: None,
             is_task: false,
         },

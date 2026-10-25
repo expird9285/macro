@@ -14,7 +14,6 @@ use sqlx::Pool;
 use sqlx::Postgres;
 use sqlx::Transaction;
 use tracing::instrument;
-use uuid::Uuid;
 
 /// struct for creating a document
 #[derive(Debug)]
@@ -28,8 +27,6 @@ pub struct CreateDocumentArgs<'a> {
     pub project_name: Option<&'a str>,
     pub share_permission: &'a SharePermissionV2,
     pub skip_history: bool,
-    /// Optional value. If set, creates entry in document_email
-    pub email_attachment_id: Option<Uuid>,
     /// Optional value. defaults to now if not included
     pub created_at: Option<&'a chrono::DateTime<chrono::Utc>>,
     /// Whether the document is a task.
@@ -74,7 +71,6 @@ pub async fn create_document_txn(
         share_permission,
         skip_history,
         created_at: _, // overwritten below
-        email_attachment_id,
         is_task,
     } = args;
 
@@ -228,15 +224,6 @@ pub async fn create_document_txn(
     )
     .await?;
 
-    if let Some(attachment) = email_attachment_id {
-        crate::document::document_email::create_document_email_record(
-            transaction,
-            &document_id,
-            attachment,
-        )
-        .await?;
-    }
-
     Ok(DocumentMetadata::new_document(
         &document_id,
         document_version.id,
@@ -368,7 +355,6 @@ mod tests {
                     None,
                 ),
                 skip_history: false,
-                email_attachment_id: None,
                 created_at: Some(&ts),
                 is_task: false,
             },
@@ -401,7 +387,6 @@ mod tests {
                     None,
                 ),
                 skip_history: false,
-                email_attachment_id: None,
                 created_at: None,
                 is_task: false,
             },
@@ -446,7 +431,6 @@ mod tests {
                     None,
                 ),
                 skip_history: false,
-                email_attachment_id: None,
                 created_at: Some(&ts),
                 is_task: false,
             },
@@ -482,7 +466,6 @@ mod tests {
                     None,
                 ),
                 skip_history: false,
-                email_attachment_id: None,
                 created_at: None,
                 is_task: false,
             },

@@ -117,7 +117,8 @@ pub struct SoupCacheProjectionCapsuleV1 {
     pub record_key: String,
     /// Defensive entity-partition binding.
     pub partition: String,
-    /// Explicit authoritative `document_email` membership state.
+    /// Email attachment state. Always `false` now that documents are no
+    /// longer linked to email; kept because field order is wire-significant.
     pub is_email_attachment: bool,
 }
 
@@ -132,7 +133,8 @@ pub struct SoupCacheProjectionCapsuleV2 {
     pub record_key: String,
     /// Defensive entity-partition binding.
     pub partition: String,
-    /// Explicit authoritative `document_email` membership state.
+    /// Email attachment state. Always `false` now that documents are no
+    /// longer linked to email; kept because field order is wire-significant.
     pub is_email_attachment: bool,
     /// Viewer-relative importance state.
     pub is_important: bool,

@@ -11,7 +11,6 @@ use crate::{document::DocumentMetadata, response::PresignedUrl};
 use models_permissions::share_permission::access_level::AccessLevel;
 use tracing::instrument;
 use utoipa::ToSchema;
-use uuid::Uuid;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -212,10 +211,7 @@ pub struct CreateDocumentRequest {
     /// Team to assign the task number within when creating a task document. If omitted,
     /// the service may infer it only when the creator belongs to exactly one team.
     pub team_id: Option<uuid::Uuid>,
-    /// Internal only field that links the document created to the specified email attachment by
-    /// creating a row in the document_email table.
-    pub email_attachment_id: Option<Uuid>,
-    /// Optional time to set the document's created_at to. Set when backfilling email attachments.
+    /// Optional time to set the document's created_at to.
     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
     /// Whether the document is a task.
     /// This is only applicable for md documents and the request will fail if the file type is not

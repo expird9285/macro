@@ -6,8 +6,7 @@ use crate::domain::content::DocumentContent;
 use crate::domain::events::InteractionReason;
 use crate::domain::models::{
     CreateTaskRequest, DocumentError, DocumentTeamShareResponse, EditDocumentServiceArgs,
-    GithubPullRequestsResponse, ImportEmailAttachmentRepoArgs, LocationQueryParams, NewDocument,
-    TaskBranchName,
+    GithubPullRequestsResponse, LocationQueryParams, NewDocument, TaskBranchName,
 };
 use crate::domain::permission_token::decode_permission_token;
 use crate::domain::ports::editing::{
@@ -202,13 +201,6 @@ impl DocumentService for FakeDocumentService {
         _job_id: Option<String>,
     ) -> Result<CreateDocumentResponseData, DocumentError> {
         panic!("unexpected create_document call")
-    }
-
-    async fn import_email_attachment(
-        &self,
-        _args: ImportEmailAttachmentRepoArgs,
-    ) -> Result<CreateDocumentResponseData, DocumentError> {
-        panic!("unexpected import_email_attachment call")
     }
 
     async fn get_short_id(

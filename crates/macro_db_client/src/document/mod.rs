@@ -27,7 +27,6 @@ pub use list_documents_with_access::list_documents_with_access;
 pub use save_document::{insert_bom_parts, save_document};
 pub mod build_pdf_modification_data;
 pub mod create_blank_docx;
-pub mod document_email;
 pub mod document_shas;
 pub mod get_all_documents;
 pub mod get_document_history;

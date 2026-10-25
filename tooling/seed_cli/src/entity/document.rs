@@ -143,7 +143,6 @@ async fn create(args: CreateArgs, ctx: SeedCliContext) -> anyhow::Result<()> {
                 channel_share_permissions: None,
             },
             skip_history: args.skip_history,
-            email_attachment_id: None,
             created_at: None,
             is_task: false,
         })
@@ -236,7 +235,6 @@ pub(crate) async fn seed_from_file_ref(
                     channel_share_permissions: None,
                 },
                 skip_history: true,
-                email_attachment_id: None,
                 created_at: None,
                 is_task: false,
             })

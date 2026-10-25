@@ -27,8 +27,7 @@ use sqlx::Row;
 use crate::domain::content::{DocumentContent, DocumentContentState};
 use crate::domain::models::{
     BranchNameContext, CopyDocumentRepoArgs, CreateDocumentRepoArgs, DocumentError,
-    DocumentTeamShare, EditDocumentRepoArgs, EmailImportRepoOutcome, ImportEmailAttachmentRepoArgs,
-    OwnerTeam, TeamTaskMetadata, TeamTaskNumber,
+    DocumentTeamShare, EditDocumentRepoArgs, OwnerTeam, TeamTaskMetadata, TeamTaskNumber,
 };
 use crate::domain::ports::DocumentRepo;
 
@@ -48,59 +47,6 @@ impl<B: BotFacts + 'static> PgDocumentRepo<B> {
     /// `registrar`.
     pub fn new(pool: PgPool, registrar: OwnedEntityRegistrar<B>) -> Self {
         Self { pool, registrar }
-    }
-
-    async fn reused_email_document(
-        &self,
-        document_id: String,
-    ) -> Result<EmailImportRepoOutcome, DocumentError> {
-        let metadata = self.get_document_metadata(&document_id).await?;
-        Ok(EmailImportRepoOutcome::Reused(metadata))
-    }
-
-    async fn reused_linked_email_attachment(
-        &self,
-        email_attachment_id: uuid::Uuid,
-    ) -> Result<EmailImportRepoOutcome, DocumentError> {
-        let existing_id =
-            create::find_document_id_for_email_attachment(&self.pool, email_attachment_id)
-                .await?
-                .ok_or_else(|| {
-                    sqlx::Error::Protocol(
-                        "email attachment already linked but document is missing".into(),
-                    )
-                })?;
-        self.reused_email_document(existing_id).await
-    }
-
-    async fn find_reusable_email_document_by_sha(
-        &self,
-        owner: &str,
-        sha: &str,
-    ) -> Result<Option<String>, sqlx::Error> {
-        let mut conn = self.pool.acquire().await?;
-        create::find_live_email_document_id_by_sha(&mut conn, owner, sha).await
-    }
-
-    async fn link_existing_email_document(
-        &self,
-        document_id: &str,
-        email_attachment_id: uuid::Uuid,
-    ) -> Result<EmailImportRepoOutcome, DocumentError> {
-        let mut transaction = self.pool.begin().await?;
-        match create::link_document_email(&mut transaction, document_id, email_attachment_id).await
-        {
-            Ok(()) => {
-                transaction.commit().await?;
-                self.reused_email_document(document_id.to_string()).await
-            }
-            Err(sqlx::Error::Database(ref db_err)) if db_err.is_unique_violation() => {
-                transaction.rollback().await?;
-                self.reused_linked_email_attachment(email_attachment_id)
-                    .await
-            }
-            Err(e) => Err(e.into()),
-        }
     }
 }
 
@@ -532,83 +478,6 @@ impl<B: BotFacts + 'static> DocumentRepo for PgDocumentRepo<B> {
                 .await?;
         transaction.commit().await?;
         Ok(metadata)
-    }
-
-    #[tracing::instrument(err, skip(self, args, share_permission))]
-    async fn import_email_attachment_document(
-        &self,
-        args: ImportEmailAttachmentRepoArgs,
-        share_permission: SharePermissionV2,
-    ) -> Result<EmailImportRepoOutcome, DocumentError> {
-        let ImportEmailAttachmentRepoArgs {
-            email_attachment_id,
-            owner,
-            mut document,
-        } = args;
-        // Imports do not carry task-creation consent, including reuse paths.
-        document.share_with_team = false;
-
-        // Unlocked reuse: attachment already linked, or a live email doc with
-        // this sha already exists. The advisory lock is only required when a
-        // concurrent import might insert the first document for (owner, sha).
-        if let Some(existing_id) =
-            create::find_document_id_for_email_attachment(&self.pool, email_attachment_id).await?
-        {
-            return self.reused_email_document(existing_id).await;
-        }
-
-        let owner = Owner::User(owner);
-        let owner_principal = owner.principal_id();
-        if let Some(existing_id) = self
-            .find_reusable_email_document_by_sha(&owner_principal, &document.sha)
-            .await?
-        {
-            return self
-                .link_existing_email_document(&existing_id, email_attachment_id)
-                .await;
-        }
-
-        let mut transaction = self.pool.begin().await?;
-
-        if let Some(existing_id) = create::reuse_email_document(
-            &mut transaction,
-            &owner_principal,
-            &document.sha,
-            email_attachment_id,
-        )
-        .await?
-        {
-            transaction.commit().await?;
-            return self.reused_email_document(existing_id).await;
-        }
-
-        let metadata = create::insert_new_document(
-            &mut transaction,
-            &self.registrar,
-            CreateDocumentRepoArgs { owner, document },
-            &share_permission,
-        )
-        .await?;
-
-        match create::link_document_email(
-            &mut transaction,
-            &metadata.document_id,
-            email_attachment_id,
-        )
-        .await
-        {
-            Ok(()) => {}
-            Err(sqlx::Error::Database(ref db_err)) if db_err.is_unique_violation() => {
-                transaction.rollback().await?;
-                return self
-                    .reused_linked_email_attachment(email_attachment_id)
-                    .await;
-            }
-            Err(e) => return Err(e.into()),
-        }
-
-        transaction.commit().await?;
-        Ok(EmailImportRepoOutcome::Created(metadata))
     }
 
     #[tracing::instrument(err, skip(self, args))]

@@ -105,16 +105,6 @@ pub fn router(state: ApiContext) -> Router<ApiContext> {
             get(get_document_access_level::handler),
         )
         .route(
-            "/documents",
-            post(
-                documents_hex::inbound::axum_router::create_document::create_document_internal_handler::<
-                    DocumentService,
-                    EntityAccessService,
-                    AuthorizationService,
-                >,
-            ),
-        )
-        .route(
             "/documents/initialize_starter_docs",
             post(initialize_starter_docs::handler),
         )

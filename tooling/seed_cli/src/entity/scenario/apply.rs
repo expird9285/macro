@@ -591,7 +591,6 @@ async fn seed_documents(
                     channel_share_permissions: None,
                 },
                 skip_history: true,
-                email_attachment_id: None,
                 created_at: None,
                 is_task: false,
             })
@@ -692,7 +691,6 @@ async fn seed_tasks(ctx: &SeedCliContext, spec: &ScenarioSpec) -> anyhow::Result
                     channel_share_permissions: None,
                 },
                 skip_history: true,
-                email_attachment_id: None,
                 created_at: None,
                 is_task: true,
             })

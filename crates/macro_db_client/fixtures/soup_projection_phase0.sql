@@ -30,7 +30,7 @@ WHERE id = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 INSERT INTO public.document_sub_type (document_id, sub_type)
 VALUES ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'snippet');
 
--- The isolated document already has a null subtype and no document_email row.
+-- The isolated document already has a null subtype.
 -- Give user-1 direct access so it represents an ordinary owned document.
 INSERT INTO public.entity_access (
     entity_id,

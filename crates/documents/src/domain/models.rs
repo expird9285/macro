@@ -409,16 +409,6 @@ pub struct CreateDocumentRepoArgs {
     pub document: NewDocument,
 }
 
-/// Arguments for importing an email attachment as a document.
-pub struct ImportEmailAttachmentRepoArgs {
-    /// The email attachment being imported.
-    pub email_attachment_id: uuid::Uuid,
-    /// The mailbox owner, who owns the imported document.
-    pub owner: MacroUserIdStr<'static>,
-    /// How to create the document when no reusable import exists.
-    pub document: NewDocument,
-}
-
 /// The team an owner resolves to, with the team's link-share preference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OwnerTeam {
@@ -426,24 +416,6 @@ pub struct OwnerTeam {
     pub team_id: uuid::Uuid,
     /// The team's default link share for new documents.
     pub default_link_share: TeamLinkShareDefault,
-}
-
-/// Fact returned by the repository for an email-attachment import.
-#[derive(Clone, Debug)]
-pub enum EmailImportRepoOutcome {
-    /// A new `Document` row was inserted and linked to the attachment.
-    Created(DocumentMetadata),
-    /// An existing live email-imported document was linked, or was already linked.
-    Reused(DocumentMetadata),
-}
-
-impl EmailImportRepoOutcome {
-    /// Metadata of the created or reused document.
-    pub fn metadata(&self) -> &DocumentMetadata {
-        match self {
-            Self::Created(metadata) | Self::Reused(metadata) => metadata,
-        }
-    }
 }
 
 /// Configuration for CloudFront presigned URL generation.

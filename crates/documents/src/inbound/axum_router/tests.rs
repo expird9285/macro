@@ -48,10 +48,7 @@ use task_dedup::{
 use tower::ServiceExt;
 use uuid::Uuid;
 
-use super::{
-    DocumentRouterState, content_uploaded::content_uploaded_handler,
-    create_document::create_document_internal_handler, documents_router,
-};
+use super::{DocumentRouterState, content_uploaded::content_uploaded_handler, documents_router};
 
 mod sync_content;
 use crate::{
@@ -80,10 +77,6 @@ const JWT_TOKEN: &str = "valid-jwt";
 const JWT_USER_ID: &str = "macro|jwt-user@example.com";
 const STANDARD_INTERNAL_KEY: &str = "standard-internal-key";
 const STANDARD_INTERNAL_USER_ID: &str = "macro|standard-internal@example.com";
-const LEGACY_INTERNAL_KEY: &str = "legacy-internal-key";
-const LEGACY_INTERNAL_USER_ID: &str = "macro|legacy-internal@example.com";
-const LEGACY_INTERNAL_API_KEY_HEADER: &str = "x-document-storage-service-auth-key";
-const LEGACY_INTERNAL_USER_ID_HEADER: &str = "x-document-storage-service-user-id";
 const TEST_ORGANIZATION_ID: i32 = 42;
 const TEAM_ID: Uuid = Uuid::from_u128(0x82c6f359_691f_4ff3_965a_016a2970b1a2);
 const RESOLVED_DOCUMENT_ID: &str = "resolved-document";
@@ -92,12 +85,6 @@ const BOT_TOKEN: &str = "valid-bot-token";
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct CreateDocumentCall {
     principal: CreationPrincipal,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-struct ImportEmailAttachmentCall {
-    user_id: String,
-    email_attachment_id: Uuid,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -136,7 +123,6 @@ enum TeamSlugResult {
 #[derive(Default)]
 struct FakeDocumentService {
     create_calls: Mutex<Vec<CreateDocumentCall>>,
-    import_calls: Mutex<Vec<ImportEmailAttachmentCall>>,
     upload_snapshot_calls: Mutex<Vec<UploadSnapshotCall>>,
     content_uploaded_calls: Mutex<Vec<ContentUploadedCall>>,
     sync_content_calls: Mutex<Vec<SyncContentCall>>,
@@ -161,13 +147,6 @@ impl FakeDocumentService {
         self.copy_calls
             .lock()
             .expect("copy calls lock poisoned")
-            .clone()
-    }
-
-    fn import_calls(&self) -> Vec<ImportEmailAttachmentCall> {
-        self.import_calls
-            .lock()
-            .expect("import calls lock poisoned")
             .clone()
     }
 
@@ -340,21 +319,6 @@ impl DocumentService for FakeDocumentService {
             });
 
         Ok(create_document_response(principal.owner()))
-    }
-
-    async fn import_email_attachment(
-        &self,
-        args: ImportEmailAttachmentRepoArgs,
-    ) -> Result<CreateDocumentResponseData, DocumentError> {
-        self.import_calls
-            .lock()
-            .expect("import calls lock poisoned")
-            .push(ImportEmailAttachmentCall {
-                user_id: args.owner.as_ref().to_string(),
-                email_attachment_id: args.email_attachment_id,
-            });
-
-        Ok(create_document_response(Owner::User(args.owner)))
     }
 
     async fn get_document_content(
@@ -863,7 +827,7 @@ impl MacroAuthorizationService for FakeAuthorizationService {
                 claims: claims.clone(),
             });
 
-        if !matches!(provided_key, STANDARD_INTERNAL_KEY | LEGACY_INTERNAL_KEY) {
+        if provided_key != STANDARD_INTERNAL_KEY {
             return Err(Report::new(MacroAuthorizationError::InvalidCredentials));
         }
 
@@ -1018,16 +982,6 @@ fn test_router_with(
             >,
         ),
     )
-    .route(
-        "/internal",
-        axum::routing::post(
-            create_document_internal_handler::<
-                FakeDocumentService,
-                FakeEntityAccessService,
-                FakeAuthorizationService,
-            >,
-        ),
-    )
     .with_state(state);
 
     (
@@ -1040,10 +994,6 @@ fn test_router_with(
 
 fn create_request() -> Builder {
     Request::post("/").header("content-type", "application/json")
-}
-
-fn internal_create_request() -> Builder {
-    Request::post("/internal").header("content-type", "application/json")
 }
 
 fn with_user_bot(builder: Builder) -> Builder {
@@ -1101,22 +1051,19 @@ fn creating_callers() -> [(Authenticate, NonUserOwners, CreationPrincipal); 4] {
     ]
 }
 
-fn request_body(email_attachment_id: Option<Uuid>) -> Body {
+fn request_body() -> Body {
     Body::from(
         serde_json::to_vec(&json!({
             "sha": "test-sha",
             "documentName": "test document.pdf",
             "fileType": "pdf",
-            "emailAttachmentId": email_attachment_id,
         }))
         .expect("request should serialize"),
     )
 }
 
-fn finish_request(builder: Builder, email_attachment_id: Option<Uuid>) -> Request<Body> {
-    builder
-        .body(request_body(email_attachment_id))
-        .expect("request should build")
+fn finish_request(builder: Builder) -> Request<Body> {
+    builder.body(request_body()).expect("request should build")
 }
 
 async fn send(router: &Router, request: Request<Body>) -> (StatusCode, Value) {
@@ -1358,121 +1305,11 @@ async fn snapshot_upload_requires_internal_api_key() {
 }
 
 #[tokio::test]
-async fn legacy_internal_headers_reach_the_internal_only_creation_path() {
-    let email_attachment_id = Uuid::new_v4();
-    let (router, document_service, _access_service, authorization_service) = test_router();
-    let request = finish_request(
-        internal_create_request()
-            .header(LEGACY_INTERNAL_API_KEY_HEADER, LEGACY_INTERNAL_KEY)
-            .header(LEGACY_INTERNAL_USER_ID_HEADER, LEGACY_INTERNAL_USER_ID),
-        Some(email_attachment_id),
-    );
-
-    let (status, _body) = send(&router, request).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert!(document_service.create_calls().is_empty());
-    assert_eq!(
-        document_service.import_calls(),
-        [ImportEmailAttachmentCall {
-            user_id: LEGACY_INTERNAL_USER_ID.to_string(),
-            email_attachment_id,
-        }]
-    );
-    assert!(!authorization_service.calls().is_empty());
-    assert!(authorization_service.calls().iter().all(|call| matches!(
-        call,
-        AuthorizationCall::Internal { provided_key, .. }
-            if provided_key == LEGACY_INTERNAL_KEY
-    )));
-}
-
-#[tokio::test]
-async fn standard_internal_headers_reach_the_document_service() {
-    let (router, document_service, _access_service, authorization_service) = test_router();
-    let request = finish_request(
-        internal_create_request()
-            .header(INTERNAL_API_KEY_HEADER, STANDARD_INTERNAL_KEY)
-            .header(INTERNAL_MACRO_USER_ID_HEADER, STANDARD_INTERNAL_USER_ID),
-        None,
-    );
-
-    let (status, _body) = send(&router, request).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(
-        document_service.create_calls(),
-        [CreateDocumentCall {
-            principal: CreationPrincipal::User(user(STANDARD_INTERNAL_USER_ID)),
-        }]
-    );
-    assert!(document_service.import_calls().is_empty());
-    assert!(!authorization_service.calls().is_empty());
-    assert!(authorization_service.calls().iter().all(|call| matches!(
-        call,
-        AuthorizationCall::Internal { provided_key, .. }
-            if provided_key == STANDARD_INTERNAL_KEY
-    )));
-}
-
-#[tokio::test]
-async fn standard_internal_headers_take_precedence_over_legacy_headers() {
-    let (router, document_service, _access_service, authorization_service) = test_router();
-    let request = finish_request(
-        internal_create_request()
-            .header(INTERNAL_API_KEY_HEADER, STANDARD_INTERNAL_KEY)
-            .header(INTERNAL_MACRO_USER_ID_HEADER, STANDARD_INTERNAL_USER_ID)
-            .header(LEGACY_INTERNAL_API_KEY_HEADER, LEGACY_INTERNAL_KEY)
-            .header(LEGACY_INTERNAL_USER_ID_HEADER, LEGACY_INTERNAL_USER_ID),
-        None,
-    );
-
-    let (status, _body) = send(&router, request).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(
-        document_service.create_calls(),
-        [CreateDocumentCall {
-            principal: CreationPrincipal::User(user(STANDARD_INTERNAL_USER_ID)),
-        }]
-    );
-    assert!(document_service.import_calls().is_empty());
-    assert!(!authorization_service.calls().is_empty());
-    assert!(authorization_service.calls().iter().all(|call| matches!(
-        call,
-        AuthorizationCall::Internal {
-            provided_key,
-            claims: InternalIdentityClaims {
-                user_id: Some(user_id),
-                ..
-            },
-        } if provided_key == STANDARD_INTERNAL_KEY && user_id == STANDARD_INTERNAL_USER_ID
-    )));
-}
-
-#[tokio::test]
-async fn jwt_user_cannot_create_a_document_for_an_email_attachment() {
-    let email_attachment_id = Uuid::new_v4();
-    let (router, document_service, _access_service, _authorization_service) = test_router();
-    let request = finish_request(
-        create_request().header("authorization", format!("Bearer {JWT_TOKEN}")),
-        Some(email_attachment_id),
-    );
-
-    let (status, body) = send(&router, request).await;
-
-    assert_eq!(status, StatusCode::UNAUTHORIZED);
-    assert_eq!(body, json!({ "message": "unauthorized" }));
-    assert!(document_service.create_calls().is_empty());
-    assert!(document_service.import_calls().is_empty());
-}
-
-#[tokio::test]
 async fn public_create_records_the_resolved_creation_principal() {
     for (authenticate, non_user_owners, principal) in creating_callers() {
         let (router, document_service, _access_service, _authorization_service) =
             test_router_with(non_user_owners);
-        let request = finish_request(authenticate(create_request()), None);
+        let request = finish_request(authenticate(create_request()));
 
         let (status, _body) = send(&router, request).await;
 
@@ -1558,73 +1395,6 @@ async fn internal_create_routes_reach_body_extraction() {
         assert!(document_service.create_calls().is_empty());
         assert!(document_service.copy_calls().is_empty());
     }
-}
-
-#[tokio::test]
-async fn internal_create_makes_the_calling_user_the_owner() {
-    let (router, document_service, _access_service, _authorization_service) = test_router();
-    let request = finish_request(with_jwt(internal_create_request()), None);
-
-    let (status, _body) = send(&router, request).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(
-        document_service.create_calls(),
-        [CreateDocumentCall {
-            principal: CreationPrincipal::User(user(JWT_USER_ID)),
-        }]
-    );
-}
-
-#[tokio::test]
-async fn internal_create_imports_email_attachments_only_for_internal_callers() {
-    let email_attachment_id = Uuid::new_v4();
-    let (router, document_service, _access_service, _authorization_service) = test_router();
-
-    let from_user = finish_request(
-        with_jwt(internal_create_request()),
-        Some(email_attachment_id),
-    );
-    assert_eq!(
-        send(&router, from_user).await,
-        (
-            StatusCode::UNAUTHORIZED,
-            json!({ "message": "unauthorized" })
-        )
-    );
-    assert!(document_service.import_calls().is_empty());
-
-    let from_internal = finish_request(
-        with_internal_caller(internal_create_request()),
-        Some(email_attachment_id),
-    );
-    let (status, _body) = send(&router, from_internal).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(
-        document_service.import_calls(),
-        [ImportEmailAttachmentCall {
-            user_id: STANDARD_INTERNAL_USER_ID.to_string(),
-            email_attachment_id,
-        }]
-    );
-    assert!(document_service.create_calls().is_empty());
-}
-
-#[tokio::test]
-async fn internal_create_rejects_bots() {
-    let (router, document_service, _access_service, _authorization_service) =
-        test_router_with(NonUserOwners::Enabled);
-
-    for authenticate in [with_user_bot as Authenticate, with_team_bot] {
-        let request = finish_request(authenticate(internal_create_request()), None);
-
-        assert_eq!(
-            send(&router, request).await,
-            (StatusCode::FORBIDDEN, json!({ "message": "forbidden" }))
-        );
-    }
-    assert!(document_service.create_calls().is_empty());
 }
 
 #[tokio::test]

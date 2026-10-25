@@ -8,10 +8,7 @@ use macro_user_id::cowlike::CowLike;
 use model::document::{DocumentMetadata, FileType};
 use std::sync::{Arc, Mutex};
 
-use crate::domain::models::{
-    EmailImportRepoOutcome, GithubPullRequest, ImportEmailAttachmentRepoArgs, OwnerTeam,
-    TeamTaskNumber,
-};
+use crate::domain::models::{GithubPullRequest, OwnerTeam, TeamTaskNumber};
 use crate::domain::ports::{DocumentContentEventService, MockDocumentRepo};
 
 use super::*;
@@ -2698,52 +2695,6 @@ async fn create_document_publishes_the_principal_as_owner_and_actor() {
     }
 }
 
-#[tokio::test]
-async fn email_import_is_attributed_to_the_system_bot() {
-    let mut repo = make_mock_repo();
-    repo.expect_get_owner_team()
-        .returning(|_| Box::pin(std::future::ready(Ok(None))));
-    let created_metadata = make_test_metadata();
-    repo.expect_import_email_attachment_document()
-        .returning(move |_, _| {
-            Box::pin(std::future::ready(Ok(EmailImportRepoOutcome::Created(
-                created_metadata.clone(),
-            ))))
-        });
-    repo.expect_set_document_content()
-        .returning(|_, _| Box::pin(std::future::ready(Ok(()))));
-    repo.expect_get_team_task_metadata()
-        .returning(|_| Box::pin(std::future::ready(Ok(None))));
-
-    let (service, event_broker) = make_test_service_with_event_broker(repo);
-    let args = ImportEmailAttachmentRepoArgs {
-        email_attachment_id: uuid::Uuid::from_u128(7),
-        owner: test_user(),
-        document: new_document(FileType::Txt),
-    };
-
-    crate::domain::ports::DocumentService::import_email_attachment(&service, args)
-        .await
-        .unwrap();
-
-    let published = event_broker.published();
-    let published = published.lock().unwrap();
-    assert_eq!(published[0].payload["event_type"], "document.created");
-    assert_eq!(
-        published[0].payload["metadata"]["owner"],
-        "macro|user@user.com"
-    );
-    assert_eq!(
-        published[0].payload["metadata"]["actor"],
-        bot_id::MACRO_SYSTEM_BOT_ID.into_storage_id().as_ref()
-    );
-    assert!(
-        published[0].payload["metadata"]
-            .get("on_behalf_of")
-            .is_none()
-    );
-}
-
 type PropertyWrite = (CreationPrincipal, uuid::Uuid, Option<SetPropertyValue>);
 
 #[derive(Default, Clone)]
@@ -2862,55 +2813,6 @@ async fn default_task_properties_assign_the_acting_user_and_never_a_team_bot() {
             expected
         );
     }
-}
-
-#[tokio::test]
-async fn create_document_reuse_skips_content_url_and_created_event() {
-    let mut repo = make_mock_repo();
-    repo.expect_get_owner_team()
-        .returning(|_| Box::pin(std::future::ready(Ok(None))));
-    let created_metadata = make_test_metadata();
-    repo.expect_import_email_attachment_document()
-        .returning(move |_, _| {
-            Box::pin(std::future::ready(Ok(EmailImportRepoOutcome::Reused(
-                created_metadata.clone(),
-            ))))
-        });
-    repo.expect_set_document_content().times(0);
-    repo.expect_get_persisted_document_content()
-        .return_once(|_| {
-            Box::pin(std::future::ready(Ok(Some(DocumentContent::ready(
-                DocumentContentLocation::ObjectStorage,
-            )))))
-        });
-    repo.expect_get_team_task_metadata()
-        .returning(|_| Box::pin(std::future::ready(Ok(None))));
-
-    let (service, event_broker) = make_test_service_with_event_broker(repo);
-    let args = ImportEmailAttachmentRepoArgs {
-        email_attachment_id: uuid::Uuid::from_u128(9),
-        owner: test_user(),
-        document: new_document(FileType::Txt),
-    };
-
-    let response = crate::domain::ports::DocumentService::import_email_attachment(&service, args)
-        .await
-        .unwrap();
-
-    assert!(response.document_response.presigned_url.is_none());
-    assert_eq!(
-        response
-            .document_response
-            .document_metadata
-            .metadata
-            .document_id,
-        "doc-1"
-    );
-    assert_eq!(
-        response.document_response.document_metadata.content,
-        DocumentContent::ready(DocumentContentLocation::ObjectStorage),
-    );
-    assert!(event_broker.published().lock().unwrap().is_empty());
 }
 
 #[tokio::test]
@@ -3148,31 +3050,6 @@ async fn a_deterministic_id_with_a_leftover_session_is_created() {
     )
     .await
     .unwrap();
-}
-
-#[tokio::test]
-async fn an_email_import_cannot_choose_its_document_id() {
-    let mut repo = make_mock_repo();
-    repo.expect_get_owner_team().times(0);
-    repo.expect_import_email_attachment_document().times(0);
-    let mut sync = crate::domain::ports::sync::MockDocumentSyncPort::new();
-    sync.expect_exists().times(0);
-    let service = test_service_with_sync(repo, sync);
-    let mut document = new_document(FileType::Pdf);
-    document.id = Some(random_id(44));
-
-    let err = DocumentService::import_email_attachment(
-        &service,
-        ImportEmailAttachmentRepoArgs {
-            email_attachment_id: uuid::Uuid::from_u128(45),
-            owner: test_user(),
-            document,
-        },
-    )
-    .await
-    .unwrap_err();
-
-    assert!(matches!(err, DocumentError::BadRequest(_)));
 }
 
 #[tokio::test]

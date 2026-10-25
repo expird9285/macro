@@ -1,4 +1,4 @@
-//! Handlers for `POST /documents` and the internal `POST /internal/documents`.
+//! Handler for `POST /documents`.
 
 use std::str::FromStr;
 
@@ -6,18 +6,14 @@ use axum::{Json, extract::State};
 use entity_access::domain::ports::EntityAccessService;
 use entity_access::inbound::axum_extractors::ProjectBodyAccessLevelExtractorV2;
 use entity_registry::CreationPrincipalExtractor;
-use macro_authorization::{
-    MacroAuthorizationExtractor, MacroAuthorizationService, UserOrInternal, UserOrInternalCaller,
-};
+use macro_authorization::MacroAuthorizationService;
 use model::document::response::CreateDocumentRequest;
 use model::document::{FileType, FileTypeExt};
 use model_owner::CreationPrincipal;
 use models_permissions::share_permission::access_level::EditAccessLevel;
 
 use super::DocumentRouterState;
-use crate::domain::models::{
-    DocumentError, ImportEmailAttachmentRepoArgs, InitialLinkShare, NewDocument,
-};
+use crate::domain::models::{DocumentError, InitialLinkShare, NewDocument};
 use crate::domain::ports::DocumentService;
 use crate::domain::response::CreateDocumentResponse;
 
@@ -52,60 +48,11 @@ pub async fn create_document_handler<
 ) -> Result<Json<CreateDocumentResponse>, DocumentError> {
     let req = project.into_inner();
 
-    if req.email_attachment_id.is_some() {
-        return Err(DocumentError::Unauthorized);
-    }
-
     let job_id = req.job_id.clone();
     let response_data = state
         .service
         .create_document(&principal, new_document(req), job_id)
         .await?;
-
-    Ok(Json(CreateDocumentResponse {
-        error: false,
-        data: response_data,
-    }))
-}
-
-/// Handler for the internal `POST /internal/documents`.
-///
-/// Creates a document owned by the calling or acting user. Only an internal
-/// caller may import an email attachment.
-#[tracing::instrument(skip(state, caller, project), fields(user_id=?caller.authorization.user.macro_user_id))]
-pub async fn create_document_internal_handler<
-    T: DocumentService,
-    Svc: EntityAccessService,
-    Auth: MacroAuthorizationService,
->(
-    State(state): State<DocumentRouterState<T, Svc, Auth>>,
-    caller: MacroAuthorizationExtractor<Auth, UserOrInternal>,
-    project: ProjectBodyAccessLevelExtractorV2<EditAccessLevel, CreateDocumentRequest, Svc, Auth>,
-) -> Result<Json<CreateDocumentResponse>, DocumentError> {
-    let req = project.into_inner();
-    let is_internal = caller.authorization.caller == UserOrInternalCaller::Internal;
-    let user = caller.authorization.user.macro_user_id;
-
-    let response_data = match req.email_attachment_id {
-        Some(email_attachment_id) if is_internal => {
-            state
-                .service
-                .import_email_attachment(ImportEmailAttachmentRepoArgs {
-                    email_attachment_id,
-                    owner: user,
-                    document: new_document(req),
-                })
-                .await?
-        }
-        Some(_) => return Err(DocumentError::Unauthorized),
-        None => {
-            let job_id = req.job_id.clone();
-            state
-                .service
-                .create_document(&CreationPrincipal::User(user), new_document(req), job_id)
-                .await?
-        }
-    };
 
     Ok(Json(CreateDocumentResponse {
         error: false,

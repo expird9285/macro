@@ -64,10 +64,9 @@ use super::events::{
 use super::models::{
     CloudFrontConfig, CopyDocumentRepoArgs, CreateDocumentRepoArgs, CreateTaskRequest,
     DocumentError, DocumentTeamShareResponse, EditDocumentRepoArgs, EditDocumentServiceArgs,
-    EmailImportRepoOutcome, FileTypeUpdate, GithubPullRequest, GithubPullRequestTasks,
-    GithubPullRequestTasksResponse, GithubPullRequestsResponse, ImportEmailAttachmentRepoArgs,
-    LocationQueryParams, MAX_GITHUB_PULL_REQUEST_TASK_LOOKUP, NewDocument, TaskBranchName,
-    TaskIdentity, TeamTaskMetadata,
+    FileTypeUpdate, GithubPullRequest, GithubPullRequestTasks, GithubPullRequestTasksResponse,
+    GithubPullRequestsResponse, LocationQueryParams, MAX_GITHUB_PULL_REQUEST_TASK_LOOKUP,
+    NewDocument, TaskBranchName, TaskIdentity, TeamTaskMetadata,
 };
 #[cfg(feature = "document_create")]
 use super::ports::create::DocumentCreationService;
@@ -649,42 +648,6 @@ impl<
         let _ = self.macro_event_broker.send_event(event).inspect_err(|e| {
             tracing::error!(error=?e, "failed to publish document event");
         });
-    }
-
-    async fn reused_email_import_response(
-        &self,
-        document_metadata: DocumentMetadata,
-        file_type: Option<FileType>,
-    ) -> Result<CreateDocumentResponseData, DocumentError> {
-        let document_id = document_metadata.document_id.clone();
-        // Reuse must return whatever content already exists. A pending
-        // placeholder here would tell the client to wait for an upload
-        // that this path never issues.
-        let content = self.content_for_document(&document_id, file_type).await?;
-        let content_type = match file_type {
-            Some(FileType::Docx) => ContentType::Docx,
-            _ => file_type.into(),
-        };
-        let document_response_metadata =
-            DocumentResponseMetadata::from_document_metadata(&document_metadata).map_err(
-                |e| {
-                    tracing::error!(error=?e, document_id=?document_id, "unable to convert document metadata");
-                    DocumentError::Internal(anyhow!("unable to convert document metadata"))
-                },
-            )?;
-        let team_task_metadata = self.team_task_metadata_for_document(&document_id).await?;
-        Ok(CreateDocumentResponseData {
-            document_response: DocumentResponse {
-                document_metadata: DocumentResponseMetadataWithContent::new(
-                    document_response_metadata,
-                    content,
-                )
-                .with_team_task_metadata(team_task_metadata),
-                presigned_url: None,
-            },
-            content_type: content_type.mime_type().to_string(),
-            file_type: file_type.map(|f| f.to_string()),
-        })
     }
 
     async fn finish_created_document(
@@ -1481,64 +1444,6 @@ impl<
             job_id,
         )
         .await
-    }
-
-    #[tracing::instrument(err, skip(self, args))]
-    async fn import_email_attachment(
-        &self,
-        args: ImportEmailAttachmentRepoArgs,
-    ) -> Result<CreateDocumentResponseData, DocumentError> {
-        reject_spreadsheet_creation(args.document.file_type)?;
-        if args.document.document_name.graphemes(true).count() > MAX_DOCUMENT_NAME_GRAPHEMES {
-            return Err(DocumentError::NameTooLong {
-                max: MAX_DOCUMENT_NAME_GRAPHEMES,
-            });
-        }
-
-        // Imports reuse documents by attachment and content, so their ids are
-        // always server-chosen and never meet an existing session.
-        if args.document.id.is_some() {
-            return Err(DocumentError::BadRequest(
-                "email attachment imports cannot choose a document id".to_string(),
-            ));
-        }
-
-        let file_type = args.document.file_type;
-        let project_id = args.document.project_id;
-        let sha = args.document.sha.clone();
-        let attribution = Attribution::direct(Actor::new_from_bot(bot_id::MACRO_SYSTEM_BOT_ID));
-
-        let owner_team = self
-            .repo
-            .get_owner_team(&Owner::User(args.owner.clone()))
-            .await
-            .map_err(|e| DocumentError::Internal(e.into()))?;
-        let share_permission = SharePermissionV2::new_document_share_permission(
-            file_type,
-            owner_team.map(|team| team.default_link_share),
-        );
-
-        match self
-            .repo
-            .import_email_attachment_document(args, share_permission)
-            .await?
-        {
-            EmailImportRepoOutcome::Created(document_metadata) => {
-                self.finish_created_document(
-                    document_metadata,
-                    file_type,
-                    project_id,
-                    sha,
-                    attribution,
-                    None,
-                )
-                .await
-            }
-            EmailImportRepoOutcome::Reused(document_metadata) => {
-                self.reused_email_import_response(document_metadata, file_type)
-                    .await
-            }
-        }
     }
 
     #[tracing::instrument(err, skip(self, document_context, args))]

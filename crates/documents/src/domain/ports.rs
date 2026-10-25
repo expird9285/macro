@@ -37,9 +37,9 @@ use model_entity::Entity;
 use super::models::{
     BranchNameContext, CopyDocumentRepoArgs, CreateDocumentRepoArgs, CreateTaskRequest,
     DocumentError, DocumentTeamShare, DocumentTeamShareResponse, EditDocumentRepoArgs,
-    EditDocumentServiceArgs, EmailImportRepoOutcome, GithubPullRequestTasksResponse,
-    GithubPullRequestsResponse, ImportEmailAttachmentRepoArgs, LocationQueryParams, NewDocument,
-    OwnerTeam, TaskBranchName, TaskIdentity, TeamTaskMetadata, TeamTaskNumber,
+    EditDocumentServiceArgs, GithubPullRequestTasksResponse, GithubPullRequestsResponse,
+    LocationQueryParams, NewDocument, OwnerTeam, TaskBranchName, TaskIdentity, TeamTaskMetadata,
+    TeamTaskNumber,
 };
 
 /// Repository for accessing document data from the database.
@@ -139,8 +139,7 @@ pub trait DocumentRepo: Send + Sync + 'static {
 
     /// Create a new document with all associated records in a single transaction.
     ///
-    /// Always inserts a `Document` row. Email-attachment linking and SHA reuse
-    /// belong on [`DocumentRepo::import_email_attachment_document`].
+    /// Always inserts a `Document` row.
     ///
     /// `share_permission` is the pre-resolved initial link permission — the
     /// repository persists it verbatim and carries no share-policy of its own.
@@ -153,17 +152,6 @@ pub trait DocumentRepo: Send + Sync + 'static {
         args: CreateDocumentRepoArgs,
         share_permission: SharePermissionV2,
     ) -> impl Future<Output = Result<DocumentMetadata, DocumentError>> + Send;
-
-    /// Import an email attachment: link it to a reusable live email document
-    /// owned by the same user (matching latest-instance sha), or insert a new
-    /// document and link it. Concurrent first-time creates for the same
-    /// `(owner, sha)` are serialized so two imports cannot insert duplicates.
-    /// Imports never initialize team consent.
-    fn import_email_attachment_document(
-        &self,
-        args: ImportEmailAttachmentRepoArgs,
-        share_permission: SharePermissionV2,
-    ) -> impl Future<Output = Result<EmailImportRepoOutcome, DocumentError>> + Send;
 
     /// Get the team `owner` resolves to and its link-share preference, or
     /// `None` when the owner has no team.
@@ -506,15 +494,6 @@ pub trait DocumentService: Send + Sync + 'static {
         principal: &CreationPrincipal,
         document: NewDocument,
         job_id: Option<String>,
-    ) -> impl Future<Output = Result<CreateDocumentResponseData, DocumentError>> + Send;
-
-    /// Import an email attachment as a document owned by the mailbox owner.
-    ///
-    /// Reuse returns existing content and no upload URL. A first import
-    /// follows the same post-create lifecycle as [`DocumentService::create_document`].
-    fn import_email_attachment(
-        &self,
-        args: ImportEmailAttachmentRepoArgs,
     ) -> impl Future<Output = Result<CreateDocumentResponseData, DocumentError>> + Send;
 
     /// Get content lifecycle metadata for a document.
