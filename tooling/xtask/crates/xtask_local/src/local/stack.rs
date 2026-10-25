@@ -416,17 +416,7 @@ fn remount(
     new: &super::build::BinariesDir,
     state: &StackState,
 ) -> Result<()> {
-    let gmail_forwarder = env
-        .merged
-        .get("GMAIL_FORWARDER_SA_KEY")
-        .is_some_and(|key| !key.trim().is_empty());
-    super::gen_compose::generate(
-        mode,
-        instance,
-        new,
-        state.frontend == "static",
-        gmail_forwarder,
-    )?;
+    super::gen_compose::generate(mode, instance, new, state.frontend == "static")?;
     let mut up = super::compose_cmd(instance, env);
     up.args([
         "up",
@@ -437,9 +427,6 @@ fn remount(
     ]);
     for svc in super::inventory::services_for_mode(mode) {
         up.arg(svc.compose_name);
-    }
-    if gmail_forwarder {
-        up.arg("gmail_forwarder");
     }
     stage.run("Remounting Rust services", &mut up)?;
     write_state(

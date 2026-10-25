@@ -10,13 +10,9 @@ use super::{gen_compose, identity, kickstart, stage::Stage};
 
 /// The FusionAuth lambda sources, read from the tracked templates at
 /// generation time (anchored on [`xtask_paths::repo_root`], so any cwd works).
-/// `populate_jwt_local.js` is the unlicensed local variant (see its header);
-/// the reconcile lambda is the same file production deploys via Pulumi.
+/// `populate_jwt_local.js` is the unlicensed local variant (see its header).
 const POPULATE_JWT_LAMBDA: xtask_paths::RepoFile<'static> =
     xtask_paths::RepoFile::new("infra/stacks/fusionauth-instance/templates/populate_jwt_local.js");
-const RECONCILE_LAMBDA: xtask_paths::RepoFile<'static> = xtask_paths::RepoFile::new(
-    "infra/stacks/fusionauth-instance/templates/reconcile_secondary_idp_link.js",
-);
 
 fn read_lambda(file: xtask_paths::RepoFile<'static>) -> Result<String> {
     let path = xtask_paths::repo_root().join(file.as_str());
@@ -27,8 +23,8 @@ fn read_lambda(file: xtask_paths::RepoFile<'static>) -> Result<String> {
 /// FusionAuth container mounts. The kickstart is pure identity-provider config:
 /// run_local pre-seeds no users — passwordless login auto-creates any user on
 /// demand. `google` (from the resolved run env) additionally configures the
-/// `google`/`google_gmail` OIDC IdPs so the email connect flows work locally,
-/// and `github` the `github` IdP that `POST /link/github` resolves; the
+/// `google`/`google_gmail` OIDC IdPs so Google sign-in works locally, and
+/// `github` the `github` IdP that `POST /link/github` resolves; the
 /// generated file is gitignored, and the init-snapshot key hashes it, so
 /// adding/removing either client re-inits the stack automatically.
 pub fn write_kickstart(
@@ -45,7 +41,6 @@ pub fn write_kickstart(
         instance.port(Port::Auth),
         instance.port(Port::DocCognition),
         &read_lambda(POPULATE_JWT_LAMBDA)?,
-        &read_lambda(RECONCILE_LAMBDA)?,
         google,
         github,
     );

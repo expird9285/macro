@@ -2,11 +2,10 @@
 //!
 //! `RUST_SERVICES` is the single source of truth mapping each Compose service
 //! to its cargo binary, owning crate's package, host port, and the modes it
-//! participates in. It encodes the two non-obvious bin↔crate mappings
+//! participates in. It encodes the non-obvious bin↔crate mapping
 //! (`document_upload_finalizer_local_worker` is built by the
-//! `document_upload_finalizer_handler` crate; `pubsub_workers` by the
-//! `email_service` crate) and makes "a port on a portless worker"
-//! unrepresentable (`host_port: None` == portless worker).
+//! `document_upload_finalizer_handler` crate) and makes "a port on a portless
+//! worker" unrepresentable (`host_port: None` == portless worker).
 
 use super::Mode;
 use super::instance::Port;
@@ -169,59 +168,6 @@ pub const RUST_SERVICES: &[RustService] = &[
         host_port: None,
         path_prefix: None,
         is_websocket: false,
-        modes: &[Mode::Local],
-        opt_in: false,
-        no_default_features: false,
-    },
-    RustService {
-        compose_name: "email_service",
-        cargo_bin: "email_service",
-        package: "email_service",
-        host_port: Some(Port::Email),
-        path_prefix: Some("/email"),
-        is_websocket: false,
-        modes: &[Mode::Local, Mode::Dev],
-        opt_in: false,
-        no_default_features: false,
-    },
-    RustService {
-        compose_name: "email_pubsub_workers",
-        // The pubsub_workers bin is built by the email_service crate
-        // (src/bin/pubsub_workers/pubsub_workers.rs).
-        cargo_bin: "pubsub_workers",
-        package: "email_service",
-        host_port: None,
-        path_prefix: None,
-        is_websocket: false,
-        modes: &[Mode::Local],
-        opt_in: false,
-        no_default_features: false,
-    },
-    RustService {
-        // Not a service: the seed CLI binary, shipped into /app/out so the
-        // gmail_forwarder sidecar (a bespoke gen_compose block, hence no
-        // modes) can run `seed_cli gmail forward` inside the stack.
-        compose_name: "gmail_forwarder",
-        cargo_bin: "seed_cli",
-        package: "seed_cli",
-        host_port: None,
-        path_prefix: None,
-        is_websocket: false,
-        modes: &[],
-        opt_in: false,
-        no_default_features: false,
-    },
-    RustService {
-        compose_name: "calendar_service",
-        cargo_bin: "calendar_service",
-        package: "calendar_service",
-        host_port: Some(Port::Calendar),
-        path_prefix: Some("/calendar"),
-        is_websocket: false,
-        // Local-only: the backfill SQS workers spawn unconditionally (not gated
-        // on CALENDAR_SYNC_ENABLED), so running the binary under `run-dev`
-        // against shared-dev resources would race the deployed calendar-service
-        // for its backfill queue — the same reason scheduled_action is local-only.
         modes: &[Mode::Local],
         opt_in: false,
         no_default_features: false,

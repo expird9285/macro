@@ -4,7 +4,7 @@
 //! Every value here is deterministic and local-only — docker-network hostnames,
 //! LocalStack dummy creds, fixed queue/bucket names, the fixed FusionAuth
 //! kickstart identity, and per-instance internal secrets. Anything that needs a
-//! *real* secret or a real integration (Gmail, Stripe, …) comes from Doppler or
+//! *real* secret or a real integration (Stripe, …) comes from Doppler or
 //! `--env-file`; [`BootStubEnv`] only supplies placeholder fallbacks so a
 //! `--no-doppler` stack's config loaders don't crash at startup.
 //!
@@ -137,13 +137,6 @@ impl LocalEnv {
             "PIPEDREAM_ALLOWED_ORIGINS".into(),
             self.frontend_origin.clone(),
         );
-        // Calendar ingestion/sync ships dark (both flags default off in
-        // deployed envs); local stacks keep it on for development.
-        env.insert("CALENDAR_SYNC_ENABLED".into(), "true".into());
-        env.insert("CALENDAR_SCOPE_ENABLED".into(), "true".into());
-        // Calendar search ships dark too: off in deployed envs until each has
-        // its calendar index created and backfilled.
-        env.insert("CALENDAR_SEARCH_ENABLED".into(), "true".into());
         env.insert(
             "EXTERNAL_EGRESS_BASE_URL".into(),
             self.external_egress_url.clone(),
@@ -283,23 +276,6 @@ impl InfraEnv {
             "OVERRIDE_STATIC_FILE_SERVICE_URL".into(),
             "http://static-file-service:8080".into(),
         );
-        // Same failure mode for the email connect flows: without these,
-        // first-inbox provisioning (auth-service → `/email/init`) and Gmail
-        // token fetches (email-service → `/internal/google_access_token`)
-        // fail with connection errors. (Plain `EMAIL_SERVICE_URL` in Doppler
-        // is ignored — macro_service_urls only honors the `OVERRIDE_` prefix.)
-        env.insert(
-            "OVERRIDE_EMAIL_SERVICE_URL".into(),
-            "http://email-service:8080".into(),
-        );
-        // Same host-vs-container split for calendar: `CalendarServiceUrl`'s
-        // Local default is http://localhost:8088, which inside a container is
-        // the caller itself. In-network callers (the agent calendar tools point
-        // at calendar_service) reach it through this override instead.
-        env.insert(
-            "OVERRIDE_CALENDAR_SERVICE_URL".into(),
-            "http://calendar-service:8080".into(),
-        );
         env.insert(
             "OVERRIDE_AUTH_SERVICE_URL".into(),
             "http://authentication-service:8080".into(),
@@ -387,11 +363,6 @@ impl QueueEnv {
                 env.insert(key.into(), form.value(queue.name));
             }
         }
-        // Without these the `ai_tools` SQS client is built with no queue name
-        // and every enqueue fails, so an agent session can neither send email
-        // nor sync thread labels. Deployed environments set them in Doppler.
-        env.insert("ENABLE_EMAIL_SCHEDULED_QUEUE".into(), "true".into());
-        env.insert("ENABLE_GMAIL_OPS_QUEUE".into(), "true".into());
     }
 }
 
@@ -643,7 +614,7 @@ impl BootStubEnv {
         // connection_gateway config reads `REDIS_HOST` (a Redis URL, not a
         // hostname — see `redis::Client::open`).
         env.insert("REDIS_HOST".into(), "redis://redis:6379".into());
-        // email_service / connection_gateway open their own Postgres pool.
+        // connection_gateway opens its own Postgres pool.
         env.insert(
             "MACRO_DB_URL".into(),
             "postgres://user:password@postgres:5432/macrodb".into(),
@@ -730,22 +701,6 @@ impl BootStubEnv {
             identity::MACRO_API_TOKEN_PRIVATE_KEY.into(),
         );
         env.insert("MACRO_API_TOKEN_EXPIRY_SECONDS".into(), "3600".into());
-        // email_service's GCP pubsub queue (gmail watch notifications) and
-        // its own CloudFront signer for attachment presigned URLs.
-        env.insert("GMAIL_GCP_QUEUE".into(), "gmail-gcp-queue-local".into());
-        env.insert("APOLLO_API_KEY".into(), "local".into());
-        env.insert(
-            "EMAIL_SERVICE_CLOUDFRONT_DISTRIBUTION_URL".into(),
-            "http://localhost:8100".into(),
-        );
-        env.insert(
-            "EMAIL_SERVICE_CLOUDFRONT_SIGNER_PRIVATE_KEY".into(),
-            "local".into(),
-        );
-        env.insert(
-            "EMAIL_SERVICE_CLOUDFRONT_SIGNER_PUBLIC_KEY_ID".into(),
-            "local-cloudfront-signer".into(),
-        );
         // notification_service's APNS/FCM push config — push won't work
         // locally, but the loader requires the keys.
         env.insert("APPLE_BUNDLE_ID".into(), "com.macro.local".into());

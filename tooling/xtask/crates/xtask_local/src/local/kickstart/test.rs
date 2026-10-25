@@ -39,15 +39,7 @@ fn google_idp_requires_a_real_client_secret() {
 
 #[test]
 fn kickstart_without_google_has_no_idp_requests() {
-    let doc = build(
-        3000,
-        8080,
-        8085,
-        "function populate() {}",
-        "function reconcile() {}",
-        None,
-        None,
-    );
+    let doc = build(3000, 8080, 8085, "function populate() {}", None, None);
     let urls: Vec<&str> = doc["requests"]
         .as_array()
         .unwrap()
@@ -61,7 +53,7 @@ fn kickstart_without_google_has_no_idp_requests() {
 }
 
 #[test]
-fn kickstart_with_google_adds_lambda_and_both_idps_after_the_application() {
+fn kickstart_with_google_adds_both_idps_after_the_application() {
     let google = GoogleIdp {
         client_id: "abc.apps.googleusercontent.com".into(),
         client_secret: "GOCSPX-real".into(),
@@ -71,7 +63,6 @@ fn kickstart_with_google_adds_lambda_and_both_idps_after_the_application() {
         8080,
         8085,
         "function populate() {}",
-        "function reconcile() {}",
         Some(&google),
         None,
     );
@@ -84,27 +75,18 @@ fn kickstart_with_google_adds_lambda_and_both_idps_after_the_application() {
             .unwrap_or_else(|| panic!("missing request for {needle}"))
     };
     let app = pos(identity::APPLICATION_ID);
-    let reconcile = pos(identity::RECONCILE_LAMBDA_ID);
     let google_idp = pos(identity::GOOGLE_IDP_ID);
     let gmail_idp = pos(identity::GOOGLE_GMAIL_IDP_ID);
-    assert!(app < reconcile && reconcile < google_idp && google_idp < gmail_idp);
+    assert!(app < google_idp && google_idp < gmail_idp);
 
     let gmail = &requests[gmail_idp]["body"]["identityProvider"];
     assert_eq!(gmail["name"], "google_gmail");
-    assert_eq!(
-        gmail["lambdaConfiguration"]["reconcileId"],
-        identity::RECONCILE_LAMBDA_ID
-    );
+    assert!(gmail["lambdaConfiguration"].is_null());
     assert_eq!(
         gmail["oauth2"]["client_id"],
         "abc.apps.googleusercontent.com"
     );
-    assert!(
-        gmail["oauth2"]["scope"]
-            .as_str()
-            .unwrap()
-            .contains("gmail.modify")
-    );
+    assert_eq!(gmail["oauth2"]["scope"], "openid profile email");
     assert_eq!(
         gmail["applicationConfiguration"][identity::APPLICATION_ID]["createRegistration"],
         true
@@ -118,15 +100,7 @@ fn kickstart_with_google_adds_lambda_and_both_idps_after_the_application() {
 
 #[test]
 fn kickstart_adopts_the_default_tenant() {
-    let doc = build(
-        3000,
-        8080,
-        8085,
-        "function populate() {}",
-        "function reconcile() {}",
-        None,
-        None,
-    );
+    let doc = build(3000, 8080, 8085, "function populate() {}", None, None);
     assert_eq!(
         doc["variables"]["defaultTenantId"],
         identity::TENANT_ID,
@@ -203,7 +177,6 @@ fn the_github_idp_id_follows_the_env_the_service_reads() {
         8080,
         8085,
         "function populate() {}",
-        "function reconcile() {}",
         None,
         Some(&github),
     );
@@ -232,7 +205,6 @@ fn the_github_idp_is_created_under_both_the_name_and_the_id_the_service_uses() {
         8080,
         8085,
         "function populate() {}",
-        "function reconcile() {}",
         None,
         Some(&github),
     );
@@ -265,15 +237,7 @@ fn the_github_idp_is_created_under_both_the_name_and_the_id_the_service_uses() {
 /// rather than misconfigured.
 #[test]
 fn kickstart_without_github_creates_no_github_idp() {
-    let doc = build(
-        3000,
-        8080,
-        8085,
-        "function populate() {}",
-        "function reconcile() {}",
-        None,
-        None,
-    );
+    let doc = build(3000, 8080, 8085, "function populate() {}", None, None);
 
     assert!(
         !doc["requests"]
@@ -296,7 +260,6 @@ fn authorized_redirects(
         auth_port,
         doc_cognition_port,
         "function populate() {}",
-        "function reconcile() {}",
         None,
         None,
     );

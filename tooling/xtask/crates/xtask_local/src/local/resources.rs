@@ -159,19 +159,6 @@ pub const QUEUES: &[Queue] = &[
         bindings: &[(macro_queues::WebhookEventQueue::OVERRIDE_ENV_VAR_NAME, Url)],
     },
     Queue {
-        name: macro_queues::EmailBackfillQueue::LOCAL,
-        bindings: &[("BACKFILL_QUEUE", Name), ("EMAIL_BACKFILL_QUEUE", Url)],
-    },
-    Queue {
-        // Consumed by email_service's nightly CRM-cleanup workers; without the
-        // queue existing in LocalStack they tight-loop on receive errors.
-        name: macro_queues::EmailCrmCleanupQueue::LOCAL,
-        bindings: &[(
-            macro_queues::EmailCrmCleanupQueue::OVERRIDE_ENV_VAR_NAME,
-            Url,
-        )],
-    },
-    Queue {
         name: macro_queues::ChatDeleteQueue::LOCAL,
         bindings: &[("CHAT_DELETE_QUEUE", Name)],
     },
@@ -196,30 +183,6 @@ pub const QUEUES: &[Queue] = &[
         bindings: &[("DOCUMENT_TEXT_EXTRACTOR_QUEUE", Name)],
     },
     Queue {
-        name: macro_queues::EmailScheduledQueue::LOCAL,
-        bindings: &[("EMAIL_SCHEDULED_QUEUE", Name)],
-    },
-    Queue {
-        name: macro_queues::GmailInboxSyncQueue::LOCAL,
-        bindings: &[("GMAIL_INBOX_SYNC_QUEUE", Name)],
-    },
-    Queue {
-        name: macro_queues::GmailInboxSyncRetryQueue::LOCAL,
-        bindings: &[("GMAIL_INBOX_SYNC_RETRY_QUEUE", Name)],
-    },
-    Queue {
-        name: macro_queues::GmailOpsQueue::LOCAL,
-        bindings: &[("GMAIL_OPS_QUEUE", Name)],
-    },
-    Queue {
-        name: macro_queues::GmailOpsRetryQueue::LOCAL,
-        bindings: &[("GMAIL_OPS_RETRY_QUEUE", Name)],
-    },
-    Queue {
-        name: macro_queues::LinkManagerQueue::LOCAL,
-        bindings: &[("LINK_MANAGER_QUEUE", Name)],
-    },
-    Queue {
         name: macro_queues::SearchEventQueue::LOCAL,
         bindings: &[("SEARCH_EVENT_QUEUE", Name)],
     },
@@ -228,60 +191,13 @@ pub const QUEUES: &[Queue] = &[
         bindings: &[("AI_PROJECTION_QUEUE", Url)],
     },
     Queue {
-        name: macro_queues::SfsDeleteQueue::LOCAL,
-        bindings: &[("SFS_DELETE_QUEUE", Name)],
-    },
-    Queue {
-        name: macro_queues::SfsUploaderQueue::LOCAL,
-        bindings: &[("SFS_UPLOADER_QUEUE", Name)],
-    },
-    Queue {
         name: macro_queues::StaticFileServiceS3EventQueueUrl::LOCAL,
         bindings: &[("STATIC_FILE_SERVICE_S3_EVENT_QUEUE_URL", Url)],
-    },
-    Queue {
-        // Carries both the reminder sweep tick and the per-firing fan-out it
-        // publishes. Consumed by cloud-storage-service's dispatch worker, which
-        // tight-loops on receive errors if the queue is not there.
-        //
-        // No EventBridge locally — LocalStack has `events` disabled — so nothing
-        // puts the minutely tick on this queue. `just poke_reminder_sweep` (or
-        // `just tick_reminder_sweeps`) stands in for the schedule.
-        name: macro_queues::ReminderDispatchQueue::LOCAL,
-        bindings: &[(
-            macro_queues::ReminderDispatchQueue::OVERRIDE_ENV_VAR_NAME,
-            Url,
-        )],
-    },
-    Queue {
-        // Same EventBridge stand-in as the reminders queue above:
-        // `just poke_calendar_reminder_sweep` (or
-        // `just tick_calendar_reminder_sweeps`) supplies the minutely tick.
-        name: macro_queues::CalendarReminderDispatchQueue::LOCAL,
-        bindings: &[(
-            macro_queues::CalendarReminderDispatchQueue::OVERRIDE_ENV_VAR_NAME,
-            Url,
-        )],
-    },
-    Queue {
-        // calendar_service's backfill queue, consumed by its always-on backfill
-        // workers (which tight-loop on receive errors if the queue is absent).
-        // Bound through the queue's own override var in URL form so the service
-        // dials the full LocalStack URL rather than the bare name.
-        name: macro_queues::CalendarServiceBackfillQueue::LOCAL,
-        bindings: &[(
-            macro_queues::CalendarServiceBackfillQueue::OVERRIDE_ENV_VAR_NAME,
-            Url,
-        )],
     },
 ];
 
 /// Every local S3 bucket and the env var that references it.
 pub const BUCKETS: &[Bucket] = &[
-    Bucket {
-        name: "macro-email-attachments",
-        env_key: "ATTACHMENT_BUCKET",
-    },
     Bucket {
         name: DOC_STORAGE_BUCKET,
         env_key: "DOCUMENT_STORAGE_BUCKET",

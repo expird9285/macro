@@ -3,13 +3,9 @@ use super::*;
 #[test]
 fn local_binaries_are_unique_and_complete() {
     let bins = local_binaries();
-    // 18 distinct binaries (the bundled set, including scheduled_action,
-    // calendar_service, the local-only search_processing_service,
-    // agent harness, mcp_service, and the seed_cli shipped for the
-    // gmail_forwarder sidecar).
-    assert_eq!(bins.len(), 18, "{bins:?}");
-    assert!(bins.contains(&"pubsub_workers"));
-    assert!(bins.contains(&"seed_cli"));
+    // 14 distinct binaries (the bundled set, including scheduled_action, the
+    // local-only search_processing_service, agent harness and mcp_service).
+    assert_eq!(bins.len(), 14, "{bins:?}");
     assert!(bins.contains(&"document_upload_finalizer_local_worker"));
     assert!(bins.contains(&"search_processing_service"));
     assert!(bins.contains(&"service"));
@@ -27,16 +23,11 @@ fn nonobvious_crate_mappings() {
         by_bin("document_upload_finalizer_local_worker").package,
         "document_upload_finalizer_handler"
     );
-    assert_eq!(by_bin("pubsub_workers").package, "email_service");
 }
 
 #[test]
 fn workers_are_portless() {
-    for name in [
-        "document_upload_finalizer",
-        "email_pubsub_workers",
-        "slack_import_worker",
-    ] {
+    for name in ["document_upload_finalizer", "slack_import_worker"] {
         let svc = RUST_SERVICES
             .iter()
             .find(|s| s.compose_name == name)
@@ -84,7 +75,7 @@ fn dev_mode_excludes_workers_and_optin() {
     let dev: Vec<&str> = services_for_mode(Mode::Dev)
         .map(|s| s.compose_name)
         .collect();
-    assert!(!dev.contains(&"email_pubsub_workers"));
+    assert!(!dev.contains(&"slack_import_worker"));
     assert!(!dev.contains(&"search_processing_service"));
     assert!(!dev.contains(&"scheduled_action_service"));
     assert!(dev.contains(&"authentication-service"));

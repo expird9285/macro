@@ -19,10 +19,8 @@ use super::identity;
 mod test;
 
 /// The Google OAuth web client the local `google`/`google_gmail` OIDC identity
-/// providers authenticate against (the Internal client in the
-/// `macro-email-testing` GCP project — see the macro-2634 proposal). Optional:
-/// without it the kickstart is unchanged and the email connect flows stay
-/// unreachable locally, exactly as before.
+/// providers authenticate against. Optional: without it the kickstart is
+/// unchanged and Google sign-in stays unreachable locally.
 pub struct GoogleIdp {
     pub client_id: String,
     pub client_secret: String,
@@ -106,15 +104,13 @@ impl GithubIdp {
 }
 
 /// Build the kickstart document. `lambda_body` is the JS source of
-/// `populate_jwt_local.js`; `reconcile_lambda_body` is the reconcile lambda
-/// attached to `google_gmail` (only used when `google` is configured); redirect
-/// URLs are templated from the instance ports.
+/// `populate_jwt_local.js`; redirect URLs are templated from the instance
+/// ports.
 pub fn build(
     frontend_port: u16,
     auth_port: u16,
     doc_cognition_port: u16,
     lambda_body: &str,
-    reconcile_lambda_body: &str,
     google: Option<&GoogleIdp>,
     github: Option<&GithubIdp>,
 ) -> Value {
@@ -350,17 +346,6 @@ pub fn build(
         });
         requests.push(json!({
             "method": "POST",
-            "url": format!("/api/lambda/{}", identity::RECONCILE_LAMBDA_ID),
-            "body": { "lambda": {
-                "id": identity::RECONCILE_LAMBDA_ID,
-                "name": "Reconcile Secondary IdP Link (local)",
-                "type": "OpenIDReconcile",
-                "enabled": true,
-                "body": reconcile_lambda_body,
-            }}
-        }));
-        requests.push(json!({
-            "method": "POST",
             "url": format!("/api/identity-provider/{}", identity::GOOGLE_IDP_ID),
             "body": { "identityProvider": {
                 "type": "OpenIDConnect",
@@ -383,8 +368,7 @@ pub fn build(
                 "debug": true,
                 "buttonText": "GoogleGmail",
                 "linkingStrategy": "LinkByEmail",
-                "lambdaConfiguration": { "reconcileId": identity::RECONCILE_LAMBDA_ID },
-                "oauth2": oauth2_base("openid profile email https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/contacts.readonly https://www.googleapis.com/auth/contacts.other.readonly https://www.googleapis.com/auth/gmail.settings.basic https://www.googleapis.com/auth/calendar"),
+                "oauth2": oauth2_base("openid profile email"),
                 "applicationConfiguration": app_config,
             }}
         }));

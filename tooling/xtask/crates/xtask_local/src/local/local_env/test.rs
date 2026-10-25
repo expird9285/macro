@@ -120,11 +120,6 @@ fn emits_required_keys() {
         "MACRO_API_TOKEN_PUBLIC_KEY",
         "MACRO_API_TOKEN_PRIVATE_SECRET_KEY",
         "MACRO_API_TOKEN_EXPIRY_SECONDS",
-        "GMAIL_GCP_QUEUE",
-        "APOLLO_API_KEY",
-        "EMAIL_SERVICE_CLOUDFRONT_DISTRIBUTION_URL",
-        "EMAIL_SERVICE_CLOUDFRONT_SIGNER_PRIVATE_KEY",
-        "EMAIL_SERVICE_CLOUDFRONT_SIGNER_PUBLIC_KEY_ID",
         "APPLE_BUNDLE_ID",
         "SNS_APNS_PLATFORM_ARN",
         "SNS_FCM_PLATFORM_ARN",
@@ -508,10 +503,7 @@ fn frontend_origin_tracks_how_the_app_is_served() {
             } else {
                 frontend::https_origin(&instance).unwrap()
             };
-            for key in [
-                "FRONTEND_ORIGIN",
-                "PIPEDREAM_ALLOWED_ORIGINS",
-            ] {
+            for key in ["FRONTEND_ORIGIN", "PIPEDREAM_ALLOWED_ORIGINS"] {
                 assert_eq!(env[key], origin, "{key}");
             }
             assert_eq!(env["MCP_PUBLIC_URL"], format!("{origin}/cognition"));
@@ -631,4 +623,3 @@ fn external_runtime_egress_respects_instance_host_ports_and_public_tunnels() {
         "https://egress.example.test"
     );
 }
-

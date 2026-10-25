@@ -41,9 +41,6 @@ fn local_compose_flavor(instance: &Instance, mode: Mode, static_frontend: bool) 
     // target dir — config rendering does not need the binaries to exist.
     let target = arch::detect()?;
     let binaries = BinariesDir::TargetDir(workspace_root().join(target.debug_dir()));
-    // Resolve first: the gmail_forwarder sidecar is gated on the resolved env
-    // exactly as `prepare` gates it, so the validated compose matches what a
-    // real bring-up with this env would generate.
     let resolved = env_layer::resolve(
         mode,
         instance,
@@ -53,11 +50,7 @@ fn local_compose_flavor(instance: &Instance, mode: Mode, static_frontend: bool) 
         Tunnels::default(),
         true,
     )?;
-    let gmail_forwarder = resolved
-        .merged
-        .get("GMAIL_FORWARDER_SA_KEY")
-        .is_some_and(|key| !key.trim().is_empty());
-    gen_compose::generate(mode, instance, &binaries, static_frontend, gmail_forwarder)?;
+    gen_compose::generate(mode, instance, &binaries, static_frontend)?;
 
     let files = gen_compose::compose_files(instance);
     let mut cmd = gen_compose::docker_compose(instance, &files, &resolved.generated_path);
@@ -109,19 +102,6 @@ fn local_compose_flavor(instance: &Instance, mode: Mode, static_frontend: bool) 
             failures.push(format!("required non-Rust service '{required}' is absent"));
         }
     }
-    // The sidecar is not in `services_for_mode` (modes-less inventory entry) —
-    // assert its presence and runtime-image shape when the env gates it in.
-    if gmail_forwarder {
-        match services.get("gmail_forwarder") {
-            None => failures.push(
-                "gmail_forwarder sidecar is absent although GMAIL_FORWARDER_SA_KEY is set".into(),
-            ),
-            Some(node) if !has_app_out_mount(node) => {
-                failures.push("gmail_forwarder is missing the /app/out bind mount".into());
-            }
-            Some(_) => {}
-        }
-    }
 
     if !failures.is_empty() {
         bail!(
@@ -131,14 +111,9 @@ fn local_compose_flavor(instance: &Instance, mode: Mode, static_frontend: bool) 
         );
     }
     println!(
-        "validate-local-compose ({}): OK ({} Rust services{})",
+        "validate-local-compose ({}): OK ({} Rust services)",
         flavor_label(static_frontend),
-        services_for_mode(mode).count(),
-        if gmail_forwarder {
-            " + gmail_forwarder"
-        } else {
-            ""
-        }
+        services_for_mode(mode).count()
     );
     Ok(())
 }

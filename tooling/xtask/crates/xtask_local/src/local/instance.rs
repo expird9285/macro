@@ -87,6 +87,9 @@ pub enum Port {
     Contacts = 8083,
     DocCognition = 8085,
     DocStorage = 8086,
+    /// Retired with the email service; kept (in place) because per-instance
+    /// port offsets come from declaration order, and removing a variant would
+    /// shift every one declared after it.
     Email = 8087,
     Notification = 8089,
     SearchProcessing = 8092,
@@ -110,10 +113,6 @@ pub enum Port {
     AgentHarnessEgress = 8102,
     /// Scheduled actions API and dispatcher (default compose port 8099).
     ScheduledAction = 8099,
-    /// Calendar service API (default compose port 8088). Appended at the end so
-    /// existing per-instance port offsets, which come from declaration order,
-    /// stay stable.
-    Calendar = 8088,
 }
 
 impl Port {

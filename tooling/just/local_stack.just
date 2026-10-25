@@ -30,75 +30,16 @@ create_local_queues:
   aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name notification-ingress-queue || true
   aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name push-delivery-queue || true
   aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name webhook-event-queue.fifo --attributes FifoQueue=true || true
-  aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name email-service-backfill-queue || true
-  aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name email-service-crm-cleanup-queue || true
   aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name delete-chat-handler-queue || true
   aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name contacts-queue || true
   aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name convert-service-queue || true
   aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name delete-document-handler-queue || true
   aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name document-upload-finalizer-queue || true
   aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name document-text-extractor-lambda-queue || true
-  aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name email-service-scheduled-queue || true
-  aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name email-service-gmail-inbox-sync-queue || true
-  aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name email-service-gmail-inbox-retry-queue || true
-  aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name email-service-gmail-ops-queue || true
-  aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name email-service-gmail-ops-retry-queue || true
-  aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name email-service-refresh-queue || true
   aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name search-event-queue || true
   aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name ai-projection-queue || true
-  aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name email-sfs-delete-queue || true
-  aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name email-service-sfs-mapper-queue || true
   aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name static-file-s3-event-notification-queue || true
-  aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name reminder-dispatch-queue || true
-  aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name calendar-reminder-dispatch-queue || true
   @echo "SQS queues created"
-
-# Fan out every reminder that is currently due, once.
-#
-# In dev and prod an EventBridge rule puts this same payload on the queue every
-# minute. There is no EventBridge locally, so nothing fires until you send it —
-# either once with this, or on a loop with `tick_reminder_sweeps`.
-poke_reminder_sweep:
-  #!/usr/bin/env bash
-  set -euo pipefail
-  url=$(aws --endpoint-url=http://localhost:4566 sqs get-queue-url \
-    --queue-name reminder-dispatch-queue --query QueueUrl --output text)
-  aws --endpoint-url=http://localhost:4566 sqs send-message \
-    --queue-url "$url" --message-body '{"operation":"sweep"}' >/dev/null
-  echo "reminder sweep enqueued"
-
-# Stand in for the EventBridge schedule: sweep once a minute until interrupted.
-tick_reminder_sweeps:
-  #!/usr/bin/env bash
-  set -euo pipefail
-  echo "sweeping reminders every 60s; ctrl-c to stop"
-  while true; do
-    just poke_reminder_sweep
-    sleep 60
-  done
-
-# Fan out every calendar event reminder that is currently due, once.
-#
-# Same EventBridge stand-in as `poke_reminder_sweep`, for the calendar
-# reminder dispatch queue.
-poke_calendar_reminder_sweep:
-  #!/usr/bin/env bash
-  set -euo pipefail
-  url=$(aws --endpoint-url=http://localhost:4566 sqs get-queue-url \
-    --queue-name calendar-reminder-dispatch-queue --query QueueUrl --output text)
-  aws --endpoint-url=http://localhost:4566 sqs send-message \
-    --queue-url "$url" --message-body '{"operation":"sweep"}' >/dev/null
-  echo "calendar reminder sweep enqueued"
-
-# Stand in for the EventBridge schedule: sweep once a minute until interrupted.
-tick_calendar_reminder_sweeps:
-  #!/usr/bin/env bash
-  set -euo pipefail
-  echo "sweeping calendar reminders every 60s; ctrl-c to stop"
-  while true; do
-    just poke_calendar_reminder_sweep
-    sleep 60
-  done
 
 # Purge all messages from every SQS queue in LocalStack
 purge_queues:
@@ -158,7 +99,6 @@ create_local_tables:
 
 # Create S3 buckets in LocalStack
 create_local_buckets:
-  aws --endpoint-url=http://localhost:4566 s3 mb s3://macro-email-attachments || true
   aws --endpoint-url=http://localhost:4566 s3 mb s3://doc-storage || true
   aws --endpoint-url=http://localhost:4566 s3 mb s3://docx-upload || true
   aws --endpoint-url=http://localhost:4566 s3 mb s3://static-file-storage || true
@@ -167,7 +107,7 @@ create_local_buckets:
   aws --endpoint-url=http://localhost:4566 s3 mb s3://agent-session-changes || true
   aws --endpoint-url=http://localhost:4566 s3 mb s3://github-pull-request-patches || true
   # Apply CORS configuration to all buckets
-  for bucket in macro-email-attachments doc-storage docx-upload static-file-storage bulk-upload-staging macro-call-recording-local agent-session-changes github-pull-request-patches; do \
+  for bucket in doc-storage docx-upload static-file-storage bulk-upload-staging macro-call-recording-local agent-session-changes github-pull-request-patches; do \
     aws --endpoint-url=http://localhost:4566 s3api put-bucket-cors --bucket $bucket --cors-configuration '{"CORSRules":[{"AllowedOrigins":["http://localhost:3000","http://localhost:3001","http://localhost:3002","http://localhost:3003","http://localhost:3004","http://localhost:3005","http://localhost:3006","http://localhost:3007","http://localhost:3008","http://localhost:3009"],"AllowedMethods":["GET","PUT","POST","DELETE","HEAD"],"AllowedHeaders":["*"],"ExposeHeaders":["ETag"],"MaxAgeSeconds":3600}]}' || true; \
   done
   @echo "S3 buckets created"

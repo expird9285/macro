@@ -55,14 +55,10 @@ pub const PASSWORDLESS_EMAIL_TEMPLATE_ID: &str = "33333333-3333-4333-8333-333333
 /// when a Google OAuth client is configured (see `kickstart::GoogleIdp`).
 pub const GOOGLE_IDP_ID: &str = "44444444-4444-4444-8444-444444444444";
 
-/// Fixed id for the `google_gmail` (Gmail-scoped) OIDC identity provider.
-/// `authentication_service` resolves it by name, so the id only has to be
-/// stable, not shared with dev/prod.
+/// Fixed id for the `google_gmail` OIDC identity provider, the one the web
+/// app's Google sign-in resolves by name (the name predates the removal of
+/// mailbox linking). The id only has to be stable, not shared with dev/prod.
 pub const GOOGLE_GMAIL_IDP_ID: &str = "55555555-5555-4555-8555-555555555555";
-
-/// Fixed id for the reconcile lambda attached to `google_gmail` (blocks
-/// sign-in with a Google account that is linked as a secondary inbox).
-pub const RECONCILE_LAMBDA_ID: &str = "66666666-6666-4666-8666-666666666666";
 
 /// Fixed id for the `github` identity provider. Only created when a real
 /// GitHub OAuth client is configured (see `kickstart::GithubIdp`).

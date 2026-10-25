@@ -25,7 +25,6 @@ pub fn write(instance: &Instance) -> Result<PathBuf> {
         ("cognition", url(Port::DocCognition)),
         ("connection", url(Port::ConnGateway)),
         ("contacts", url(Port::Contacts)),
-        ("email", url(Port::Email)),
         ("notification", url(Port::Notification)),
         ("properties", url(Port::DocStorage)),
         ("search", url(Port::DocStorage)),
