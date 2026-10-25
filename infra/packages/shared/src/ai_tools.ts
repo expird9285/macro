@@ -29,10 +29,6 @@ export function getAiToolsInfra(): AiToolsInfra {
     'ai-tools-cloud-storage-service-stack',
     { name: `macro-inc/cloud-storage-service/${stack}` }
   );
-  const emailServiceStack = new pulumi.StackReference(
-    'ai-tools-email-service-stack',
-    { name: `macro-inc/email-service/${stack}` }
-  );
   const notificationServiceStack = new pulumi.StackReference(
     'ai-tools-notification-service-stack',
     { name: `macro-inc/notification-service/${stack}` }
@@ -57,25 +53,6 @@ export function getAiToolsInfra(): AiToolsInfra {
   const documentDeleteQueueArn: pulumi.Output<string> = cloudStorageServiceStack
     .getOutput('deleteDocumentQueueArn')
     .apply((v) => v as string);
-
-  // Queue names come from the `macro_queues` crate at runtime; we only need the
-  // ARNs here for the IAM send/receive grants below.
-  const emailScheduledQueueArn: pulumi.Output<string> = emailServiceStack
-    .getOutput('scheduledQueueArn')
-    .apply((v) => v as string);
-
-  const gmailOpsQueueArn: pulumi.Output<string> = emailServiceStack
-    .getOutput('gmailOpsQueueArn')
-    .apply((v) => v as string);
-
-  // `SendEmail` stages attachments in the email service's bucket; the hosts
-  // read its name from `ATTACHMENT_BUCKET` and need write access to it. The
-  // name is fixed by `stacks/email-service/attachments-bucket.ts`, so the ARN
-  // is derived here rather than read from that stack's outputs, which keeps
-  // these services deployable ahead of an email-service deploy.
-  const emailAttachmentsBucketArn: pulumi.Output<string> = pulumi.output(
-    `arn:aws:s3:::macro-email-attachments-${stack}`
-  );
 
   const notificationIngressQueueArn: pulumi.Output<string> =
     notificationServiceStack
@@ -114,8 +91,6 @@ export function getAiToolsInfra(): AiToolsInfra {
     ],
     queueArns: [
       documentDeleteQueueArn,
-      emailScheduledQueueArn,
-      gmailOpsQueueArn,
       notificationIngressQueueArn,
       searchEventQueueArn,
       contactsQueueArn,
@@ -123,7 +98,6 @@ export function getAiToolsInfra(): AiToolsInfra {
     bucketArns: [
       documentStorageBucketArn,
       docxUploadBucketArn,
-      emailAttachmentsBucketArn,
     ],
   };
 }

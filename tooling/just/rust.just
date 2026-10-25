@@ -54,11 +54,8 @@ build_lambdas compiler="":
     ulimit -n 10240 && just services/document_upload_finalizer_handler/build {{compiler}}
     ulimit -n 10240 && just services/email_suppression_handler/build {{compiler}}
     ulimit -n 10240 && just services/deleted_item_poller/build {{compiler}}
-    ulimit -n 10240 && just services/email_refresh_handler/build {{compiler}}
     ulimit -n 10240 && just services/user_link_cleanup_handler/build {{compiler}}
     ulimit -n 10240 && just services/notification_retention_handler/build {{compiler}}
-    ulimit -n 10240 && just services/email_scheduled_handler/build {{compiler}}
-    ulimit -n 10240 && just services/email_sfs_delete_handler/build {{compiler}}
     ulimit -n 10240 && just services/image_optimizer/build {{compiler}}
     ulimit -n 10240 && just services/ai_projections_refresh_handler/build {{compiler}}
 
@@ -68,13 +65,10 @@ build_lambdas compiler="":
 setup_test_envs:
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/contacts/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./services/delete_chat_handler/.env
-    echo "DATABASE_URL={{ DATABASE_URL }}" >> ./services/email_sfs_delete_handler/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./services/scheduled_action/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/notification_db_client/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/notification/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/macro_db_client/.env
-    echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/email_db_client/.env
-    echo "DATABASE_URL={{ DATABASE_URL }}" >> ./services/email_refresh_handler/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/comms_db_client/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./services/document_cognition_service/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./services/document_text_extractor/.env
@@ -86,16 +80,13 @@ setup_test_envs:
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/teams/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/frecency/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/favorites/.env
-    echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/reminders/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/slack_integration/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./services/slack_import_worker/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/user_api_key/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/soup/.env
-    echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/email/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/system_properties/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/properties/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/name_search/.env
-    echo "DATABASE_URL={{ DATABASE_URL }}" >> ./services/email_scheduled_handler/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/saved_views/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/channels/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/documents/.env
@@ -118,7 +109,6 @@ setup_test_envs:
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/mcp_client/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./services/document_storage_service/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/task_dedup/.env
-    echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/crm/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/bots/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./services/call_recording_preview_handler/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/share_permission_db_utils/.env
@@ -126,8 +116,6 @@ setup_test_envs:
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./services/ai_projections_refresh_handler/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/ai_billing/.env
     echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/webhook/.env
-    echo "DATABASE_URL={{ DATABASE_URL }}" >> ./crates/calendar_events/.env
-    echo "DATABASE_URL={{ DATABASE_URL }}" >> ./services/email_service/.env
 
 setup_macrodb:
     just crates/macro_db_client/create_db

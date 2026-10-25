@@ -59,15 +59,6 @@
         "call_recording_preview_handler"
       ]
     },
-    "calendar-service": {
-      "source_paths": [
-        "services/calendar_service/**"
-      ],
-      "stack_path": "infra/stacks/calendar-service/**",
-      "deploy_binaries": [
-        "calendar_service"
-      ]
-    },
     "connection-gateway": {
       "source_paths": [
         "services/connection_gateway/**"
@@ -166,22 +157,6 @@
         "document_text_extractor"
       ]
     },
-    "email-service": {
-      "source_paths": [
-        "services/email_service/**",
-        "services/email_refresh_handler/**",
-        "services/email_scheduled_handler/**"
-      ],
-      "stack_path": "infra/stacks/email-service/**",
-      "deploy_binaries": [
-        "email_service",
-        "pubsub_workers"
-      ],
-      "deploy_lambdas": [
-        "email_refresh_handler",
-        "email_scheduled_handler"
-      ]
-    },
     "notification-service": {
       "source_paths": [
         "services/notification_service/**",
@@ -226,15 +201,6 @@
       "stack_path": "infra/stacks/search-upload/**",
       "deploy_lambdas": [
         "search_upload_handler"
-      ]
-    },
-    "email-sfs-delete-handler": {
-      "source_paths": [
-        "services/email_sfs_delete_handler/**"
-      ],
-      "stack_path": "infra/stacks/email-sfs-delete-handler/**",
-      "deploy_lambdas": [
-        "email_sfs_delete_handler"
       ]
     },
     "static-file-service": {

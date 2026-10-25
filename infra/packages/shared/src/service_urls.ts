@@ -5,7 +5,6 @@ import { stack } from '.';
  */
 export enum ServiceUrl {
   SYNC_SERVICE_URL = 'SYNC_SERVICE_URL',
-  EMAIL_SERVICE_URL = 'EMAIL_SERVICE_URL',
   STATIC_FILE_SERVICE_URL = 'STATIC_FILE_SERVICE_URL',
   NOTIFICATION_SERVICE_URL = 'NOTIFICATION_SERVICE_URL',
   AUTHENTICATION_SERVICE_URL = 'AUTHENTICATION_SERVICE_URL',
@@ -32,7 +31,6 @@ type ServiceUrlMap = {
 const DEV_SERVICE_URLS: ServiceUrlMap = {
   [ServiceUrl.SYNC_SERVICE_URL]:
     'https://sync-service-dev3.macroverse.workers.dev',
-  [ServiceUrl.EMAIL_SERVICE_URL]: 'https://dev-gateway.macro.com/email',
   [ServiceUrl.STATIC_FILE_SERVICE_URL]:
     'https://static-file-service-dev.macro.com',
   [ServiceUrl.NOTIFICATION_SERVICE_URL]:
@@ -59,7 +57,6 @@ const DEV_SERVICE_URLS: ServiceUrlMap = {
 const PROD_SERVICE_URLS: ServiceUrlMap = {
   [ServiceUrl.SYNC_SERVICE_URL]:
     'https://sync-service-prod2.macroverse.workers.dev',
-  [ServiceUrl.EMAIL_SERVICE_URL]: 'https://gateway.macro.com/email',
   [ServiceUrl.STATIC_FILE_SERVICE_URL]: 'https://static-file-service.macro.com',
   [ServiceUrl.NOTIFICATION_SERVICE_URL]:
     'https://gateway.macro.com/notification',

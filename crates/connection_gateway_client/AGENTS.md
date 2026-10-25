@@ -12,8 +12,6 @@ connected users.
 - `src/client.rs`: `ConnectionGatewayClient`, `REQUEST_TIMEOUT` (15s — read its
   doc comment before changing; delivery is best-effort, callers don't wait
   indefinitely), and the generic `send_message`/batch methods.
-- `src/client/calendar.rs`, `src/client/email.rs`: thin per-feature wrappers
-  over the generic send methods (e.g. `refresh_calendar`, `refresh_email`).
 - `connection_gateway_models` (sibling crate): the wire types
   (`SendMessageBody`, `BatchSendMessageBody`, `MessageReceipt`, ...).
 

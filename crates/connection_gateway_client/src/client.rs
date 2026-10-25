@@ -7,8 +7,6 @@ use connection_gateway_models::{
 
 use model_entity::Entity;
 
-mod calendar;
-mod email;
 
 /// How long any one call to the connection gateway may take.
 ///

@@ -2,8 +2,6 @@ import * as aws from '@pulumi/aws';
 import * as pulumi from '@pulumi/pulumi';
 import {
   config,
-  getBackfillQueue,
-  getLinkManagerQueue,
   getMacroApiToken,
   getMacroNotify,
   getSearchEventQueue,
@@ -127,10 +125,6 @@ const { notificationIngressQueueArn } = getMacroNotify();
 
 const { searchEventQueueArn } = getSearchEventQueue();
 
-const { linkManagerQueueArn } = getLinkManagerQueue();
-
-const { backfillQueueArn } = getBackfillQueue();
-
 const service = new AuthenticationService('authentication-service', {
   secretKeyArns,
   clusterName: fusionAuthClusterName,
@@ -147,8 +141,6 @@ const service = new AuthenticationService('authentication-service', {
   queueArns: [
     notificationIngressQueueArn,
     searchEventQueueArn,
-    linkManagerQueueArn,
-    backfillQueueArn,
     contactsQueueArn,
   ],
   microsoftTokenKmsDeletionWindowInDays:

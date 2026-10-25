@@ -24,8 +24,6 @@ import {
   DocumentUploadFinalizerLambda,
   type DocumentUploadFinalizerLambdaEnvVars,
 } from './document-upload-finalizer-lambda';
-import { CalendarReminderDispatchQueue } from './calendar-reminder-dispatch-queue';
-import { ReminderDispatchQueue } from './reminder-dispatch-queue';
 import { SlackImportQueue } from './slack-import-queue';
 import { deploySlackImportWorker } from './slack-import-worker';
 import { WafObservability } from './waf-observability';
@@ -151,18 +149,6 @@ const contactsQueueArn: pulumi.Output<string> = contactsServiceStack
   .getOutput('contactsQueueArn')
   .apply((arn) => arn as string);
 
-const emailServiceStack = new pulumi.StackReference('email-service-stack', {
-  name: `macro-inc/email-service/${stack}`,
-});
-
-const emailScheduledQueueArn: pulumi.Output<string> = emailServiceStack
-  .getOutput('scheduledQueueArn')
-  .apply((arn) => arn as string);
-
-const gmailOpsQueueArn: pulumi.Output<string> = emailServiceStack
-  .getOutput('gmailOpsQueueArn')
-  .apply((arn) => arn as string);
-
 const {
   notificationIngressQueueArn,
   notificationApnsVoipPlatformArn: snsApnsVoipPlatformArn,
@@ -286,24 +272,6 @@ export const deleteChatHandlerLambdaName = deleteChatHandler.lambda.name;
 export const deleteChatQueueArn = deleteChatHandler.queue.arn;
 export const deleteChatQueueName = deleteChatHandler.queue.name;
 
-const reminderDispatchQueue = new ReminderDispatchQueue(
-  `reminder-dispatch-${stack}`,
-  { tags }
-);
-
-export const reminderDispatchQueueArn = reminderDispatchQueue.queue.arn;
-export const reminderDispatchQueueName = reminderDispatchQueue.queue.name;
-
-const calendarReminderDispatchQueue = new CalendarReminderDispatchQueue(
-  `calendar-reminder-dispatch-${stack}`,
-  { tags }
-);
-
-export const calendarReminderDispatchQueueArn =
-  calendarReminderDispatchQueue.queue.arn;
-export const calendarReminderDispatchQueueName =
-  calendarReminderDispatchQueue.queue.name;
-
 const MACRO_API_TOKENS = getMacroApiToken();
 
 const GITHUB_WEBHOOK_SECRET_KEY = config.require('github_webhook_secret_key');
@@ -349,11 +317,6 @@ const cloudStorageService = new CloudStorageService(
       deleteDocumentHandler.queue.arn,
       notificationIngressQueueArn,
       contactsQueueArn,
-      emailScheduledQueueArn,
-      gmailOpsQueueArn,
-      // Both directions: the sweep publishes onto it and the workers read it.
-      reminderDispatchQueue.queue.arn,
-      calendarReminderDispatchQueue.queue.arn,
     ],
     vpc: coparse_api_vpc,
     platform: {
