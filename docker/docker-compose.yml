@@ -118,7 +118,6 @@ services:
       - "8085:8080"
     depends_on:
       - document_storage_service
-      - email_service
       - static_file_service
       - sync_service
       - lexical_service
@@ -220,80 +219,6 @@ services:
       - services
 
   # ============================================================================
-  # email_service (Port 8087)
-  # Email processing and management
-  # ============================================================================
-  email_service:
-    <<: [*common-env, *rust-services-image]
-    command: ["/app/out/email_service"]
-    ports:
-      - "8087:8080"
-    depends_on:
-      - authentication-service
-      - document_storage_service
-      - connection_gateway
-      - static_file_service
-      - redis
-    networks:
-      databases:
-      services:
-        aliases:
-          - email-service
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-
-  # ============================================================================
-  # email_pubsub_workers (local worker)
-  # Consumes the email SQS queues (backfill, scheduled, gmail sync/ops, sfs,
-  # link manager). Runs as its own deployment in prod; locally it's its own
-  # container alongside email_service. No HTTP port — pure SQS consumer.
-  # ============================================================================
-  email_pubsub_workers:
-    <<: [*common-env, *rust-services-image]
-    command: ["/app/out/pubsub_workers"]
-    depends_on:
-      - postgres
-      - redis
-      - authentication-service
-      - document_storage_service
-      - connection_gateway
-      - static_file_service
-      - email_service
-    networks:
-      - databases
-      - services
-
-  # ============================================================================
-  # calendar_service (Port 8088)
-  # Google Calendar sync + calendar API, and the local owner of /calendar.
-  # ============================================================================
-  calendar_service:
-    <<: [*common-env, *rust-services-image]
-    command: ["/app/out/calendar_service"]
-    ports:
-      - "8088:8080"
-    depends_on:
-      - postgres
-      - redis
-      - authentication-service
-      - connection_gateway
-    networks:
-      databases:
-      services:
-        aliases:
-          - calendar-service
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-
-  # ============================================================================
   # notification_service (Port 8089)
   # User notifications - NotificationDB
   # ============================================================================
@@ -362,7 +287,6 @@ services:
     environment:
       - OVERRIDE_LEXICAL_SERVICE_URL=http://lexical-service:8096
     depends_on:
-      - email_service
       - lexical_service
     networks:
       databases:

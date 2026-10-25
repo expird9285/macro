@@ -16,7 +16,6 @@ x-local-e2e-env: &local-e2e-env
   REDIS_URI: redis://redis:6379
   DOCUMENT_STORAGE_SERVICE_REDIS_URI: redis://redis:6379
 
-  ATTACHMENT_BUCKET: macro-email-attachments
   DOCUMENT_STORAGE_BUCKET: doc-storage
   DOCX_DOCUMENT_UPLOAD_BUCKET: docx-upload
   STATIC_STORAGE_BUCKET: static-file-storage
@@ -36,26 +35,13 @@ x-local-e2e-env: &local-e2e-env
   OVERRIDE_CONVERT_QUEUE: convert-service-queue
   OVERRIDE_DOCUMENT_DELETE_QUEUE: delete-document-handler-queue
   OVERRIDE_DOCUMENT_TEXT_EXTRACTOR_QUEUE: document-text-extractor-lambda-queue
-  OVERRIDE_EMAIL_SCHEDULED_QUEUE: email-service-scheduled-queue
-  OVERRIDE_GMAIL_INBOX_SYNC_QUEUE: email-service-gmail-inbox-sync-queue
-  OVERRIDE_GMAIL_INBOX_SYNC_RETRY_QUEUE: email-service-gmail-inbox-retry-queue
-  OVERRIDE_GMAIL_OPS_QUEUE: email-service-gmail-ops-queue
-  OVERRIDE_GMAIL_OPS_RETRY_QUEUE: email-service-gmail-ops-retry-queue
-  OVERRIDE_LINK_MANAGER_QUEUE: email-service-refresh-queue
   OVERRIDE_NOTIFICATION_QUEUE: http://localstack:4566/000000000000/notification-queue
   OVERRIDE_NOTIFICATION_INGRESS_QUEUE: http://localstack:4566/000000000000/notification-ingress-queue
   OVERRIDE_PUSH_NOTIFICATION_EVENT_HANDLER_QUEUE: push-delivery-queue
   OVERRIDE_WEBHOOK_EVENT_QUEUE: http://localstack:4566/000000000000/webhook-event-queue.fifo
   OVERRIDE_SEARCH_EVENT_QUEUE: search-event-queue
   OVERRIDE_AI_PROJECTION_QUEUE: http://localstack:4566/000000000000/ai-projection-queue
-  OVERRIDE_SFS_DELETE_QUEUE: email-sfs-delete-queue
-  OVERRIDE_SFS_UPLOADER_QUEUE: email-service-sfs-mapper-queue
   OVERRIDE_STATIC_FILE_SERVICE_S3_EVENT_QUEUE_URL: http://localstack:4566/000000000000/static-file-s3-event-notification-queue
-  OVERRIDE_EMAIL_BACKFILL_QUEUE: http://localstack:4566/000000000000/email-service-backfill-queue
-
-  # The ai_tools context wires these queues only when explicitly enabled.
-  ENABLE_EMAIL_SCHEDULED_QUEUE: "true"
-  ENABLE_GMAIL_OPS_QUEUE: "true"
 
 services:
   authentication-service:
@@ -74,7 +60,6 @@ services:
     # it from the base service dependency set if this profile is enabled manually.
     depends_on: !override
       - document_storage_service
-      - email_service
       - static_file_service
       - sync_service
   document_storage_service:
@@ -95,8 +80,6 @@ services:
     depends_on: !override
       - postgres
       - sync_service
-  email_service:
-    environment: *local-e2e-env
   # Not needed by the smoke suite. Keep this behind an inactive profile because
   # it requires push/SNS/email notification env that is unrelated to local E2E.
   notification_service:
