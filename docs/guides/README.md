@@ -19,3 +19,4 @@ touches, in order, with the existing code to copy.
 | A view's feature tour | [`add-tour` skill](../../.agents/skills/add-tour/SKILL.md) |
 | Collaborative markdown on a feature | [`collab-surface-core` skill](../../.agents/skills/collab-surface-core/SKILL.md) |
 | A feature on shared database storage | [`database-core` skill](../../.agents/skills/database-core/SKILL.md) |
+| Verifying the slimmed-down fork after feature removals | [fork-removal-verification.md](fork-removal-verification.md) |
