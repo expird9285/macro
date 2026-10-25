@@ -9,7 +9,6 @@ use entity_registry::CreationPrincipalExtractor;
 use macro_authorization::MacroAuthorizationService;
 use model::document::response::CreateDocumentRequest;
 use model::document::{FileType, FileTypeExt};
-use model_owner::CreationPrincipal;
 use models_permissions::share_permission::access_level::EditAccessLevel;
 
 use super::DocumentRouterState;

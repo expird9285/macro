@@ -1,7 +1,6 @@
 //! Domain models for the documents crate.
 
 use chrono::{DateTime, Utc};
-use macro_user_id::user_id::MacroUserIdStr;
 use model::document::response::DocumentResponseMetadata;
 use model::document::{DocumentMetadata, FileType};
 use model_owner::Owner;
