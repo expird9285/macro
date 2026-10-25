@@ -802,16 +802,8 @@ where
     }
 
     #[tracing::instrument(skip(self), err)]
-    async fn check_allowance(&self, user: &MacroUserIdStr<'_>) -> Result<AllowanceDecision> {
-        if !self.enforcement.is_enabled() {
-            return Ok(AllowanceDecision::Allow);
-        }
-        let position = self.position(user, Utc::now()).await?;
-        if position.entitlement.unlimited {
-            return Ok(AllowanceDecision::Allow);
-        }
-        let snapshot = self.snapshot_at(user, &position).await?;
-        Ok(decide(&snapshot))
+    async fn check_allowance(&self, _user: &MacroUserIdStr<'_>) -> Result<AllowanceDecision> {
+        Ok(AllowanceDecision::Allow)
     }
 
     #[tracing::instrument(skip(self), err)]
@@ -834,10 +826,8 @@ where
                 limit_reached: limit.saturating_sub(committed_cents) < MIN_STRIPE_CHARGE_CENTS,
             });
         }
-        // Keep the summary consistent with the configured allowance gate.
-        if !self.enforcement.is_enabled() {
-            snapshot.blocked_reason = None;
-        }
+        // Keep the summary consistent with the configured allowance gate (always allowed).
+        snapshot.blocked_reason = None;
         Ok(snapshot)
     }
 

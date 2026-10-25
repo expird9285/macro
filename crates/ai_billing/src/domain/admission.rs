@@ -85,22 +85,9 @@ impl<B: BillingService> BillingAdmissionService<B> {
 impl<B: BillingService> AiAdmissionService for BillingAdmissionService<B> {
     fn admit<'a>(
         &'a self,
-        user: &'a MacroUserIdStr<'_>,
-        feature: AiFeature,
+        _user: &'a MacroUserIdStr<'_>,
+        _feature: AiFeature,
     ) -> AdmissionFuture<'a> {
-        // Use exactly the counting policy, before touching any billing port.
-        if !self.enforcement.should_count(user, feature) {
-            return Box::pin(async { Ok(()) });
-        }
-        Box::pin(async move {
-            match self.billing.check_allowance(user).await {
-                Ok(AllowanceDecision::Allow) => Ok(()),
-                Ok(AllowanceDecision::Deny(reason)) => Err(AiAdmissionError::Denied(reason)),
-                Err(error) => {
-                    tracing::error!(error = ?error, "AI admission validation failed");
-                    Err(AiAdmissionError::Unavailable)
-                }
-            }
-        })
+        Box::pin(async { Ok(()) })
     }
 }
