@@ -11,7 +11,6 @@ use models_properties::service::entity_property_with_definition::EntityPropertyW
 use models_properties::service::project_metadata::ProjectMetadata;
 use models_properties::service::property_definition::PropertyDefinition;
 use models_properties::service::property_value::PropertyValue;
-use models_properties::service::thread_metadata::ThreadMetadata;
 use models_properties::{EntityReference, EntityType};
 use uuid::Uuid;
 
@@ -29,13 +28,6 @@ pub mod display_names {
     // Document metadata
     pub const DOCUMENT_NAME: &str = "Document Name";
     pub const DOCUMENT_PROJECT: &str = "Project";
-
-    // Thread metadata
-    pub const THREAD_SUBJECT: &str = "Subject";
-    pub const THREAD_STARTED: &str = "Thread Started";
-    pub const THREAD_LAST_RECEIVED: &str = "Last Received";
-    pub const THREAD_LAST_SENT: &str = "Last Sent";
-    pub const THREAD_MESSAGES: &str = "Messages";
 
     // Project metadata
     pub const PROJECT_NAME: &str = "Project Name";
@@ -98,51 +90,6 @@ pub fn document_metadata_properties(
     ));
 
     metadata_properties
-}
-
-/// Build the metadata properties for an email thread.
-pub fn thread_metadata_properties(
-    thread_metadata: ThreadMetadata,
-) -> Vec<EntityPropertyWithDefinition> {
-    let entity_type = EntityType::Thread;
-
-    vec![
-        // 1. Subject property
-        create_metadata_property_str(
-            display_names::THREAD_SUBJECT,
-            models_properties::DataType::String,
-            thread_metadata.subject.clone(),
-            entity_type,
-        ),
-        // 2. Thread Started property
-        create_metadata_property_date(
-            display_names::THREAD_STARTED,
-            models_properties::DataType::Date,
-            thread_metadata.thread_started,
-            entity_type,
-        ),
-        // 3. Last Received property
-        create_metadata_property_date(
-            display_names::THREAD_LAST_RECEIVED,
-            models_properties::DataType::Date,
-            thread_metadata.last_received,
-            entity_type,
-        ),
-        // 4. Last Sent property
-        create_metadata_property_date(
-            display_names::THREAD_LAST_SENT,
-            models_properties::DataType::Date,
-            thread_metadata.last_sent,
-            entity_type,
-        ),
-        // 5. Messages property (count)
-        create_metadata_property_number(
-            display_names::THREAD_MESSAGES,
-            models_properties::DataType::Number,
-            thread_metadata.message_count,
-            entity_type,
-        ),
-    ]
 }
 
 /// Build the metadata properties for a project.

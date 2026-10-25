@@ -13,7 +13,6 @@ use model_owner::Owner;
 use models_permissions::share_permission::access_level::AccessLevel;
 use models_properties::EntityType as StorageEntityType;
 use sqlx::{Pool, Postgres};
-use uuid::Uuid;
 
 use super::permission_queries;
 use crate::domain::model::{EditReceipt, ViewReceipt};
@@ -33,9 +32,7 @@ impl<Svc: EntityAccessService> PermissionServiceImpl<Svc> {
         }
     }
 
-    /// Gets the user's access level for an entity, including the thread
-    /// ownership fallback for owned threads where permission records were
-    /// never created.
+    /// Gets the user's access level for an entity.
     async fn get_access_level(
         &self,
         user_id: Option<&MacroUserIdStr<'_>>,
@@ -59,29 +56,6 @@ impl<Svc: EntityAccessService> PermissionServiceImpl<Svc> {
                 );
                 anyhow::anyhow!("Failed to get user access level: {}", e)
             })?;
-
-        // Fallback for threads: check ownership via link_id if no permission records exist.
-        // This handles owned threads where EmailThreadPermission/UserItemAccess were never created.
-        if access_level.is_none()
-            && entity_type == AccessEntityType::EmailThread
-            && let Some(user_id) = user_id
-            && let Ok(thread_id) = Uuid::parse_str(entity_id)
-        {
-            match permission_queries::get_macro_id_from_thread_id(&self.db, thread_id).await {
-                Ok(Some(owner_id)) if owner_id == user_id.as_ref() => {
-                    tracing::debug!("user owns thread via link_id, granting owner access");
-                    return Ok(Some(AccessLevel::Owner));
-                }
-                Ok(_) => {}
-                Err(e) => {
-                    tracing::error!(
-                        error = ?e,
-                        thread_id = %thread_id,
-                        "failed to look up thread owner for permission fallback"
-                    );
-                }
-            }
-        }
 
         Ok(access_level)
     }

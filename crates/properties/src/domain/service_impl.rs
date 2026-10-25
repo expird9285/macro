@@ -1777,17 +1777,6 @@ where
                 .await
                 .map_err(anyhow::Error::from)?
                 .map(|meta| metadata::document_metadata_properties(meta, entity_type)),
-            EntityType::Thread => {
-                let Ok(thread_id) = Uuid::parse_str(entity_id) else {
-                    tracing::error!(entity_id = %entity_id, "invalid thread UUID");
-                    return Ok(None);
-                };
-                self.repository
-                    .get_thread_metadata(thread_id)
-                    .await
-                    .map_err(anyhow::Error::from)?
-                    .map(metadata::thread_metadata_properties)
-            }
             EntityType::Project => self
                 .repository
                 .get_project_metadata(entity_id)

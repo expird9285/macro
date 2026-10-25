@@ -17,7 +17,6 @@ use models_properties::service::property_definition::PropertyDefinition;
 use models_properties::service::property_definition_with_options::PropertyDefinitionWithOptions;
 use models_properties::service::property_option::{PropertyOption, PropertyOptionValue};
 use models_properties::service::property_value::PropertyValue;
-use models_properties::service::thread_metadata::ThreadMetadata;
 use models_properties::{DataType, EntityPropertyReference, EntityReference, EntityType};
 use uuid::Uuid;
 
@@ -441,13 +440,6 @@ pub trait PropertiesRepo: Send + Sync + 'static {
         document_id: &str,
     ) -> impl Future<Output = Result<Option<DocumentMetadata>, Self::Err>> + Send;
 
-    /// Get an email thread's metadata (subject, timestamps, message count).
-    /// Returns `None` if the thread doesn't exist.
-    fn get_thread_metadata(
-        &self,
-        thread_id: Uuid,
-    ) -> impl Future<Output = Result<Option<ThreadMetadata>, Self::Err>> + Send;
-
     /// Get a project's metadata (name, owner, timestamps, parent).
     /// Returns `None` if the project doesn't exist or is deleted.
     fn get_project_metadata(
@@ -461,9 +453,8 @@ pub trait PropertiesRepo: Send + Sync + 'static {
 /// This trait abstracts permission operations (receipt minting and granting),
 /// allowing for different implementations (e.g., database-backed, mock for
 /// testing). Minting is the single enforcement point: it encapsulates the
-/// properties-specific access rules (Task shares Document permissions, the
-/// thread-ownership fallback, and deleted entities being visible only to
-/// their owner).
+/// properties-specific access rules (Task shares Document permissions, and
+/// deleted entities being visible only to their owner).
 #[cfg_attr(test, mockall::automock(type Err = anyhow::Error;))]
 pub trait PermissionService: Send + Sync + 'static {
     type Err;

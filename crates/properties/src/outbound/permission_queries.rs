@@ -29,7 +29,8 @@ pub async fn get_owner_and_deleted(
         | EntityType::Company
         | EntityType::Contact
         | EntityType::User
-        | EntityType::Thread => {
+        | EntityType::Thread
+        | EntityType::CalendarEvent => {
             anyhow::bail!("unsupported entity type")
         }
         EntityType::Document | EntityType::Task => {
@@ -40,15 +41,6 @@ pub async fn get_owner_and_deleted(
             .map(|r| (r.owner, r.deleted_at.is_some()))
             .fetch_one(pool)
             .await?
-        }
-        EntityType::CalendarEvent => {
-            let row = sqlx::query!(
-                "SELECT owner_id FROM calendar_events WHERE id = $1",
-                Uuid::parse_str(entity_id)?,
-            )
-            .fetch_one(pool)
-            .await?;
-            (row.owner_id, false)
         }
         EntityType::Chat => {
             sqlx::query!(
@@ -86,25 +78,4 @@ pub async fn get_owner_and_deleted(
     };
 
     Ok(result)
-}
-
-/// Gets the macro user id of the owner of an email thread via its link.
-/// Returns `None` if the thread doesn't exist.
-pub async fn get_macro_id_from_thread_id(
-    pool: &Pool<Postgres>,
-    thread_id: Uuid,
-) -> anyhow::Result<Option<String>> {
-    let macro_id = sqlx::query_scalar!(
-        r#"
-        SELECT l.macro_id
-        FROM email_threads t
-        JOIN email_links l ON t.link_id = l.id
-        WHERE t.id = $1
-        "#,
-        thread_id
-    )
-    .fetch_optional(pool)
-    .await?;
-
-    Ok(macro_id)
 }

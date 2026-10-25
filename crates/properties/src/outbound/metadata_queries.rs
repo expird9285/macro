@@ -1,4 +1,4 @@
-//! Queries for entity metadata (documents, threads, projects) read from macrodb.
+//! Queries for entity metadata (documents, projects) read from macrodb.
 //!
 //! These read tables owned by other domains; the properties domain surfaces
 //! them as read-only metadata properties.
@@ -6,7 +6,6 @@
 use document_sub_type::DocumentSubType;
 use models_properties::service::document_metadata::DocumentMetadata;
 use models_properties::service::project_metadata::ProjectMetadata;
-use models_properties::service::thread_metadata::ThreadMetadata;
 use sqlx::{Pool, Postgres};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -77,41 +76,6 @@ pub async fn get_document_metadata(
         created_at: row.created_at,
         updated_at: row.updated_at,
     }))
-}
-
-/// Get thread metadata by thread ID from macrodb
-#[tracing::instrument(skip(pool), err)]
-pub async fn get_thread_metadata(
-    pool: &Pool<Postgres>,
-    thread_id: Uuid,
-) -> anyhow::Result<Option<ThreadMetadata>> {
-    Ok(sqlx::query_as!(
-        ThreadMetadata,
-        r#"
-        SELECT
-            t.id,
-            t.latest_inbound_message_ts as last_received,
-            t.latest_outbound_message_ts as last_sent,
-            first_msg.internal_date_ts as thread_started,
-            first_msg.subject,
-            (SELECT COUNT(*)::bigint FROM email_messages WHERE thread_id = t.id) as "message_count!"
-        FROM
-            email_threads t
-        -- LATERAL join to get subject and timestamp from the first message
-        LEFT JOIN LATERAL (
-            SELECT internal_date_ts, subject
-            FROM email_messages
-            WHERE thread_id = t.id
-            ORDER BY internal_date_ts ASC NULLS LAST
-            LIMIT 1
-        ) first_msg ON true
-        WHERE
-            t.id = $1
-        "#,
-        thread_id
-    )
-    .fetch_optional(pool)
-    .await?)
 }
 
 /// Get project metadata by project ID from macrodb

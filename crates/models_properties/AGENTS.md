@@ -15,7 +15,7 @@ split into three layers plus a `shared` layer used by all of them.
   `properties` crate's outbound adapters.
 - `src/service/`: business-logic types used within `properties_service`
   (property values, tag sets, per-entity-kind metadata like
-  `document_metadata.rs`, `thread_metadata.rs`).
+  `document_metadata.rs`, `project_metadata.rs`).
 - `src/api/`: external-facing request/response types (`requests.rs`,
   `responses.rs`, `property_target.rs`, `query_params.rs`).
 
@@ -29,9 +29,9 @@ split into three layers plus a `shared` layer used by all of them.
 ## Boundaries
 
 - Depends on: `document_sub_type`.
-- Used by: `agent_trigger`, `ai_tools`, `complete_graph`, `crm`, `databases`,
-  `databases_sql`, `documents`, `document_storage_service`, `email_service`,
-  `forms`, `graphql_common`, `graphql_crm`, `graphql_initiative`,
+- Used by: `agent_trigger`, `ai_tools`, `complete_graph`, `databases`,
+  `databases_sql`, `documents`, `document_storage_service`,
+  `forms`, `graphql_common`, `graphql_initiative`,
   `graphql_properties`, `graphql_soup`, `import`, `initiative`, `messages`,
   `models_soup`, `properties`, `properties_service`, `scheduled_action`,
   `search_service`, `soup`, `soup_realtime`, `system_properties`.

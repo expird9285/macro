@@ -28,7 +28,6 @@ use models_properties::service::project_metadata::ProjectMetadata;
 use models_properties::service::property_definition::PropertyDefinition;
 use models_properties::service::property_definition_with_options::PropertyDefinitionWithOptions;
 use models_properties::service::property_option::{PropertyOption, PropertyOptionValue};
-use models_properties::service::thread_metadata::ThreadMetadata;
 
 /// PostgreSQL implementation of PropertiesRepo.
 #[derive(Debug, Clone)]
@@ -618,14 +617,6 @@ impl PropertiesRepo for PropertiesPgRepo {
         document_id: &str,
     ) -> Result<Option<DocumentMetadata>, Self::Err> {
         metadata_queries::get_document_metadata(&self.pool, document_id).await
-    }
-
-    #[tracing::instrument(skip(self), err)]
-    async fn get_thread_metadata(
-        &self,
-        thread_id: Uuid,
-    ) -> Result<Option<ThreadMetadata>, Self::Err> {
-        metadata_queries::get_thread_metadata(&self.pool, thread_id).await
     }
 
     #[tracing::instrument(skip(self), err)]
