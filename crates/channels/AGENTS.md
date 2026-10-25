@@ -54,10 +54,10 @@ DMs, and the shared message store other domains discuss things on.
 
 - DM invitation emails must stay distinguishable from channel invites (#7964) —
   don't collapse the two email templates.
-- Legacy document/CRM/channel message paths were removed (#6732); don't
+- Legacy document/channel message paths were removed (#6732); don't
   reintroduce a parallel message path outside this crate's domain service.
-- Attachment references from comments (messages on documents, initiatives, CRM
-  records, calls) are authorized in `ChannelServiceImpl::get_attachment_references`
+- Attachment references from comments (messages on documents, initiatives,
+  calls) are authorized in `ChannelServiceImpl::get_attachment_references`
   through the `CommentParentAccess` port; the repo returns every parent. A
   service built without `with_comment_parent_access` withholds them.
 
