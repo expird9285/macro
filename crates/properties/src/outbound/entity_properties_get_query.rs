@@ -12,9 +12,7 @@ use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
 use super::property_option_queries;
-use crate::domain::model::{
-    CRM_TEAM_STAGE_DEFINITION_NAME, EntityPropertyInfo, PropertyOptionInfo,
-};
+use crate::domain::model::{EntityPropertyInfo, PropertyOptionInfo};
 
 /// Database row from the joined query.
 struct PropertyRow {
@@ -639,8 +637,7 @@ WHERE (ep.entity_id, ep.entity_type) IN (
 /// Gets entity properties with their definitions and values for multiple entities, filtered by property definition IDs.
 /// Returns a HashMap where the key is the entity_id and the value is Vec<EntityPropertyWithDefinition>.
 /// Only returns properties matching the specified property_ids. When `viewer_user_id` is set,
-/// also returns TAG properties owned by that user or their team, and the team's CRM stage
-/// definition ([`CRM_TEAM_STAGE_DEFINITION_NAME`]).
+/// also returns TAG properties owned by that user or their team.
 #[tracing::instrument(skip(pool))]
 pub async fn get_bulk_entity_properties_values_filtered(
     pool: &Pool<Postgres>,
@@ -696,23 +693,13 @@ AND (
             OR pd.team_id IN (SELECT tu.team_id FROM team_user tu WHERE tu.user_id = $4)
         )
     )
-    OR (
-        $4::text IS NOT NULL
-        AND pd.is_system = FALSE
-        AND pd.is_multi_select = FALSE
-        AND pd.data_type = $6
-        AND pd.display_name = $7
-        AND pd.team_id IN (SELECT tu.team_id FROM team_user tu WHERE tu.user_id = $4)
-    )
 )
         "#,
         &entity_ids,
         &entity_types as &[EntityType],
         &property_ids,
         viewer_user_id,
-        DataType::Tag as DataType,
-        DataType::SelectString as DataType,
-        CRM_TEAM_STAGE_DEFINITION_NAME
+        DataType::Tag as DataType
     )
     .fetch_all(pool)
     .await?;

@@ -3,10 +3,10 @@
 ## What it is
 
 Part of the shared properties feature — database operations for
-system-managed properties: predefined properties (e.g. email attachments,
-CRM stage definitions) that users apply to entities but cannot create or
-delete. Consumed by CRM, projects, initiatives, and other entity-kind crates
-for their fixed property catalogs.
+system-managed properties: predefined properties (e.g. task status and
+priorities) that users apply to entities but cannot create or delete.
+Consumed by projects, initiatives, and other entity-kind crates for their fixed
+property catalogs.
 
 ## Start here
 
@@ -19,17 +19,15 @@ for their fixed property catalogs.
 
 - Owns: the fixed catalog of system property definitions and the operations
   to attach their values to entities.
-- Not here: user-defined properties → `crates/properties`; CRM-specific
-  property usage → `crates/crm` (consumes this crate for stage definitions).
+- Not here: user-defined properties → `crates/properties`.
 
 ## Boundaries
 
 - Depends on: `macro_user_id`, `macro_uuid`, `models_properties`, `sqlx`.
-- Used by: `crates/crm`, `crates/initiative`, `crates/projects`,
-  `crates/messages`, `crates/soup`, `crates/soup_realtime`, `crates/ai_tools`,
-  `crates/agent_trigger`, `crates/item_filter_index`, `crates/task_dedup`,
-  `services/agent_harness_service`, `services/agent_trigger_service`,
-  `services/email_service`, `services/scheduled_action`.
+- Used by: `crates/initiative`, `crates/projects`, `crates/messages`,
+  `crates/soup`, `crates/soup_realtime`, `crates/ai_tools`, `crates/agent_trigger`,
+  `crates/item_filter_index`, `crates/task_dedup`, `services/agent_harness_service`,
+  `services/agent_trigger_service`, `services/scheduled_action`.
 
 ## Recipes
 

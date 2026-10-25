@@ -19,9 +19,8 @@ pub mod tag_color;
 
 pub use domain::error::PropertiesErr;
 pub use domain::model::{
-    CRM_TEAM_STAGE_DEFINITION_NAME, EditReceipt, EntityPropertiesKey, EntityPropertyInfo,
-    PropertyAccessReceiptExt, PropertyOptionInfo, PropertyTargetKey, ViewReceipt,
-    canonical_entity_type,
+    EditReceipt, EntityPropertiesKey, EntityPropertyInfo, PropertyAccessReceiptExt,
+    PropertyOptionInfo, PropertyTargetKey, ViewReceipt, canonical_entity_type,
 };
 pub use domain::ports::{
     InitiativeAssigneeService, NotificationService, PermissionService, PropertiesRepo,

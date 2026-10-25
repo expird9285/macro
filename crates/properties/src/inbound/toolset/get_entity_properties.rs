@@ -25,16 +25,9 @@ pub enum ToolEntityType {
     Task,
     Initiative,
     Project,
-    // Listing and search tools report email threads as `email`. A doc comment
-    // here would turn the schema enum into a named type, so this stays a plain
-    // comment.
-    #[serde(alias = "email", alias = "email_thread")]
-    Thread,
     Channel,
     Call,
     User,
-    Company,
-    Contact,
 }
 
 impl From<ToolEntityType> for EntityType {
@@ -44,34 +37,24 @@ impl From<ToolEntityType> for EntityType {
             ToolEntityType::Task => EntityType::Task,
             ToolEntityType::Initiative => EntityType::Initiative,
             ToolEntityType::Project => EntityType::Project,
-            ToolEntityType::Thread => EntityType::Thread,
             ToolEntityType::Channel => EntityType::Channel,
             ToolEntityType::Call => EntityType::CallRecord,
             ToolEntityType::User => EntityType::User,
-            ToolEntityType::Company => EntityType::Company,
-            ToolEntityType::Contact => EntityType::Contact,
         }
     }
 }
 
 /// Canonical entity type accepted when an AI tool targets an entity's properties.
-/// Tasks are targeted as `document`; email threads (type `email` in ListEntities
-/// and search results) are targeted as `thread`.
+/// Tasks are targeted as `document`.
 #[derive(Debug, Clone, Copy, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ToolPropertyTargetEntityType {
     Document,
     Initiative,
     Project,
-    // Listing and search tools report email threads as `email`. A doc comment
-    // here would turn the schema enum into a named type, so this stays a plain
-    // comment.
-    #[serde(alias = "email", alias = "email_thread")]
-    Thread,
     Channel,
     Call,
     User,
-    Company,
 }
 
 impl From<ToolPropertyTargetEntityType> for model_entity::EntityType {
@@ -80,11 +63,9 @@ impl From<ToolPropertyTargetEntityType> for model_entity::EntityType {
             ToolPropertyTargetEntityType::Document => Self::Document,
             ToolPropertyTargetEntityType::Initiative => Self::Initiative,
             ToolPropertyTargetEntityType::Project => Self::Project,
-            ToolPropertyTargetEntityType::Thread => Self::EmailThread,
             ToolPropertyTargetEntityType::Channel => Self::Channel,
             ToolPropertyTargetEntityType::Call => Self::Call,
             ToolPropertyTargetEntityType::User => Self::User,
-            ToolPropertyTargetEntityType::Company => Self::CrmCompany,
         }
     }
 }
@@ -92,7 +73,7 @@ impl From<ToolPropertyTargetEntityType> for model_entity::EntityType {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[schemars(
     title = "GetEntityProperties",
-    description = "Get all properties attached to an entity (document, project, CRM company, etc.). Tasks are targeted as entity_type=document. Returns property definitions with their current values and available options for select-type properties. Select and tag values also come back resolved as human-readable labels in currentValueLabels. Tags are properties with dataType \"tag\"; only tags visible to the user (their own and their team's) are returned. Use ListTags to see every tag available to the user, and SetEntityProperty with the tag definition id and add_option_ids/remove_option_ids to apply or remove tags. For task documents, system properties (Assignees, Status, Priority, Due Date, etc.) are always present — you can update them directly with SetEntityProperty using well-known IDs without calling this first. For CRM companies (entity_type=company, entity_id=the company UUID), this returns the builtin Stage / Owner / Revenue properties (with the team's stage options) plus any custom company properties."
+    description = "Get all properties attached to an entity (document, project, etc.). Tasks are targeted as entity_type=document. Returns property definitions with their current values and available options for select-type properties. Select and tag values also come back resolved as human-readable labels in currentValueLabels. Tags are properties with dataType \"tag\"; only tags visible to the user (their own and their team's) are returned. Use ListTags to see every tag available to the user, and SetEntityProperty with the tag definition id and add_option_ids/remove_option_ids to apply or remove tags. For task documents, system properties (Assignees, Status, Priority, Due Date, etc.) are always present — you can update them directly with SetEntityProperty using well-known IDs without calling this first."
 )]
 pub struct GetEntityProperties {
     #[schemars(description = "The ID of the entity to get properties for.")]

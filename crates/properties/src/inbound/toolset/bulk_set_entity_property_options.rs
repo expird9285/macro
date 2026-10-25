@@ -31,7 +31,7 @@ pub struct BulkTargetEntity {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[schemars(
     title = "BulkSetEntityPropertyOptions",
-    description = "Apply one multi-select option delta — most often a tag — to many entities in a single call. Use this instead of calling SetEntityProperty once per entity when the user asks to tag or label a set of items at once (e.g. \"tag the last 50 emails as Follow-up\"). Provide the property_definition_id (a tag set's propertyDefinitionId from ListTags) and the option ids to add and/or remove (a tag's option id from ListTags). The same add_option_ids/remove_option_ids delta is applied to every entity, composing atomically with concurrent edits per entity.
+    description = "Apply one multi-select option delta — most often a tag — to many entities in a single call. Use this instead of calling SetEntityProperty once per entity when the user asks to tag or label a set of items at once (e.g. \"tag the last 50 tasks as Follow-up\"). Provide the property_definition_id (a tag set's propertyDefinitionId from ListTags) and the option ids to add and/or remove (a tag's option id from ListTags). The same add_option_ids/remove_option_ids delta is applied to every entity, composing atomically with concurrent edits per entity.
 
 Only for multi-select or tag properties; for other value types, or a single entity, use SetEntityProperty. Up to 200 entities per call — split larger sets across multiple calls.
 
@@ -86,11 +86,9 @@ fn entity_type_label(entity_type: ToolPropertyTargetEntityType) -> &'static str 
         ToolPropertyTargetEntityType::Document => "document",
         ToolPropertyTargetEntityType::Initiative => "initiative",
         ToolPropertyTargetEntityType::Project => "project",
-        ToolPropertyTargetEntityType::Thread => "thread",
         ToolPropertyTargetEntityType::Channel => "channel",
         ToolPropertyTargetEntityType::Call => "call",
         ToolPropertyTargetEntityType::User => "user",
-        ToolPropertyTargetEntityType::Company => "company",
     }
 }
 
